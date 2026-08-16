@@ -1,0 +1,13 @@
+[package]
+name = "splicecraft-util"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Shared helpers, time source, and sanitizers for SpliceCraft.rs"
+readme.workspace = true
+
+[dependencies]
+thiserror.workspace = true

@@ -1,0 +1,16 @@
+[package]
+name = "splicecraft-primer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Primer Tm, SOE/QuikChange design, primer-check, and site-scrub design"
+readme.workspace = true
+
+[dependencies]
+splicecraft-bio.workspace = true
+splicecraft-codon.workspace = true
+splicecraft-core.workspace = true
+thiserror.workspace = true

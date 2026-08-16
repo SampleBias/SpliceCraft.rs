@@ -1,0 +1,19 @@
+[package]
+name = "splicecraft-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Command-line sidecar (splicecraft-cli) for the agent API"
+readme.workspace = true
+
+[[bin]]
+name = "splicecraft-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+splicecraft-agent.workspace = true
+thiserror.workspace = true

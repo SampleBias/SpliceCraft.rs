@@ -1,0 +1,16 @@
+[package]
+name = "splicecraft-gels"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "In-silico agarose gels (Helling–Goodman–Boyer mobility)"
+readme.workspace = true
+
+[dependencies]
+splicecraft-bio.workspace = true
+splicecraft-clone.workspace = true
+splicecraft-core.workspace = true
+thiserror.workspace = true

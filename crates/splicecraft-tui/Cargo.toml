@@ -1,0 +1,20 @@
+[package]
+name = "splicecraft-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Ratatui shell: plasmid map, sequence panel, library, and modals"
+readme.workspace = true
+
+[dependencies]
+crossterm.workspace = true
+ratatui.workspace = true
+splicecraft-bio.workspace = true
+splicecraft-clone.workspace = true
+splicecraft-core.workspace = true
+splicecraft-gels.workspace = true
+splicecraft-persist.workspace = true
+thiserror.workspace = true

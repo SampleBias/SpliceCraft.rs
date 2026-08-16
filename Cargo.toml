@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/splicecraft-core",
+    "crates/splicecraft-util",
+    "crates/splicecraft-bio",
+    "crates/splicecraft-persist",
+    "crates/splicecraft-io",
+    "crates/splicecraft-codon",
+    "crates/splicecraft-primer",
+    "crates/splicecraft-clone",
+    "crates/splicecraft-gels",
+    "crates/splicecraft-tui",
+    "crates/splicecraft-agent",
+    "crates/splicecraft-cli",
+    "crates/splicecraft",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+repository = "https://github.com/SampleBias/SpliceCraft.rs"
+homepage = "https://github.com/SampleBias/SpliceCraft.rs"
+authors = ["S4MPL3BI4S"]
+description = "Terminal-based plasmid workbench (Rust/Ratatui rewrite of SpliceCraft)"
+readme = "README.md"
+keywords = ["bioinformatics", "plasmid", "tui", "ratatui", "cloning"]
+categories = ["command-line-utilities", "science"]
+
+[workspace.dependencies]
+splicecraft-core = { path = "crates/splicecraft-core", version = "0.1.0" }
+splicecraft-util = { path = "crates/splicecraft-util", version = "0.1.0" }
+splicecraft-bio = { path = "crates/splicecraft-bio", version = "0.1.0" }
+splicecraft-persist = { path = "crates/splicecraft-persist", version = "0.1.0" }
+splicecraft-io = { path = "crates/splicecraft-io", version = "0.1.0" }
+splicecraft-codon = { path = "crates/splicecraft-codon", version = "0.1.0" }
+splicecraft-primer = { path = "crates/splicecraft-primer", version = "0.1.0" }
+splicecraft-clone = { path = "crates/splicecraft-clone", version = "0.1.0" }
+splicecraft-gels = { path = "crates/splicecraft-gels", version = "0.1.0" }
+splicecraft-tui = { path = "crates/splicecraft-tui", version = "0.1.0" }
+splicecraft-agent = { path = "crates/splicecraft-agent", version = "0.1.0" }
+splicecraft-cli = { path = "crates/splicecraft-cli", version = "0.1.0" }
+
+clap = { version = "4.6", features = ["derive"] }
+crossterm = "0.29"
+ratatui = { version = "0.30", default-features = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"

@@ -1,0 +1,17 @@
+[package]
+name = "splicecraft-clone"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Traditional, Gibson, Golden Braid / MoClo construction simulation"
+readme.workspace = true
+
+[dependencies]
+splicecraft-bio.workspace = true
+splicecraft-codon.workspace = true
+splicecraft-core.workspace = true
+splicecraft-primer.workspace = true
+thiserror.workspace = true

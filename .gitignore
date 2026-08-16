@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+Cargo.lock.bak
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+.env
+.env.*
+!.env.example
+
+# Never commit user plasmid libraries or local data dirs
+.splicecraft-rs/
+scratch/

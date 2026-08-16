@@ -1,0 +1,17 @@
+[package]
+name = "splicecraft-codon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Codon tables, optimization, CAI, and forbidden-site scrub"
+readme.workspace = true
+
+[dependencies]
+splicecraft-bio.workspace = true
+splicecraft-core.workspace = true
+splicecraft-io.workspace = true
+splicecraft-util.workspace = true
+thiserror.workspace = true

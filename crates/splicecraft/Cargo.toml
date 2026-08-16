@@ -1,0 +1,19 @@
+[package]
+name = "splicecraft"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "SpliceCraft.rs binary — plasmid workbench TUI"
+readme.workspace = true
+
+[[bin]]
+name = "splicecraft"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+splicecraft-cli.workspace = true
+splicecraft-tui.workspace = true

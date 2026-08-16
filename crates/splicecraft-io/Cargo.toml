@@ -1,0 +1,17 @@
+[package]
+name = "splicecraft-io"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "GenBank, FASTA, GFF, NCBI fetch, and later .dna / sequencing I/O"
+readme.workspace = true
+
+[dependencies]
+splicecraft-bio.workspace = true
+splicecraft-core.workspace = true
+splicecraft-persist.workspace = true
+splicecraft-util.workspace = true
+thiserror.workspace = true
