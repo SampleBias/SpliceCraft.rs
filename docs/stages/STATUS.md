@@ -4,7 +4,7 @@ Update this ledger when a stage's acceptance list is fully green. Do not
 check a box early.
 
 - [x] 00 Bootstrap
-- [ ] 01 Core + sacred biology
+- [x] 01 Core + sacred biology
 - [ ] 02 Persist + data safety
 - [ ] 03 File I/O
 - [ ] 04 Ratatui shell
@@ -21,4 +21,4 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 01 (`docs/stages/01-core-biology.md`).
+**Next:** stage 02 (`docs/stages/02-persist.md`).

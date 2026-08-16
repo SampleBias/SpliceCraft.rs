@@ -1,6 +1,6 @@
 # Stage 01 — Core + sacred biology
 
-**Status:** not started
+**Status:** done
 **Depends on:** 00
 **Primary crates:** `splicecraft-core`, `splicecraft-util`, `splicecraft-bio`
 
@@ -66,14 +66,14 @@ two-piece resite are non-negotiable.
 
 ## Acceptance
 
-- [ ] `cargo test -p splicecraft-core -p splicecraft-util -p splicecraft-bio`
-- [ ] Ported equivalents of `tests/test_dna_sanity.py` assertions pass
-- [ ] Property tests (e.g. `proptest`) for: `rc(rc(s))` on IUPAC; wrap
+- [x] `cargo test -p splicecraft-core -p splicecraft-util -p splicecraft-bio`
+- [x] Ported equivalents of `tests/test_dna_sanity.py` assertions pass
+- [x] Property tests (e.g. `proptest`) for: `rc(rc(s))` on IUPAC; wrap
       `feat_len`; palindromic sites counted once
-- [ ] Type IIS (BsaI) cut positions use forward coordinates on both strands
-- [ ] Wrap feature survives a mid-arc insertion without flattening
-- [ ] `clippy -D warnings` still clean
-- [ ] No `.py` files
+- [x] Type IIS (BsaI) cut positions use forward coordinates on both strands
+- [x] Wrap feature survives a mid-arc insertion without flattening
+- [x] `clippy -D warnings` still clean
+- [x] No `.py` files
 
 ## Forbidden
 

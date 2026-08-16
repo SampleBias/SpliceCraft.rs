@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**01 — Core + sacred biology** is next.
+**02 — Persist + data safety** is next.
 
-Stage 00 (this repository: workspace, welcome TUI, these docs) is done.
+Stages 00–01 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 
