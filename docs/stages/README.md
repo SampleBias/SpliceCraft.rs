@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**04 — Ratatui shell** is next.
+**05 — Map + sequence editor** is next.
 
-Stages 00–03 are done.
+Stages 00–04 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 

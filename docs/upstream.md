@@ -75,6 +75,8 @@ in [`invariants.md`](invariants.md).
 | `_record_to_gb_text` | `splicecraft_io::record_to_gb_text` |
 | `_sanitize_accession` | `splicecraft_io::sanitize_accession` |
 | `_record_to_gff3` | `splicecraft_io::record_to_gff3` |
+| `PlasmidApp` keys / `MenuBar` | `splicecraft_tui::{Action, AppState, KEY_TABLE}` |
+| `get_system_commands` | `splicecraft_tui::palette_commands` |
 
 ## Docs worth fetching per area
 

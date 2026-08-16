@@ -6,15 +6,15 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–03 done (workspace, sacred biology, persist, file I/O).
-The TUI still paints a welcome frame. Later agents implement stages 04–16
-until parity.
+**Status:** stages 00–04 done (workspace, sacred biology, persist, file I/O,
+Ratatui chrome). Map and sequence editing are stage 05. Later agents
+implement stages 05–16 until parity.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start
 
 ```bash
-cargo run -p splicecraft        # welcome TUI (q / Esc to quit)
+cargo run -p splicecraft        # workbench chrome (? help, Ctrl+K, q / Esc quit)
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings

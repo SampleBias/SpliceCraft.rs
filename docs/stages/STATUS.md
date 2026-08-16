@@ -7,7 +7,7 @@ check a box early.
 - [x] 01 Core + sacred biology
 - [x] 02 Persist + data safety
 - [x] 03 File I/O
-- [ ] 04 Ratatui shell
+- [x] 04 Ratatui shell
 - [ ] 05 Map + sequence editor
 - [ ] 06 Library
 - [ ] 07 Enzymes + primers
@@ -21,4 +21,4 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 04 (`docs/stages/04-ratatui-shell.md`).
+**Next:** stage 05 (`docs/stages/05-map-sequence.md`).

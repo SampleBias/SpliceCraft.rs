@@ -1,6 +1,6 @@
 # Stage 04 — Ratatui shell
 
-**Status:** not started
+**Status:** done
 **Depends on:** 00 (01–03 should stay green; no library writes yet)
 **Primary crates:** `splicecraft-tui`, `splicecraft` binary
 
@@ -41,12 +41,12 @@ None new. Do not call persist saves. Do not log sequences.
 
 ## Acceptance
 
-- [ ] `TestBackend` tests: help overlay contains a known binding (`q` quit)
-- [ ] Palette lists at least Open, Help, Quit
-- [ ] `q` / Esc still quits from the main view
-- [ ] Resize does not panic (draw on 40x12 and 160x40 backends)
-- [ ] Workspace tests + clippy clean
-- [ ] Stages 01–03 tests still pass if those crates are filled
+- [x] `TestBackend` tests: help overlay contains a known binding (`q` quit)
+- [x] Palette lists at least Open, Help, Quit
+- [x] `q` / Esc still quits from the main view
+- [x] Resize does not panic (draw on 40x12 and 160x40 backends)
+- [x] Workspace tests + clippy clean
+- [x] Stages 01–03 tests still pass if those crates are filled
 
 ## Forbidden
 
@@ -58,3 +58,13 @@ None new. Do not call persist saves. Do not log sequences.
 ## Handoff
 
 Stage 05 paints the real map and sequence panel and introduces undo [INV-10].
+
+Implementation notes:
+
+- Event → `Action` → `AppState::reduce` → `draw_workbench`. No persist writes.
+- Layout matches upstream: menu bar, library | map | features, sequence strip,
+  status (`name · topology · bp · stage 04`).
+- `?` help is a static `KEY_TABLE`. Ctrl+K fuzzy-filters `palette_commands`.
+- Open / Fetch / tools toast `not implemented until stage N`.
+- `Load demo plasmid` is memory-only (`pDemo`); never saved.
+- Main-view `q` / Esc / Ctrl+Q quit; those keys dismiss help instead.
