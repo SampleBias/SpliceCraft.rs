@@ -71,6 +71,10 @@ in [`invariants.md`](invariants.md).
 | `_translate_cds` | `splicecraft_bio::translate_cds` |
 | `_rebuild_record_with_edit` | `splicecraft_core::rebuild_record_with_edit` |
 | `_safe_save_json` | `splicecraft_persist::safe_save_json` |
+| `_gb_text_to_record` | `splicecraft_io::gb_text_to_record` |
+| `_record_to_gb_text` | `splicecraft_io::record_to_gb_text` |
+| `_sanitize_accession` | `splicecraft_io::sanitize_accession` |
+| `_record_to_gff3` | `splicecraft_io::record_to_gff3` |
 
 ## Docs worth fetching per area
 

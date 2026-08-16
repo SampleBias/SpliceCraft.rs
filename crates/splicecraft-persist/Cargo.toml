@@ -10,7 +10,10 @@ description = "Atomic JSON persistence, backups, and the data-safety chokepoint"
 readme.workspace = true
 
 [dependencies]
-splicecraft-util.workspace = true
+directories.workspace = true
+log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+splicecraft-util.workspace = true
+tempfile.workspace = true
 thiserror.workspace = true

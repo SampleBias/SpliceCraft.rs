@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**02 — Persist + data safety** is next.
+**04 — Ratatui shell** is next.
 
-Stages 00–01 are done.
+Stages 00–03 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 

@@ -122,6 +122,9 @@ pub struct Record {
     pub features: Vec<Feature>,
     /// `DNA`, `RNA`, …
     pub molecule_type: String,
+    /// GenBank COMMENT lines (provenance stamp, display-name marker, …).
+    #[serde(default)]
+    pub comments: Vec<String>,
 }
 
 impl Record {
@@ -136,6 +139,7 @@ impl Record {
             circular,
             features: Vec::new(),
             molecule_type: "DNA".into(),
+            comments: Vec::new(),
         }
     }
 

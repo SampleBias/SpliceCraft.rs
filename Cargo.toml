@@ -45,9 +45,13 @@ splicecraft-cli = { path = "crates/splicecraft-cli", version = "0.1.0" }
 
 clap = { version = "4.6", features = ["derive"] }
 crossterm = "0.29"
+directories = "6"
+gb-io = "0.9"
+log = "0.4"
 proptest = "1"
 ratatui = { version = "0.30", default-features = true }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tempfile = "3"
 thiserror = "2"

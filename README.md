@@ -6,8 +6,9 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–01 done (workspace + sacred biology). The TUI still
-paints a welcome frame. Later agents implement stages 02–16 until parity.
+**Status:** stages 00–03 done (workspace, sacred biology, persist, file I/O).
+The TUI still paints a welcome frame. Later agents implement stages 04–16
+until parity.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start

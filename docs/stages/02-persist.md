@@ -1,6 +1,6 @@
 # Stage 02 — Persist + data safety
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01
 **Primary crates:** `splicecraft-persist`
 
@@ -47,15 +47,15 @@ user's library is the product.
 
 ## Acceptance
 
-- [ ] Atomic replace: crash between write and replace leaves the previous file
+- [x] Atomic replace: crash between write and replace leaves the previous file
       intact (simulate by writing tmp and not replacing)
-- [ ] `.bak` exists after a second save
-- [ ] Shrink-refuse does not overwrite a large fixture with `[]`
-- [ ] Unauthorized save returns an error
-- [ ] Sandbox test: resolved dir contains the temp prefix
-- [ ] Negative test: leaf is never `splicecraft`
-- [ ] `cargo test -p splicecraft-persist`
-- [ ] Default `cargo test --workspace` cannot touch `~/.local/share/splicecraft`
+- [x] `.bak` exists after a second save
+- [x] Shrink-refuse does not overwrite a large fixture with `[]`
+- [x] Unauthorized save returns an error
+- [x] Sandbox test: resolved dir contains the temp prefix
+- [x] Negative test: leaf is never `splicecraft`
+- [x] `cargo test -p splicecraft-persist`
+- [x] Default `cargo test --workspace` cannot touch `~/.local/share/splicecraft`
       or `~/.local/share/splicecraft-rs`
 
 ## Forbidden

@@ -9,9 +9,17 @@ authors.workspace = true
 description = "GenBank, FASTA, GFF, NCBI fetch, and later .dna / sequencing I/O"
 readme.workspace = true
 
+[features]
+default = []
+ncbi = []
+
 [dependencies]
+gb-io.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-core.workspace = true
 splicecraft-persist.workspace = true
 splicecraft-util.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

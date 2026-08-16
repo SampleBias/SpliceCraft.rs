@@ -1,6 +1,6 @@
 # Stage 03 — File I/O
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01, 02
 **Primary crates:** `splicecraft-io`
 
@@ -46,13 +46,13 @@ become the app-wide record.
 
 ## Acceptance
 
-- [ ] Fixture round-trip: synthetic circular record with a wrap feature
-- [ ] LOCUS / illegal-character sanitise has a test
-- [ ] Export COMMENT contains `SpliceCraft.rs`
-- [ ] FASTA in/out
-- [ ] Network fetch is not invoked by default tests
-- [ ] `cargo test -p splicecraft-io`
-- [ ] No Python
+- [x] Fixture round-trip: synthetic circular record with a wrap feature
+- [x] LOCUS / illegal-character sanitise has a test
+- [x] Export COMMENT contains `SpliceCraft.rs`
+- [x] FASTA in/out
+- [x] Network fetch is not invoked by default tests
+- [x] `cargo test -p splicecraft-io`
+- [x] No Python
 
 ## Forbidden
 
@@ -65,3 +65,12 @@ become the app-wide record.
 Stage 04 builds the Ratatui chrome (menus, panes, `?`, Ctrl+K) **without**
 mutating records on disk. Loading a file into memory is OK if persist
 sandbox rules hold.
+
+Implementation notes:
+
+- GenBank bytes go through `gb-io` 0.9, then map into
+  `splicecraft_core::Record`. Qualifiers are `(Cow, Option<String>)` tuples.
+- Wrap features write as `join(tail, head)` and read back as `end < start`.
+- NCBI: `fetch_genbank` sanitises the accession and allowlists the host, then
+  returns `NetworkDisabled` (no socket). Feature `ncbi` is reserved.
+- GFF3 is export-only in this stage. `.dna` returns `IoError::DnaDeferred`.

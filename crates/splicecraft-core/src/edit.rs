@@ -42,6 +42,7 @@ pub fn rebuild_record_with_edit(
         circular: src.circular,
         features: Vec::with_capacity(src.features.len()),
         molecule_type: src.molecule_type.clone(),
+        comments: src.comments.clone(),
     };
 
     for feat in &src.features {
