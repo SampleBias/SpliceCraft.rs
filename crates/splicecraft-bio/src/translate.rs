@@ -1,4 +1,6 @@
-//! CDS translation (standard table 1; other tables stub to 11/1 until stage 09).
+//! CDS translation. NCBI `/transl_table` ids other than 1 apply reassignments.
+
+use std::collections::HashMap;
 
 use crate::iupac::rc;
 
@@ -81,10 +83,84 @@ pub fn codon_aa(codon: &str) -> char {
         .unwrap_or('?')
 }
 
-/// Table for `/transl_table`. Non-1 ids currently fall back to table 1 (stage 09).
+/// Normalize a GenBank `/transl_table` id (unknown → 1).
+#[must_use]
+pub fn normalize_table_id(table_id: i32) -> i32 {
+    if table_id <= 0 { 1 } else { table_id }
+}
+
+/// Look up a codon under NCBI genetic-code `table_id`. Unknown id → table 1.
+#[must_use]
+pub fn codon_aa_table(codon: &str, table_id: i32) -> char {
+    let key = codon.to_ascii_uppercase();
+    match (normalize_table_id(table_id), key.as_str()) {
+        (2, "AGA" | "AGG") => '*',
+        (2, "ATA") => 'M',
+        (2, "TGA") => 'W',
+        (4, "TGA") => 'W',
+        (5, "AGA" | "AGG") => 'S',
+        (5, "ATA") => 'M',
+        (5, "TGA") => 'W',
+        (6, "TAA" | "TAG") => 'Q',
+        (9, "AAA") => 'N',
+        (9, "AGA" | "AGG") => 'S',
+        (9, "TGA") => 'W',
+        (10, "TGA") => 'C',
+        (12, "CTG") => 'S',
+        (13, "AGA" | "AGG") => 'G',
+        (13, "ATA") => 'M',
+        (13, "TGA") => 'W',
+        (14, "AAA") => 'N',
+        (14, "AGA" | "AGG") => 'S',
+        (14, "TAA") => 'Y',
+        (14, "TGA") => 'W',
+        (16, "TAG") => 'L',
+        (21, "AAA") => 'N',
+        (21, "AGA" | "AGG") => 'S',
+        (21, "ATA") => 'M',
+        (21, "TGA") => 'W',
+        (22, "TCA") => '*',
+        (22, "TAG") => 'L',
+        (23, "TTA") => '*',
+        (24, "AGA") => 'S',
+        (24, "AGG") => 'K',
+        (24, "TGA") => 'W',
+        (25, "TGA") => 'G',
+        (26, "CTG") => 'A',
+        (29, "TAA" | "TAG") => 'Y',
+        (30, "TAA" | "TAG") => 'E',
+        (33, "AGA") => 'S',
+        (33, "AGG") => 'K',
+        (33, "TAA") => 'Y',
+        (33, "TGA") => 'W',
+        (1 | 11, _) => codon_aa(&key),
+        _ => codon_aa(&key),
+    }
+}
+
+/// Table-1 slice (alt tables use [`codon_aa_table`] / [`genetic_code_map`]).
 #[must_use]
 pub fn codon_table_for(_table_id: i32) -> &'static [(&'static str, char)] {
     CODON_TABLE
+}
+
+/// Full codon→AA map for `table_id` (64 ACGT keys). Iteration is not ordered.
+#[must_use]
+pub fn genetic_code_map(table_id: i32) -> HashMap<String, char> {
+    CODON_TABLE
+        .iter()
+        .map(|(c, _)| (c.to_string(), codon_aa_table(c, table_id)))
+        .collect()
+}
+
+/// Ordered stop codons for `table_id` (standard-table walk order).
+#[must_use]
+pub fn stop_codons(table_id: i32) -> Vec<&'static str> {
+    CODON_TABLE
+        .iter()
+        .filter(|(c, _)| codon_aa_table(c, table_id) == '*')
+        .map(|(c, _)| *c)
+        .collect()
 }
 
 /// Translate a CDS window. Wrap (`end < start`) concatenates tail+head.
@@ -114,12 +190,46 @@ pub fn translate_cds(
     } else if offset > sub.len() {
         sub.clear();
     }
+    translate_extracted(&sub, 1)
+}
+
+/// Translate a CDS window with an NCBI `/transl_table` id.
+#[must_use]
+pub fn translate_cds_table(
+    full_seq: &str,
+    start: usize,
+    end: usize,
+    strand: i8,
+    codon_start: i32,
+    transl_table: i32,
+) -> String {
+    let mut sub = if end < start {
+        let mut s = full_seq.get(start..).unwrap_or("").to_owned();
+        s.push_str(full_seq.get(..end).unwrap_or(""));
+        s
+    } else {
+        full_seq.get(start..end).unwrap_or("").to_owned()
+    };
+    sub.make_ascii_uppercase();
+    if strand < 0 {
+        sub = rc(&sub);
+    }
+    let offset = (codon_start.clamp(1, 3) - 1) as usize;
+    if offset > 0 && offset <= sub.len() {
+        sub = sub[offset..].to_owned();
+    } else if offset > sub.len() {
+        sub.clear();
+    }
+    translate_extracted(&sub, transl_table)
+}
+
+fn translate_extracted(sub: &str, transl_table: i32) -> String {
     let mut aa = String::new();
     let bytes = sub.as_bytes();
     let mut i = 0;
     while i + 2 < bytes.len() {
         let codon = std::str::from_utf8(&bytes[i..i + 3]).unwrap_or("NNN");
-        aa.push(codon_aa(codon));
+        aa.push(codon_aa_table(codon, transl_table));
         i += 3;
     }
     aa
@@ -224,5 +334,18 @@ mod tests {
         let full = format!("{rc_cds}X");
         let cs2 = translate_cds(&full, 0, full.len(), -1, 2);
         assert!(cs2.contains("MK*"), "{cs2}");
+    }
+
+    #[test]
+    fn alt_genetic_code_tables() {
+        assert_eq!(codon_aa_table("TGA", 1), '*');
+        assert_eq!(codon_aa_table("TGA", 4), 'W');
+        assert_eq!(codon_aa_table("TAA", 6), 'Q');
+        assert_eq!(codon_aa_table("TAG", 6), 'Q');
+        assert_eq!(translate_cds_table("ATGTGATAA", 0, 9, 1, 1, 4), "MW*");
+        assert_eq!(translate_cds_table("ATGTAA", 0, 6, 1, 1, 6), "MQ");
+        assert_eq!(stop_codons(1), vec!["TAA", "TAG", "TGA"]);
+        assert_eq!(stop_codons(4), vec!["TAA", "TAG"]);
+        assert_eq!(stop_codons(6), vec!["TGA"]);
     }
 }

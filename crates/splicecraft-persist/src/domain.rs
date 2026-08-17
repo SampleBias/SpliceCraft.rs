@@ -114,3 +114,25 @@ pub fn save_grammars(layout: &DataLayout, entries: &[Value]) -> Result<(), Persi
 pub fn load_grammars(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.grammars_file(), "Cloning grammars")
 }
+
+/// Persist codon-usage tables.
+pub fn save_codon_tables(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.codon_tables_file(), entries, "Codon tables")
+}
+
+/// Load codon-usage tables.
+#[must_use]
+pub fn load_codon_tables(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.codon_tables_file(), "Codon tables")
+}
+
+/// Persist protein-motif overrides.
+pub fn save_protein_motifs(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.protein_motifs_file(), entries, "Protein motifs")
+}
+
+/// Load protein-motif overrides.
+#[must_use]
+pub fn load_protein_motifs(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.protein_motifs_file(), "Protein motifs")
+}

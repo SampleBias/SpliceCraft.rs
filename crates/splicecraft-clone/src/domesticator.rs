@@ -1,8 +1,9 @@
-//! Type IIS domestication primers. DNA-level only until codon repair (stage 09).
+//! Type IIS domestication primers, with optional synonymous codon repair.
 
 use splicecraft_bio::rc;
+use splicecraft_codon::{UsageTable, fix_sites};
 use splicecraft_core::slice_circular;
-use splicecraft_primer::{binding_max_len, pick_binding_region};
+use splicecraft_primer::{binding_max_len, mut_translate, pick_binding_region};
 
 use crate::error::CloneError;
 use crate::grammar::Grammar;
@@ -46,7 +47,7 @@ pub struct DomesticationPrimers {
     pub enzyme_site: String,
     /// Grammar spacer.
     pub enzyme_spacer: String,
-    /// Silent mutations (empty until stage 09).
+    /// Silent mutations applied to the insert (empty when none).
     pub mutations: Vec<String>,
 }
 
@@ -86,8 +87,9 @@ pub fn simulate_primed_amplicon(
     )
 }
 
-/// Design GB / MoClo domestication primers. Internal Type IIS sites are refused
-/// (codon repair is stage 09).
+/// Design GB / MoClo domestication primers. Coding parts may be codon-repaired
+/// when `codon_raw` is supplied.
+#[allow(clippy::too_many_arguments)]
 pub fn design_gb_primers(
     template_seq: &str,
     start: usize,
@@ -96,6 +98,7 @@ pub fn design_gb_primers(
     grammar: &Grammar,
     target_tm: f64,
     entry_overhangs: Option<(&str, &str)>,
+    codon_raw: Option<&UsageTable>,
 ) -> Result<DomesticationPrimers, CloneError> {
     let pos = grammar.position_for_type(part_type).ok_or_else(|| {
         let known: Vec<_> = grammar
@@ -119,7 +122,7 @@ pub fn design_gb_primers(
     };
 
     let total = template_seq.len();
-    let insert = slice_circular(&template_seq.to_ascii_uppercase(), start, end);
+    let mut insert = slice_circular(&template_seq.to_ascii_uppercase(), start, end);
     if insert.len() < MIN_BIND {
         return Err(CloneError::assembly(format!(
             "Cloning region is too short ({} bp). Select at least {MIN_BIND} bp.",
@@ -127,6 +130,7 @@ pub fn design_gb_primers(
         )));
     }
 
+    let mut mutations = Vec::new();
     let hits = find_forbidden_hits(&insert, &grammar.forbidden_sites);
     if !hits.is_empty() {
         let hit_str = hits
@@ -134,11 +138,71 @@ pub fn design_gb_primers(
             .map(|(n, s, p)| format!("{n} {s} at +{}", p + 1))
             .collect::<Vec<_>>()
             .join(", ");
-        return Err(CloneError::assembly(format!(
-            "Internal Type IIS site(s) found: {hit_str}. \
-             Silent-mutation repair is not available until stage 09. \
-             Pick a different region or redesign."
-        )));
+        let can_attempt_fix =
+            grammar.is_coding(part_type) && codon_raw.is_some() && insert.len().is_multiple_of(3);
+        if can_attempt_fix {
+            let Some(raw) = codon_raw else {
+                unreachable!("can_attempt_fix implies codon_raw");
+            };
+            let protein = mut_translate(&insert);
+            let expected_codons = insert.len() / 3;
+            if expected_codons > 0 && protein.len() < (expected_codons as f64 * 0.9) as usize {
+                return Err(CloneError::assembly(format!(
+                    "CDS reading-frame validation failed: translated protein is {} aa but the {} bp insert should encode ~{expected_codons} aa. The selection is likely off-frame (check codon_start, partial CDS, or adjust selection boundaries).",
+                    protein.len(),
+                    insert.len()
+                )));
+            }
+            if protein.is_empty() {
+                return Err(CloneError::assembly(format!(
+                    "Internal Type IIS site(s) found ({hit_str}) but the insert could not be translated for silent mutation — pick a different region."
+                )));
+            }
+            let (fixed, fixes) = fix_sites(
+                &insert,
+                &protein,
+                raw,
+                Some(&grammar.forbidden_sites),
+                false,
+                1,
+            );
+            mutations = fixes;
+            let remaining = find_forbidden_hits(&fixed, &grammar.forbidden_sites);
+            if !remaining.is_empty() {
+                let remain_str = remaining
+                    .iter()
+                    .map(|(n, s, p)| format!("{n} {s} at +{}", p + 1))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(CloneError::assembly(format!(
+                    "Internal Type IIS site(s) remain after silent-mutation attempt ({remain_str}). The sites overlap codons with no synonymous alternative in this codon table — pick a different region or redesign."
+                )));
+            }
+            insert = fixed;
+        } else {
+            let mut reasons = Vec::new();
+            if !grammar.is_coding(part_type) {
+                reasons.push(format!("{part_type} is non-coding"));
+            } else {
+                if codon_raw.is_none() {
+                    reasons.push("no codon table selected".into());
+                }
+                if !insert.len().is_multiple_of(3) {
+                    reasons.push(format!(
+                        "insert length {} bp is not a multiple of 3",
+                        insert.len()
+                    ));
+                }
+            }
+            let extra = if reasons.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", reasons.join("; "))
+            };
+            return Err(CloneError::assembly(format!(
+                "Internal Type IIS site(s) found: {hit_str}.{extra} Silent-mutation repair needs a coding part, a codon table, and an in-frame insert."
+            )));
+        }
     }
 
     let fused = simulate_primed_amplicon(&insert, &oh5, &oh3, grammar, part_type, entry_overhangs);
@@ -208,7 +272,7 @@ pub fn design_gb_primers(
         enzyme_pad: grammar.pad.clone(),
         enzyme_site: grammar.site.clone(),
         enzyme_spacer: grammar.spacer.clone(),
-        mutations: Vec::new(),
+        mutations,
     })
 }
 

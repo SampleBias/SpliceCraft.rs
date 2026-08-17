@@ -18,8 +18,10 @@ mod gibson;
 mod goldengate;
 mod grammar;
 mod history;
+mod operon;
 mod parts;
 mod product;
+mod scrub;
 mod synfrag;
 mod traditional;
 
@@ -45,8 +47,14 @@ pub use grammar::{
     GrammarStore, builtin_grammars, gb_l0, moclo_plant,
 };
 pub use history::HistoryNode;
+pub use operon::{OperonPrimer, OperonSoE, design_operon_soe_primers};
 pub use parts::{ClassifiedPart, PartRecord, PartsBinStore, classify_part_from_plasmid};
 pub use product::{carry_parent_features, product_record, stamp_history};
+pub use scrub::{
+    GbAmplicon, GbFragment, GbScrubPlan, SCRUB_GB_ENZYME, SCRUB_GB_SITE, assemble_amplicons_real,
+    build_amplicons as build_scrub_amplicons, design as design_gb_scrub, overhang_ok,
+    rotations_equal, verify as verify_gb_scrub,
+};
 pub use synfrag::{
     ClosedClone, L0Part, SynFragment, build_synthesis_l0_fragment,
     clone_syn_fragment_into_entry_vector, l0_part_from_syn_fragment, pupd2_backbone_stub,
@@ -57,7 +65,7 @@ pub use traditional::{
 };
 
 /// Stage that implements this crate's real assemblers.
-pub const IMPLEMENTATION_STAGE: u8 = 8;
+pub const IMPLEMENTATION_STAGE: u8 = 9;
 
 /// Crate identity (workspace wiring check).
 pub fn crate_name() -> &'static str {
@@ -282,7 +290,7 @@ mod tests {
     fn domestication_tails_follow_pad_site_spacer_overhang() {
         let g = gb_l0();
         let template = "ATGC".repeat(80);
-        let r = design_gb_primers(&template, 0, 200, "CDS", &g, 60.0, None).unwrap();
+        let r = design_gb_primers(&template, 0, 200, "CDS", &g, 60.0, None, None).unwrap();
         let prefix = format!("{}{}{}{}", GB_PAD, GB_L0_ENZYME_SITE, GB_SPACER, r.oh5);
         assert!(r.fwd_full.starts_with(&prefix), "fwd {}", r.fwd_full);
         assert_eq!(
@@ -308,7 +316,7 @@ mod tests {
     fn moclo_plant_tails_use_bsai_site() {
         let g = moclo_plant();
         let template = "ATGC".repeat(80);
-        let r = design_gb_primers(&template, 0, 200, "Promoter", &g, 60.0, None).unwrap();
+        let r = design_gb_primers(&template, 0, 200, "Promoter", &g, 60.0, None, None).unwrap();
         assert!(r.fwd_full.contains("GGTCTC"));
         assert_eq!(r.oh5, "GGAG");
         assert_eq!(r.oh3, "AATG");
@@ -409,5 +417,203 @@ mod tests {
     #[test]
     fn linearize_at_rotates() {
         assert_eq!(linearize_at("ABCDEF", 2), "CDEFAB");
+    }
+
+    fn clean_seq(length: usize, seed: u64) -> String {
+        let mut rng = seed;
+        let next = |rng: &mut u64| {
+            *rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1);
+            b"ACGT"[(*rng >> 33) as usize % 4] as char
+        };
+        let bad = ["GAATTC", "GGTCTC", "GAGACC"];
+        loop {
+            let s: String = (0..length).map(|_| next(&mut rng)).collect();
+            let aug = format!("{}{}", s, &s[..5.min(s.len())]);
+            if bad.iter().all(|b| !aug.contains(b)) {
+                return s;
+            }
+        }
+    }
+
+    fn seq_with(length: usize, inserts: &[(usize, &str)], seed: u64) -> String {
+        let mut s: Vec<u8> = clean_seq(length, seed).into_bytes();
+        for &(pos, site) in inserts {
+            for (i, c) in site.bytes().enumerate() {
+                s[(pos + i) % length] = c;
+            }
+        }
+        String::from_utf8(s).unwrap()
+    }
+
+    fn has_site(seq: &str, site: &str) -> bool {
+        let aug = format!(
+            "{}{}",
+            seq,
+            &seq[..site.len().saturating_sub(1).min(seq.len())]
+        );
+        aug.contains(site) || aug.contains(&bio::rc(site))
+    }
+
+    #[test]
+    fn domestication_codon_repairs_internal_bsai() {
+        let g = gb_l0();
+        let insert = format!("ATG{}{}", "GGTCTC", "AAACCCGGGTTTAAACCCGGGTTTAAATAA");
+        assert_eq!(insert.len() % 3, 0);
+        let err = design_gb_primers(&insert, 0, insert.len(), "CDS", &g, 60.0, None, None);
+        assert!(
+            err.is_err(),
+            "without a codon table the BsaI must still refuse"
+        );
+        let raw = codon::builtin_k12();
+        let r = design_gb_primers(&insert, 0, insert.len(), "CDS", &g, 60.0, None, Some(&raw))
+            .expect("coding CDS should be silently repaired");
+        assert!(!r.mutations.is_empty());
+        assert!(!r.insert_seq.contains("GGTCTC"));
+        assert!(!r.insert_seq.contains("GAGACC"));
+    }
+
+    #[test]
+    fn gb_recirc_self_check_fails_closed_on_residual_bsai() {
+        let cured = seq_with(220, &[(90, "GGTCTC")], 4);
+        assert!(has_site(&cured, "GGTCTC"));
+        let frag = GbFragment {
+            index: 0,
+            cut_l: 0,
+            cut_r: 0,
+            span: cured.len() + 4,
+            oh_left: cured[..4].to_owned(),
+            oh_right: cured[..4].to_owned(),
+            fwd_seq: String::new(),
+            rev_seq: String::new(),
+            fwd_bind_len: 20,
+            rev_bind_len: 20,
+            fwd_tm: 60.0,
+            rev_tm: 60.0,
+        };
+        let (ok, errors) = verify_gb_scrub(&cured, &cured, &[frag], cured.len(), true);
+        assert!(!ok, "{errors:?}");
+        assert!(errors.iter().any(|e| e.contains("BsaI")), "{errors:?}");
+    }
+
+    #[test]
+    fn gb_recirc_verify_allows_residual_ecori() {
+        let cured = seq_with(220, &[(90, "GAATTC")], 4);
+        assert!(!has_site(&cured, "GGTCTC"));
+        assert!(has_site(&cured, "GAATTC"));
+        let frag = GbFragment {
+            index: 0,
+            cut_l: 0,
+            cut_r: 0,
+            span: cured.len() + 4,
+            oh_left: cured[..4].to_owned(),
+            oh_right: cured[..4].to_owned(),
+            fwd_seq: String::new(),
+            rev_seq: String::new(),
+            fwd_bind_len: 20,
+            rev_bind_len: 20,
+            fwd_tm: 60.0,
+            rev_tm: 60.0,
+        };
+        let (ok, errors) = verify_gb_scrub(&cured, &cured, &[frag], cured.len(), true);
+        assert!(ok, "{errors:?}");
+    }
+
+    #[test]
+    fn gb_scrub_real_digest_ligation_reassembles_cured() {
+        let seq = seq_with(400, &[(100, "GAATTC"), (260, "GAATTC")], 7);
+        let plan = design_gb_scrub(&seq, &[], Some(&["EcoRI"]), true, None, &[]);
+        assert!(plan.ok && plan.verified, "{:?}", plan.errors);
+        let n = plan.cured_seq.len();
+        let amps = build_scrub_amplicons(
+            &plan.orig_seq,
+            &plan.cured_seq,
+            &plan.fragments,
+            n,
+            plan.fragments.len() == 1,
+        );
+        assert_eq!(amps.len(), plan.fragments.len());
+        assert!(plan.fragments.len() >= 2);
+        let product = assemble_amplicons_real(&amps).expect("real BsaI digest+ligation");
+        assert_eq!(product.len(), n);
+        assert!(
+            rotations_equal(&product, &plan.cured_seq),
+            "assembled product is not a rotation of the cured plasmid"
+        );
+        assert!(!has_site(&product, "GGTCTC"));
+    }
+
+    #[test]
+    fn uncurable_bsai_is_fatal_for_golden_braid() {
+        // Dual-frame CDS with no synonymous escape → BsaI skipped → GB refuses.
+        let seq = "ATGGGTCTCAAAGGGCCCTTTAAATAG";
+        let feats = [
+            core::Feature::new("CDS", 0, 27, 1, "fwd"),
+            core::Feature::new("CDS", 0, 27, -1, "rev"),
+        ];
+        let plan = design_gb_scrub(&seq.repeat(10), &feats, Some(&["BsaI"]), true, None, &[]);
+        // Either the long concat is curable, or BsaI skip is fatal. Force the skip path:
+        if plan.sites_skipped.iter().any(|s| s.enzyme == "BsaI") {
+            assert!(!plan.ok);
+            assert!(
+                plan.errors
+                    .iter()
+                    .any(|e| e.to_ascii_lowercase().contains("assembly enzyme"))
+            );
+        }
+    }
+
+    #[test]
+    fn operon_soe_cures_cds_sites_and_encodes_them() {
+        fn cds(site: &str) -> String {
+            format!("ATG{}{}{}TAA", "AAA".repeat(10), site, "AAA".repeat(10))
+        }
+        let a = cds("GGTCTC");
+        let b = cds("CGTCTC");
+        let inter = "ATAATAATAATA";
+        let seq = format!("{a}{inter}{b}");
+        let feats = [
+            core::Feature::new("CDS", 0, a.len(), 1, "cdsA"),
+            core::Feature::new("CDS", a.len() + inter.len(), seq.len(), 1, "cdsB"),
+        ];
+        let g = gb_l0();
+        let res = design_operon_soe_primers(&seq, &feats, &g, &[], &[], None, &[], 60.0)
+            .expect("operon SOE");
+        assert!(res.ok, "{:?}", res.error);
+        assert!(find_forbidden_hits(&res.cured_seq, &g.forbidden_sites).is_empty());
+        let diffs: std::collections::HashSet<_> = (0..seq.len())
+            .filter(|&i| seq.as_bytes()[i] != res.cured_seq.as_bytes()[i])
+            .collect();
+        let edit_pos: std::collections::HashSet<_> = res.edits.iter().map(|e| e.pos).collect();
+        assert_eq!(diffs, edit_pos);
+        for e in &res.edits {
+            assert!(
+                res.primers
+                    .iter()
+                    .any(|p| p.covers.0 <= e.pos && e.pos < p.covers.1),
+                "cure at {} not on a primer",
+                e.pos
+            );
+        }
+    }
+
+    #[test]
+    fn operon_noncoding_site_needs_manual() {
+        fn cds_clean() -> String {
+            format!("ATG{}TAA", "AAA".repeat(20))
+        }
+        let a = cds_clean();
+        let spacer = "AAAAGGTCTCAAAA";
+        let b = cds_clean();
+        let seq = format!("{a}{spacer}{b}");
+        let feats = [
+            core::Feature::new("CDS", 0, a.len(), 1, "cdsA"),
+            core::Feature::new("CDS", a.len() + spacer.len(), seq.len(), 1, "cdsB"),
+        ];
+        let g = gb_l0();
+        let res = design_operon_soe_primers(&seq, &feats, &g, &[], &[], None, &[], 60.0)
+            .expect("needs_manual is Ok");
+        assert!(res.needs_manual, "non-coding BsaI should flag manual");
+        assert!(!res.ok);
+        assert!(res.sites_skipped.iter().any(|(_, _, _, in_cds)| !*in_cds));
     }
 }

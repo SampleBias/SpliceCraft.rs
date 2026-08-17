@@ -99,6 +99,8 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::PrimerCheck
         | Overlay::Enzymes
         | Overlay::Constructor
+        | Overlay::Mutato
+        | Overlay::Synthesis
         | Overlay::Parts => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
@@ -179,8 +181,10 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
             Some(Action::ConstructorDesignArms)
         }
         KeyCode::Char(c)
-            if matches!(state.overlay, Overlay::PrimerCheck | Overlay::Constructor)
-                && !key.modifiers.contains(KeyModifiers::CONTROL)
+            if matches!(
+                state.overlay,
+                Overlay::PrimerCheck | Overlay::Constructor | Overlay::Mutato | Overlay::Synthesis
+            ) && !key.modifiers.contains(KeyModifiers::CONTROL)
                 && c != 's'
                 && c != 'a' =>
         {

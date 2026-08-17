@@ -1,6 +1,6 @@
-//! Ratatui workbench: map, sequence editor, help, palette, cloning tools.
+//! Ratatui workbench: map, sequence editor, help, palette, cloning + Mutato/Synthesis.
 //!
-//! Stage 08. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 09. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -8,6 +8,7 @@
 
 pub use splicecraft_bio as bio;
 pub use splicecraft_clone as clone;
+pub use splicecraft_codon as codon;
 pub use splicecraft_core as core;
 pub use splicecraft_gels as gels;
 pub use splicecraft_io as io;
@@ -23,7 +24,8 @@ mod render;
 mod state;
 
 pub use action::{
-    Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, Overlay, Pane, PathKind,
+    Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane,
+    PathKind, SynthTab,
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
@@ -39,8 +41,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (cloning workbench).
-pub const IMPLEMENTATION_STAGE: u8 = 8;
+/// Stage this crate currently satisfies (Mutato + synthesis).
+pub const IMPLEMENTATION_STAGE: u8 = 9;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -191,7 +193,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 08") || text.contains("stage 8"),
+            text.contains("stage 09") || text.contains("stage 9"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -573,6 +575,11 @@ mod tests {
         assert!(titles.contains(&"Enzyme collections"), "{titles:?}");
         assert!(titles.contains(&"Constructor"), "{titles:?}");
         assert!(titles.contains(&"Parts Bin"), "{titles:?}");
+        assert!(
+            titles.contains(&"Mutato — mutagenesis + Scrub"),
+            "{titles:?}"
+        );
+        assert!(titles.contains(&"Synthesis"), "{titles:?}");
         let cmd = state
             .visible_commands()
             .into_iter()
@@ -599,6 +606,60 @@ mod tests {
         );
         assert!(state.reduce(Action::ToolTab));
         assert_eq!(state.ctor_tab, ConstructorTab::Gibson);
+    }
+
+    #[test]
+    fn mutato_and_synthesis_overlays_are_live() {
+        let mut state = AppState::new();
+        let mutato = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title.starts_with("Mutato"))
+            .expect("mutato");
+        assert_eq!(mutato.action, Action::OpenMutato);
+        let synth = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Synthesis")
+            .expect("synthesis");
+        assert_eq!(synth.action, Action::OpenSynthesis);
+        assert!(state.reduce(Action::OpenMutato));
+        assert_eq!(state.overlay, Overlay::Mutato);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("mutato"), "{text}");
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.mutato_tab, MutatoTab::ScrubQc);
+        assert!(state.reduce(Action::OpenSynthesis));
+        assert_eq!(state.overlay, Overlay::Synthesis);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("synthesis"), "{text}");
+    }
+
+    #[test]
+    fn mutato_soe_on_cds_long() {
+        let mut state = AppState::new();
+        let cds = concat!(
+            "ATG",
+            "GCTGAAGTTCAGGATAACCTGGCGAAAGTTCAGGAAGCGGTTGATACCCTGAAACGTGGT",
+            "CTGGAAGCGGCGAAAGCGACCCTGGAAAAAGCGGGTGAAGATATCGCGAAAGCGGTTGAT",
+            "GGTAAACGTAAAGGCGATCTGGAAAAACTGGCGGAAGCGCTGCAGAAAGTTGAAGCGGAT",
+            "ATCGCGAAAGCGGTTGATGGTAAACGTAAAGGCGATCTGGAAAAACTGGCGGAAGCGCTG",
+            "TAA",
+        );
+        let mut rec = core::Record::new("cds", cds, false);
+        rec.features
+            .push(core::Feature::new("CDS", 0, cds.len(), 1, "orf"));
+        state.record = Some(rec);
+        state.mutato_query = "V40F".into();
+        assert!(state.reduce(Action::OpenMutato));
+        assert!(state.reduce(Action::ToolEnter));
+        let summary = state.mutato_summary.expect("summary");
+        assert!(summary.contains("V40F"), "{summary}");
+        assert!(
+            summary.contains("SOE") || summary.contains("2-primer"),
+            "{summary}"
+        );
+        assert!(state.design_fwd.is_some());
     }
 
     #[test]

@@ -27,6 +27,10 @@ pub const CUSTOM_ENZYMES_FILE_NAME: &str = "custom_enzymes.json";
 pub const ENZYME_ACTIVE_FILE_NAME: &str = "enzyme_active.json";
 /// User-defined cloning grammars (built-ins live in `splicecraft-clone`).
 pub const GRAMMARS_FILE_NAME: &str = "grammars.json";
+/// Codon-usage table registry (K12 seeded on first load).
+pub const CODON_TABLES_FILE_NAME: &str = "codon_tables.json";
+/// User protein-motif overrides (built-ins live in `splicecraft-codon`).
+pub const PROTEIN_MOTIFS_FILE_NAME: &str = "protein_motifs.json";
 /// App preferences (dict-shaped; still saved through the JSON chokepoint later).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// Debounced `.gb` crash-recovery snapshots.
@@ -115,6 +119,18 @@ impl DataLayout {
     #[must_use]
     pub fn grammars_file(&self) -> PathBuf {
         self.root.join(GRAMMARS_FILE_NAME)
+    }
+
+    /// Codon-usage table registry JSON.
+    #[must_use]
+    pub fn codon_tables_file(&self) -> PathBuf {
+        self.root.join(CODON_TABLES_FILE_NAME)
+    }
+
+    /// Protein-motif overrides JSON.
+    #[must_use]
+    pub fn protein_motifs_file(&self) -> PathBuf {
+        self.root.join(PROTEIN_MOTIFS_FILE_NAME)
     }
 
     /// Settings JSON.

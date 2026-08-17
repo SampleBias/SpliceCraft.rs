@@ -10,8 +10,15 @@ description = "Codon tables, optimization, CAI, and forbidden-site scrub"
 readme.workspace = true
 
 [dependencies]
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-core.workspace = true
 splicecraft-io.workspace = true
+splicecraft-persist.workspace = true
 splicecraft-util.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

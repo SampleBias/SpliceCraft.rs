@@ -102,6 +102,26 @@ impl Grammar {
             0
         }
     }
+
+    /// True when `part_type` is in this grammar's coding set.
+    #[must_use]
+    pub fn is_coding(&self, part_type: &str) -> bool {
+        self.coding_types.iter().any(|t| t == part_type)
+    }
+
+    /// First of `type_names` that has both overhangs defined.
+    #[must_use]
+    pub fn position_overhangs(&self, type_names: &[&str]) -> Option<(String, String)> {
+        for nm in type_names {
+            if let Some(p) = self.position_for_type(nm)
+                && !p.oh5.is_empty()
+                && !p.oh3.is_empty()
+            {
+                return Some((p.oh5.clone(), p.oh3.clone()));
+            }
+        }
+        None
+    }
 }
 
 /// Golden Braid L0 (Esp3I) + MoClo Plant (BsaI).

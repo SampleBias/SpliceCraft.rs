@@ -1,6 +1,6 @@
 # Stage 09 — Mutato + codon + synthesis
 
-**Status:** not started
+**Status:** done
 **Depends on:** 07, 08
 **Primary crates:** `splicecraft-codon`, `splicecraft-primer`, `splicecraft-tui`
 
@@ -41,11 +41,29 @@ cured plasmid before commit.
 
 ## Acceptance
 
-- [ ] SOE primers for a mid-CDS mutation have the intended mismatch
-- [ ] Near-end mutation uses 2-primer path
-- [ ] Scrub does not create a new BsaI while killing Esp3I (fixture)
-- [ ] GB recirc self-check fails closed
-- [ ] `cargo test -p splicecraft-codon -p splicecraft-primer -p splicecraft-clone`
+- [x] SOE primers for a mid-CDS mutation have the intended mismatch
+- [x] Near-end mutation uses 2-primer path
+- [x] Scrub does not create a new BsaI while killing Esp3I (fixture)
+- [x] GB recirc self-check fails closed
+- [x] `cargo test -p splicecraft-codon -p splicecraft-primer -p splicecraft-clone`
+
+## Notes
+
+- Mutato: inner FWD carries the mutant codon; REV = RC(FWD). Near-end
+  mutations fold into a modified outer (`CCCCGGTCTCAAATG` / `…AACG`).
+  Hairpin/homodimer scores are 0 — Wallace Tm only.
+- Clone-free scrub is substitution-only; default enzymes BsaI / Esp3I /
+  BbsI. Fixture `AAAAGGTCTCAAAACGTCTCAAAAGGGGTT` kills both sites without
+  spawning a new BsaI.
+- GB recirc uses real digest + ligate + close; residual BsaI fails closed.
+  Residual EcoRI is allowed. Uncurable BsaI is fatal.
+- Domesticator coding inserts with a codon table run `fix_sites`. Non-coding
+  still refuses. Operon SOE scrubs CDS only and flags non-coding sites as
+  `needs_manual`.
+- Codon tables / motifs persist as `codon_tables.json` /
+  `protein_motifs.json` through `safe_save_json`. Builtin taxid `83333` K12.
+- TUI overlays: Mutato (SDM | Scrub QC | Scrub GB) and Synthesis
+  (DNA | Protein | Operon). Palette commands are live.
 
 ## Forbidden
 

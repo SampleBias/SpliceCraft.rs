@@ -1586,10 +1586,15 @@ dependencies = [
 name = "splicecraft-codon"
 version = "0.1.0"
 dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
  "splicecraft-bio",
  "splicecraft-core",
  "splicecraft-io",
+ "splicecraft-persist",
  "splicecraft-util",
+ "tempfile",
  "thiserror 2.0.20",
 ]
 
@@ -1642,6 +1647,7 @@ dependencies = [
 name = "splicecraft-primer"
 version = "0.1.0"
 dependencies = [
+ "regex",
  "serde",
  "serde_json",
  "splicecraft-bio",
@@ -1660,6 +1666,7 @@ dependencies = [
  "ratatui",
  "splicecraft-bio",
  "splicecraft-clone",
+ "splicecraft-codon",
  "splicecraft-core",
  "splicecraft-gels",
  "splicecraft-io",

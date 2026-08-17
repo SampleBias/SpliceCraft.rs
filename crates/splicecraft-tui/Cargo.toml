@@ -14,6 +14,7 @@ crossterm.workspace = true
 ratatui.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-clone.workspace = true
+splicecraft-codon.workspace = true
 splicecraft-core.workspace = true
 splicecraft-gels.workspace = true
 splicecraft-io.workspace = true

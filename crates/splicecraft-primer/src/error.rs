@@ -45,6 +45,9 @@ pub enum PrimerError {
     /// Biology primitive failed (foreign char, empty site).
     #[error("{0}")]
     Bio(String),
+    /// Mutagenesis / scrub designer refused the request.
+    #[error("{0}")]
+    Design(String),
 }
 
 impl From<splicecraft_bio::BioError> for PrimerError {

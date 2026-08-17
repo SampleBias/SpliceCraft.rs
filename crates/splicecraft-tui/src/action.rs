@@ -45,6 +45,10 @@ pub enum Action {
     OpenEnzymes,
     /// Open the cloning Constructor (Traditional / Gibson / Domesticator / Syn-frag).
     OpenConstructor,
+    /// Open Mutato (SDM / Scrub).
+    OpenMutato,
+    /// Open Synthesis (DNA / Protein / Operon).
+    OpenSynthesis,
     /// Open the Parts Bin.
     OpenParts,
     /// Save the last constructor product into the library.
@@ -154,6 +158,10 @@ pub enum Overlay {
     Enzymes,
     /// Cloning workbench tabs.
     Constructor,
+    /// Mutato SDM / Scrub.
+    Mutato,
+    /// DNA / protein / operon composers.
+    Synthesis,
     /// Parts Bin.
     Parts,
 }
@@ -210,6 +218,74 @@ impl ConstructorTab {
             Self::Domesticator => "domesticator",
             Self::Parts => "parts",
             Self::SynFrag => "syn-frag",
+        }
+    }
+}
+
+/// Mutato overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MutatoTab {
+    /// Site-directed mutagenesis (SOE / modified-outer).
+    #[default]
+    Sdm,
+    /// Clone-free QuikChange scrub.
+    ScrubQc,
+    /// Golden Braid recirc scrub.
+    ScrubGb,
+}
+
+impl MutatoTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Sdm => Self::ScrubQc,
+            Self::ScrubQc => Self::ScrubGb,
+            Self::ScrubGb => Self::Sdm,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Sdm => "SDM",
+            Self::ScrubQc => "scrub QuikChange",
+            Self::ScrubGb => "scrub GB",
+        }
+    }
+}
+
+/// Synthesis overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SynthTab {
+    /// Linear DNA buffer.
+    #[default]
+    Dna,
+    /// Protein composer.
+    Protein,
+    /// Operon SOE.
+    Operon,
+}
+
+impl SynthTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Dna => Self::Protein,
+            Self::Protein => Self::Operon,
+            Self::Operon => Self::Dna,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dna => "DNA",
+            Self::Protein => "protein",
+            Self::Operon => "operon",
         }
     }
 }

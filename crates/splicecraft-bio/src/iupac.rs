@@ -1,7 +1,7 @@
 //! IUPAC reverse-complement and cached recognition patterns.
 //! Sacred [INV-03] and [INV-04].
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use regex::Regex;
@@ -210,6 +210,23 @@ pub fn iupac_compatible(a: char, b: char) -> bool {
         (Some(sa), Some(sb)) => sa.iter().any(|c| sb.contains(c)),
         _ => false,
     }
+}
+
+/// Every `(pattern, start)` occurrence of each IUPAC pattern in `seq`.
+///
+/// Invalid patterns are skipped. Overlapping hits are reported (advance by 1).
+#[must_use]
+pub fn forbidden_hit_set(seq: &str, patterns: &[&str]) -> HashSet<(String, usize)> {
+    let mut out = HashSet::new();
+    for p in patterns {
+        let Ok(pat) = iupac_pattern(p) else {
+            continue;
+        };
+        for start in iter_match_starts(&pat, seq) {
+            out.insert(((*p).to_owned(), start));
+        }
+    }
+    out
 }
 
 /// Yield every match start, including overlapping tandem hits.

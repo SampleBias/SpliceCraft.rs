@@ -55,6 +55,8 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::PrimerCheck => draw_primer_check(frame, area, state),
         Overlay::Enzymes => draw_enzymes(frame, area, state),
         Overlay::Constructor => draw_constructor(frame, area, state),
+        Overlay::Mutato => draw_mutato(frame, area, state),
+        Overlay::Synthesis => draw_synthesis(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
@@ -504,6 +506,86 @@ fn draw_constructor(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" Constructor ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_mutato(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 70, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Mutato — {}", state.mutato_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab cycle · type mutation (V40F) · Enter design · Esc close"),
+        Line::from(format!(
+            "  query {}",
+            if state.mutato_query.is_empty() {
+                "(V40F)"
+            } else {
+                &state.mutato_query
+            }
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.mutato_summary {
+        for row in summary.lines().take(8) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    } else {
+        lines.push(Line::from(
+            "  SDM: SOE 4-primer or near-end 2-primer shortcut.",
+        ));
+        lines.push(Line::from(
+            "  Scrub QC: clone-free QuikChange.  Scrub GB: recirc must match.",
+        ));
+    }
+    let block = Block::default()
+        .title(" Mutato ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_synthesis(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 70, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Synthesis — {}", state.synth_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab cycle · type DNA/AA · Enter compose · Esc close"),
+        Line::from(format!(
+            "  DNA {} bp  ·  protein {} aa  ·  motifs {}",
+            state.dna_buf.seq.len(),
+            state.protein_buf.aa.chars().count(),
+            state.motifs.merged().len()
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.synth_summary {
+        for row in summary.lines().take(8) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    } else {
+        lines.push(Line::from(
+            "  DNA: linear IUPAC buffer.  Protein: fill from K12 table.",
+        ));
+        lines.push(Line::from(
+            "  Operon: SOE domestication of CDS features on the loaded record.",
+        ));
+    }
+    let block = Block::default()
+        .title(" Synthesis ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(

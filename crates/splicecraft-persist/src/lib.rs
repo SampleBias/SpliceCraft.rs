@@ -31,10 +31,11 @@ pub use crash::{
     write_crash_recovery,
 };
 pub use domain::{
-    load_collections, load_custom_enzymes, load_enzyme_active, load_enzyme_collections,
-    load_features, load_grammars, load_library, load_parts_bin, load_primers, save_collections,
-    save_custom_enzymes, save_enzyme_active, save_enzyme_collections, save_features, save_grammars,
-    save_library, save_parts_bin, save_primers,
+    load_codon_tables, load_collections, load_custom_enzymes, load_enzyme_active,
+    load_enzyme_collections, load_features, load_grammars, load_library, load_parts_bin,
+    load_primers, load_protein_motifs, save_codon_tables, save_collections, save_custom_enzymes,
+    save_enzyme_active, save_enzyme_collections, save_features, save_grammars, save_library,
+    save_parts_bin, save_primers, save_protein_motifs,
 };
 pub use envelope::{
     BACKUP_RETENTION_COUNT, CURRENT_SCHEMA_VERSION, LoadResult, SAFE_LOAD_JSON_MAX_BYTES,
@@ -50,11 +51,11 @@ pub use library::{
 };
 pub use load::safe_load_json;
 pub use paths::{
-    COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME, CUSTOM_ENZYMES_FILE_NAME, DataLayout,
-    ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME, FEATURES_FILE_NAME, GRAMMARS_FILE_NAME,
-    LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
-    PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
-    path_has_python_leaf,
+    CODON_TABLES_FILE_NAME, COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME,
+    CUSTOM_ENZYMES_FILE_NAME, DataLayout, ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME,
+    FEATURES_FILE_NAME, GRAMMARS_FILE_NAME, LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME,
+    PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME, PROTEIN_MOTIFS_FILE_NAME, PYTHON_XDG_DATA_DIR_LEAF,
+    SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf, path_has_python_leaf,
 };
 pub use save::{SaveOptions, safe_save_json, safe_save_json_with, stage_json_tempfile};
 
@@ -417,6 +418,22 @@ mod tests {
         assert_eq!(
             layout.grammars_file().file_name().and_then(|s| s.to_str()),
             Some(GRAMMARS_FILE_NAME)
+        );
+    }
+
+    #[test]
+    fn domain_codon_tables_save_is_sandboxed() {
+        let (tmp, layout) = sandbox();
+        assert!(layout.root.starts_with(tmp.path()));
+        save_codon_tables(&layout, &[json!({"taxid":"83333","name":"K12"})]).unwrap();
+        let loaded = load_codon_tables(&layout);
+        assert_eq!(loaded.entries[0]["taxid"], "83333");
+        assert_eq!(
+            layout
+                .codon_tables_file()
+                .file_name()
+                .and_then(|s| s.to_str()),
+            Some(CODON_TABLES_FILE_NAME)
         );
     }
 

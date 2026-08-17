@@ -139,11 +139,13 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "Mutato — mutagenesis + Scrub",
-            keywords: "mutato scrub",
-            action: Action::Stub {
-                name: "Mutato",
-                stage: 9,
-            },
+            keywords: "mutato scrub soe quikchange",
+            action: Action::OpenMutato,
+        },
+        Command {
+            title: "Synthesis",
+            keywords: "dna protein operon codon motif",
+            action: Action::OpenSynthesis,
         },
         Command {
             title: "Simulator",

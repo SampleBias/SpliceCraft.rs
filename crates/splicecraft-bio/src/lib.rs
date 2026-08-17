@@ -21,14 +21,18 @@ pub use enzymes::{
     enzyme_lookup, feat_decorated_label, neb_enzymes, superscript_int,
 };
 pub use iupac::{
-    BioError, iupac_compatible, iupac_pattern, pattern_cache_clear, pattern_cache_contains, rc,
+    BioError, forbidden_hit_set, iupac_compatible, iupac_pattern, pattern_cache_clear,
+    pattern_cache_contains, rc,
 };
 pub use orient::{extract_feature, reverse_complement_record};
 pub use scan::{
     HitKind, RestrictionHit, ScanOptions, scan_restriction_sites, scan_restriction_sites_default,
 };
 pub use search::{SubseqHit, circ_slice, normalize_dna_for_align, search_subsequence};
-pub use translate::{CODON_TABLE, codon_aa, codon_table_for, translate_cds};
+pub use translate::{
+    CODON_TABLE, codon_aa, codon_aa_table, codon_table_for, genetic_code_map, normalize_table_id,
+    stop_codons, translate_cds, translate_cds_table,
+};
 
 /// Stage that implements this crate's real biology.
 pub const IMPLEMENTATION_STAGE: u8 = 1;

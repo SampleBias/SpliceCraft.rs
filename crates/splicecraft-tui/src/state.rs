@@ -3,10 +3,12 @@
 use splicecraft_bio::{CustomEnzyme, extract_feature, reverse_complement_record};
 use splicecraft_clone::{
     GibsonFragment, GrammarStore, HistoryNode, PartRecord, PartsBinStore, assemble_parts,
-    classify_part_from_plasmid, design_gb_primers, design_homology_arms, excise_fragment_pair,
-    gb_l0, l0_part_from_syn_fragment, product_record, simulate_gibson_assembly,
-    simulate_traditional_cloning, stub_entry_vector, traditional_closed,
+    classify_part_from_plasmid, design_gb_primers, design_gb_scrub, design_homology_arms,
+    design_operon_soe_primers, excise_fragment_pair, gb_l0, l0_part_from_syn_fragment,
+    product_record, simulate_gibson_assembly, simulate_traditional_cloning, stub_entry_vector,
+    traditional_closed,
 };
+use splicecraft_codon::{CodonMode, CodonTableStore, DnaBuffer, MotifStore, ProteinBuffer};
 use splicecraft_core::{Record, rotate_record};
 use splicecraft_persist::{
     CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet, KeepOutcome,
@@ -14,11 +16,14 @@ use splicecraft_persist::{
 };
 use splicecraft_primer::{
     PrimerRecord, PrimerStatus, PrimerStore, design_cloning_primers, design_detection_primers,
-    design_generic_primers, design_golden_braid_primers, insilico_pcr_amplicons,
-    primer_binding_sites, primer_check_confidence, primer_tm, rederive_primer_binding,
+    design_generic_primers, design_golden_braid_primers, design_mutagenesis,
+    insilico_pcr_amplicons, primer_binding_sites, primer_check_confidence, primer_tm, qc_primers,
+    rederive_primer_binding, scrub_design,
 };
 
-use crate::action::{Action, ConstructorTab, DesignKind, FocusMode, Overlay, Pane, PathKind};
+use crate::action::{
+    Action, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane, PathKind, SynthTab,
+};
 use crate::commands::{Command, filter_commands};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
 
@@ -109,6 +114,24 @@ pub struct AppState {
     pub parts: PartsBinStore,
     /// Session stack of last-N library deletes.
     pub deleted_stack: Vec<(usize, LibraryEntry)>,
+    /// Mutato tab.
+    pub mutato_tab: MutatoTab,
+    /// Mutation string (`V40F`) or extra enzyme names.
+    pub mutato_query: String,
+    /// Last Mutato / scrub summary (no sequence dump).
+    pub mutato_summary: Option<String>,
+    /// Synthesis tab.
+    pub synth_tab: SynthTab,
+    /// Linear DNA composer.
+    pub dna_buf: DnaBuffer,
+    /// Protein composer.
+    pub protein_buf: ProteinBuffer,
+    /// Last synthesis summary.
+    pub synth_summary: Option<String>,
+    /// Codon-table registry (K12 seeded).
+    pub codon_tables: CodonTableStore,
+    /// Protein motif library.
+    pub motifs: MotifStore,
 }
 
 /// Collision modal payload.
@@ -173,6 +196,15 @@ impl AppState {
             grammars: GrammarStore::default(),
             parts: PartsBinStore::default(),
             deleted_stack: Vec::new(),
+            mutato_tab: MutatoTab::Sdm,
+            mutato_query: String::new(),
+            mutato_summary: None,
+            synth_tab: SynthTab::Dna,
+            dna_buf: DnaBuffer::default(),
+            protein_buf: ProteinBuffer::default(),
+            synth_summary: None,
+            codon_tables: CodonTableStore::with_builtin_k12(),
+            motifs: MotifStore::default(),
         }
     }
 
@@ -183,6 +215,8 @@ impl AppState {
         self.primers = PrimerStore::load(&layout);
         self.grammars = GrammarStore::load(&layout);
         self.parts = PartsBinStore::load(&layout);
+        self.codon_tables = CodonTableStore::load(&layout);
+        self.motifs = MotifStore::load(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
         self.clamp_enzyme_selection();
@@ -303,6 +337,16 @@ impl AppState {
                 self.tool_selected = 0;
                 self.toast = None;
             }
+            Action::OpenMutato => {
+                self.overlay = Overlay::Mutato;
+                self.mutato_summary = None;
+                self.toast = None;
+            }
+            Action::OpenSynthesis => {
+                self.overlay = Overlay::Synthesis;
+                self.synth_summary = None;
+                self.toast = None;
+            }
             Action::ConstructorSave => self.save_constructor_product(),
             Action::ConstructorDesignArms => self.run_gibson_arms(),
             Action::LibraryDelete => self.delete_selected_plasmid(),
@@ -315,6 +359,12 @@ impl AppState {
                     self.ctor_tab = self.ctor_tab.next();
                     self.ctor_summary = None;
                     self.ctor_product = None;
+                } else if self.overlay == Overlay::Mutato {
+                    self.mutato_tab = self.mutato_tab.next();
+                    self.mutato_summary = None;
+                } else if self.overlay == Overlay::Synthesis {
+                    self.synth_tab = self.synth_tab.next();
+                    self.synth_summary = None;
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -322,20 +372,74 @@ impl AppState {
                 Overlay::PrimerCheck => self.run_primer_check(),
                 Overlay::Enzymes => self.activate_selected_collection(),
                 Overlay::Constructor => self.run_constructor(),
+                Overlay::Mutato => self.run_mutato(),
+                Overlay::Synthesis => self.run_synthesis(),
                 Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
             Action::PrimerDesignSave => self.save_designed_primers(),
             Action::ToolInput(c) => {
-                if matches!(self.overlay, Overlay::PrimerCheck | Overlay::Constructor)
-                    && !c.is_control()
+                if matches!(
+                    self.overlay,
+                    Overlay::PrimerCheck
+                        | Overlay::Constructor
+                        | Overlay::Mutato
+                        | Overlay::Synthesis
+                ) && !c.is_control()
                 {
-                    self.tool_query.push(c);
+                    if self.overlay == Overlay::Mutato {
+                        self.mutato_query.push(c);
+                    } else if self.overlay == Overlay::Synthesis {
+                        match self.synth_tab {
+                            SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
+                            SynthTab::Protein => self.protein_buf.insert(&c.to_string()),
+                            SynthTab::Operon => self.tool_query.push(c),
+                        }
+                    } else {
+                        self.tool_query.push(c);
+                    }
                 }
             }
             Action::ToolBackspace => {
-                if matches!(self.overlay, Overlay::PrimerCheck | Overlay::Constructor) {
-                    self.tool_query.pop();
+                if matches!(
+                    self.overlay,
+                    Overlay::PrimerCheck
+                        | Overlay::Constructor
+                        | Overlay::Mutato
+                        | Overlay::Synthesis
+                ) {
+                    if self.overlay == Overlay::Mutato {
+                        self.mutato_query.pop();
+                    } else if self.overlay == Overlay::Synthesis {
+                        match self.synth_tab {
+                            SynthTab::Dna => {
+                                let c = self.dna_buf.cursor;
+                                if c > 0 {
+                                    self.dna_buf.delete_range(c - 1, c);
+                                }
+                            }
+                            SynthTab::Protein => {
+                                let c = self.protein_buf.cursor;
+                                if c > 0 {
+                                    let lo = c - 1;
+                                    self.protein_buf.aa = {
+                                        let mut chars: Vec<char> =
+                                            self.protein_buf.aa.chars().collect();
+                                        if lo < chars.len() {
+                                            chars.remove(lo);
+                                        }
+                                        chars.into_iter().collect()
+                                    };
+                                    self.protein_buf.cursor = lo;
+                                }
+                            }
+                            SynthTab::Operon => {
+                                self.tool_query.pop();
+                            }
+                        }
+                    } else {
+                        self.tool_query.pop();
+                    }
                 }
             }
             Action::ToolMove(delta) => {
@@ -1370,7 +1474,17 @@ impl AppState {
         let g = self.active_grammar();
         let part_type = self.ctor_part_type(&g);
         let end = rec.len();
-        match design_gb_primers(&rec.sequence, 0, end, &part_type, &g, 60.0, None) {
+        let table = self.codon_tables.get("83333").map(|e| e.raw.clone());
+        match design_gb_primers(
+            &rec.sequence,
+            0,
+            end,
+            &part_type,
+            &g,
+            60.0,
+            None,
+            table.as_ref(),
+        ) {
             Ok(p) => {
                 self.ctor_summary = Some(format!(
                     "Domesticator {part_type} ({})  pad+{}+spacer+{}/{}  amplicon {} bp",
@@ -1559,6 +1673,199 @@ impl AppState {
         self.clamp_lib_selection();
         self.persist_library();
         self.toast = Some(format!("Restored {name}"));
+    }
+
+    fn k12(&self) -> Option<splicecraft_codon::UsageTable> {
+        self.codon_tables.get("83333").map(|e| e.raw.clone())
+    }
+
+    fn mutato_cds(rec: &Record) -> String {
+        rec.features
+            .iter()
+            .find(|f| f.kind.eq_ignore_ascii_case("CDS"))
+            .map(|f| splicecraft_primer::extract_cds(&rec.sequence, f.start, f.end, f.strand))
+            .filter(|s| s.len() >= 21)
+            .unwrap_or_else(|| rec.sequence.to_ascii_uppercase())
+    }
+
+    fn run_mutato(&mut self) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a record first".into());
+            return;
+        };
+        let table = self.k12();
+        let extra: Vec<_> = self
+            .enzymes
+            .custom
+            .iter()
+            .map(|c| splicecraft_bio::CustomEnzyme {
+                name: c.name.clone(),
+                site: c.site.clone(),
+                fwd_cut: c.fwd_cut,
+                rev_cut: c.rev_cut,
+            })
+            .collect();
+        match self.mutato_tab {
+            MutatoTab::Sdm => {
+                let cds = Self::mutato_cds(&rec);
+                let mutation = if self.mutato_query.trim().is_empty() {
+                    "V40F"
+                } else {
+                    self.mutato_query.trim()
+                };
+                match design_mutagenesis(&cds, mutation, table.as_ref()) {
+                    Ok((outer, inner)) => {
+                        let path = if inner.edge_case.is_some() {
+                            "2-primer"
+                        } else {
+                            "SOE 4-primer"
+                        };
+                        self.mutato_summary = Some(format!(
+                            "{}  {} nt change(s)  {path}  {}→{}",
+                            inner.mutation, inner.nt_changes, inner.wt_codon, inner.mut_codon
+                        ));
+                        self.design_fwd = Some(outer.fwd.full);
+                        self.design_rev = Some(outer.rev.full);
+                        self.toast = Some("Mutato primers designed".into());
+                    }
+                    Err(e) => {
+                        self.mutato_summary = Some(e.to_string());
+                        self.toast = Some("Mutato refused".into());
+                    }
+                }
+            }
+            MutatoTab::ScrubQc => {
+                let plan = scrub_design(
+                    &rec.sequence,
+                    &rec.features,
+                    None,
+                    rec.circular,
+                    table.as_ref(),
+                    &extra,
+                );
+                self.mutato_summary = Some(format!(
+                    "QuikChange scrub: {} edits, {} removed, {} skipped, {} rounds",
+                    plan.edits.len(),
+                    plan.sites_removed.len(),
+                    plan.sites_skipped.len(),
+                    plan.n_rounds
+                ));
+                if let Some(cl) = plan.clusters.first() {
+                    let p = qc_primers(&plan.cured_seq, cl, rec.circular, "improved", 1);
+                    if p.error.is_none() {
+                        self.design_fwd = Some(p.fwd_seq);
+                        self.design_rev = Some(p.rev_seq);
+                    }
+                }
+                self.toast = Some("Scrub planned".into());
+            }
+            MutatoTab::ScrubGb => {
+                let plan = design_gb_scrub(
+                    &rec.sequence,
+                    &rec.features,
+                    None,
+                    rec.circular,
+                    table.as_ref(),
+                    &extra,
+                );
+                self.mutato_summary = Some(format!(
+                    "GB scrub: ok={} verified={} fragments={}  {}",
+                    plan.ok,
+                    plan.verified,
+                    plan.n_fragments(),
+                    if plan.errors.is_empty() {
+                        "recirc matched".into()
+                    } else {
+                        format!("{} error(s)", plan.errors.len())
+                    }
+                ));
+                self.toast = Some(if plan.ok && plan.verified {
+                    "GB recirc verified".into()
+                } else {
+                    "GB recirc failed closed".into()
+                });
+            }
+        }
+    }
+
+    fn run_synthesis(&mut self) {
+        let table = self.k12().unwrap_or_else(splicecraft_codon::builtin_k12);
+        match self.synth_tab {
+            SynthTab::Dna => {
+                self.synth_summary = Some(format!(
+                    "DNA buffer {} bp  {} features  (Enter commits a linear record)",
+                    self.dna_buf.seq.len(),
+                    self.dna_buf.features.len()
+                ));
+                if !self.dna_buf.seq.is_empty() {
+                    self.record = Some(Record::new("synth_dna", self.dna_buf.seq.clone(), false));
+                    self.source_label = "synth_dna".into();
+                    self.toast = Some("Linear DNA fragment loaded".into());
+                } else {
+                    self.toast = Some("Type IUPAC bases, then Enter".into());
+                }
+            }
+            SynthTab::Protein => match self.protein_buf.to_dna(&table, 1, CodonMode::Frequency) {
+                Ok(dna) => {
+                    self.synth_summary = Some(format!(
+                        "Protein {} aa → {} bp (K12 frequency)  motifs {}",
+                        self.protein_buf.aa.chars().count(),
+                        dna.len(),
+                        self.motifs.merged().len()
+                    ));
+                    self.dna_buf.seq = dna;
+                    self.dna_buf.cursor = self.dna_buf.seq.len();
+                    self.toast = Some("Reverse-translated from codon table".into());
+                }
+                Err(e) => {
+                    self.synth_summary = Some(e.to_string());
+                    self.toast = Some("Protein compose refused".into());
+                }
+            },
+            SynthTab::Operon => {
+                let Some(rec) = self.record.clone() else {
+                    self.toast = Some("Load an operon record first".into());
+                    return;
+                };
+                let g = self.active_grammar();
+                match design_operon_soe_primers(
+                    &rec.sequence,
+                    &rec.features,
+                    &g,
+                    &[],
+                    &[],
+                    Some(&table),
+                    &[],
+                    60.0,
+                ) {
+                    Ok(res) if res.ok => {
+                        self.synth_summary = Some(format!(
+                            "Operon SOE: {} primers, {} clusters, {} edits",
+                            res.primers.len(),
+                            res.n_clusters,
+                            res.edits.len()
+                        ));
+                        self.toast = Some("Operon primers designed".into());
+                    }
+                    Ok(res) if res.needs_manual => {
+                        self.synth_summary = Some(format!(
+                            "Operon needs manual edits at {} non-coding site(s)",
+                            res.sites_skipped.len()
+                        ));
+                        self.toast = Some("Flagged for manual cure".into());
+                    }
+                    Ok(res) => {
+                        self.synth_summary =
+                            Some(res.error.unwrap_or_else(|| "operon refused".into()));
+                        self.toast = Some("Operon SOE refused".into());
+                    }
+                    Err(e) => {
+                        self.synth_summary = Some(e.to_string());
+                        self.toast = Some("Operon SOE refused".into());
+                    }
+                }
+            }
+        }
     }
 }
 

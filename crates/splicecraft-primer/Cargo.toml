@@ -10,6 +10,7 @@ description = "Primer Tm, SOE/QuikChange design, primer-check, and site-scrub de
 readme.workspace = true
 
 [dependencies]
+regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 splicecraft-bio.workspace = true

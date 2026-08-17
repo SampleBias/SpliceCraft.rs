@@ -12,7 +12,7 @@ check a box early.
 - [x] 06 Library
 - [x] 07 Enzymes + primers
 - [x] 08 Cloning workbench
-- [ ] 09 Mutato + codon + synthesis
+- [x] 09 Mutato + codon + synthesis
 - [ ] 10 Simulator + gels
 - [ ] 11 Sequencing
 - [ ] 12 Experiments + History UI
@@ -21,11 +21,14 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 09 (`docs/stages/09-mutato-codon-synthesis.md`).
+**Next:** stage 10 (`docs/stages/10-simulator-gels.md`).
 
-Stage 08 notes: codon silent-repair of internal Type IIS sites is deferred
-to stage 09 (domesticator fail-closes). Sticky-cut visualization remains
-deferred from stage 05.
+Stage 09 notes: codon silent-repair of internal Type IIS now runs on
+coding inserts when a codon table is supplied. Mutato Tm is Wallace only
+(no primer3). Sticky-cut visualization remains deferred from stage 05.
+
+Stage 08 notes: codon silent-repair of internal Type IIS sites landed in
+stage 09. Sticky-cut visualization remains deferred from stage 05.
 
 Stage 05 notes: sticky-cut visualization (upstream/downstream tint on a
 clicked Type IIS site) is deferred. Restriction overlay draws labeled
