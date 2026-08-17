@@ -84,6 +84,17 @@ in [`invariants.md`](invariants.md).
 | `_load_library` / `_save_library` | `splicecraft_persist::{load,save}_library` + `LibraryStore` |
 | `_classify_collisions` / `_ensure_unique_copy_name` | `splicecraft_persist::{classify_entry,unique_copy_name}` |
 | `_bulk_import_folder` | `splicecraft_io::bulk_import_folder` |
+| `_primer_tm` | `splicecraft_primer::primer_tm` |
+| `_pick_binding_region` | `splicecraft_primer::pick_binding_region` |
+| `_design_generic_primers` | `splicecraft_primer::design_generic_primers` |
+| `_design_cloning_primers` | `splicecraft_primer::design_cloning_primers` |
+| `_design_detection_primers` | `splicecraft_primer::design_detection_primers` |
+| `_primer_binding_sites` | `splicecraft_primer::primer_binding_sites` |
+| `_rederive_primer_binding` | `splicecraft_primer::rederive_primer_binding` |
+| `_primer_check_confidence` | `splicecraft_primer::primer_check_confidence` |
+| `_export_primers_to_csv` | `splicecraft_primer::export_primers_csv` |
+| `_NEB_ENZYMES` / `_all_enzymes` | `splicecraft_bio::{neb_enzymes,all_enzymes}` |
+| `_load/_save_enzyme_collections` | `splicecraft_persist::EnzymeStore` |
 
 ## Docs worth fetching per area
 

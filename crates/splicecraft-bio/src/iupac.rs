@@ -180,6 +180,38 @@ pub fn pattern_cache_clear() {
     cache().lock().unwrap_or_else(|e| e.into_inner()).clear();
 }
 
+/// Unambiguous bases admitted by one IUPAC code (`U` is treated as `T`).
+#[must_use]
+pub fn iupac_base_set(code: char) -> Option<&'static [u8]> {
+    match code.to_ascii_uppercase() {
+        'A' => Some(b"A"),
+        'C' => Some(b"C"),
+        'G' => Some(b"G"),
+        'T' | 'U' => Some(b"T"),
+        'R' => Some(b"AG"),
+        'Y' => Some(b"CT"),
+        'W' => Some(b"AT"),
+        'S' => Some(b"CG"),
+        'M' => Some(b"AC"),
+        'K' => Some(b"GT"),
+        'B' => Some(b"CGT"),
+        'D' => Some(b"AGT"),
+        'H' => Some(b"ACT"),
+        'V' => Some(b"ACG"),
+        'N' => Some(b"ACGT"),
+        _ => None,
+    }
+}
+
+/// True when IUPAC codes `a` and `b` share at least one unambiguous base.
+#[must_use]
+pub fn iupac_compatible(a: char, b: char) -> bool {
+    match (iupac_base_set(a), iupac_base_set(b)) {
+        (Some(sa), Some(sb)) => sa.iter().any(|c| sb.contains(c)),
+        _ => false,
+    }
+}
+
 /// Yield every match start, including overlapping tandem hits.
 pub(crate) fn iter_match_starts(pat: &Regex, s: &str) -> Vec<usize> {
     let mut pos = 0;
@@ -278,5 +310,15 @@ mod tests {
         assert!(iupac_pattern("GGZCC").is_err());
         assert!(iupac_pattern("").is_err());
         assert!(iupac_pattern("   ").is_err());
+    }
+
+    #[test]
+    fn iupac_compatible_overlap() {
+        assert!(iupac_compatible('A', 'A'));
+        assert!(iupac_compatible('A', 'N'));
+        assert!(!iupac_compatible('A', 'C'));
+        assert!(!iupac_compatible('R', 'Y'));
+        assert!(iupac_compatible('R', 'M'));
+        assert!(!iupac_compatible('A', '-'));
     }
 }

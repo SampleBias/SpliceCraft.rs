@@ -1551,6 +1551,8 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "regex",
+ "serde",
+ "serde_json",
  "splicecraft-core",
  "splicecraft-util",
  "thiserror 2.0.20",
@@ -1636,9 +1638,13 @@ dependencies = [
 name = "splicecraft-primer"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "splicecraft-bio",
  "splicecraft-codon",
  "splicecraft-core",
+ "splicecraft-persist",
+ "tempfile",
  "thiserror 2.0.20",
 ]
 
@@ -1654,6 +1660,7 @@ dependencies = [
  "splicecraft-gels",
  "splicecraft-io",
  "splicecraft-persist",
+ "splicecraft-primer",
  "tempfile",
  "thiserror 2.0.20",
 ]

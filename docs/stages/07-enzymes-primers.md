@@ -1,6 +1,6 @@
 # Stage 07 — Enzymes + primers
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01, 05, 06
 **Primary crates:** `splicecraft-bio`, `splicecraft-primer`, `splicecraft-tui`
 
@@ -43,13 +43,22 @@ rotation must match the map.
 
 ## Acceptance
 
-- [ ] Palindrome still counted once with the full catalog
-- [ ] Tm function has golden tests vs a few upstream examples you record
+- [x] Palindrome still counted once with the full catalog
+- [x] Tm function has golden tests vs a few upstream examples you record
       in `tests/data/` (numbers, not Python)
-- [ ] Primer-check 3′ identity test
-- [ ] IDT CSV columns documented and tested
-- [ ] Default features remain MIT (no GPL primer3 crate)
-- [ ] `cargo test -p splicecraft-primer -p splicecraft-bio`
+- [x] Primer-check 3′ identity test
+- [x] IDT CSV columns documented and tested
+- [x] Default features remain MIT (no GPL primer3 crate)
+- [x] `cargo test -p splicecraft-primer -p splicecraft-bio`
+
+## Notes
+
+- NEB catalog is `crates/splicecraft-bio/data/neb_enzymes.json` (201
+  entries transcribed from upstream `_NEB_ENZYMES` as data, not code).
+- Default Tm is Wallace `2*AT + 4*GC + 3*other`. Golden file:
+  `crates/splicecraft-primer/tests/data/wallace_tm.json`.
+- Map `u` / `6` / `[` `]` are unique, 6+, and enzyme-collection filters.
+  Sticky-cut visualization stays deferred.
 
 ## Forbidden
 

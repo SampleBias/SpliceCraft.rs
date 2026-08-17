@@ -1,6 +1,8 @@
 //! `Record` → map lines. Geometry is unit-tested without a tty.
 
-use splicecraft_bio::{RestrictionHit, ScanOptions, feat_decorated_label, scan_restriction_sites};
+use splicecraft_bio::{
+    CustomEnzyme, RestrictionHit, ScanOptions, feat_decorated_label, scan_restriction_sites,
+};
 use splicecraft_core::{Feature, Record, wrap_midpoint};
 
 use super::canvas::{BrailleCanvas, CharCanvas};
@@ -22,6 +24,14 @@ pub struct MapOptions {
     pub show_labels: bool,
     /// 7-bit density ramp instead of braille.
     pub ascii: bool,
+    /// Keep only enzymes that cut once.
+    pub unique_only: bool,
+    /// Skip enzymes shorter than this (6+ filter).
+    pub min_recognition_len: usize,
+    /// Active collection; `None` scans the full catalog.
+    pub allowed_enzymes: Option<Vec<String>>,
+    /// User-defined enzymes merged into the scan.
+    pub extra_enzymes: Vec<CustomEnzyme>,
 }
 
 impl Default for MapOptions {
@@ -34,6 +44,10 @@ impl Default for MapOptions {
             show_restr: false,
             show_labels: true,
             ascii: false,
+            unique_only: false,
+            min_recognition_len: 6,
+            allowed_enzymes: None,
+            extra_enzymes: Vec::new(),
         }
     }
 }
@@ -93,7 +107,7 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
         }
     }
     if opt.show_restr {
-        for hit in labeled_resites(record) {
+        for hit in labeled_resites(record, opt) {
             let (px, py) = polar(hit.start, n, opt.origin, cx, cy, r_back + 1.5);
             dots.set_pixel(px, py);
             text.put_text(
@@ -135,7 +149,7 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<S
         }
     }
     if opt.show_restr {
-        for hit in labeled_resites(record) {
+        for hit in labeled_resites(record, opt) {
             let px = linear_x(hit.start, n, x0, x1, opt.origin);
             dots.set_pixel(px, y + 2);
             text.put_text(
@@ -154,14 +168,15 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<S
     dots.to_lines(&text, opt.ascii)
 }
 
-fn labeled_resites(record: &Record) -> impl Iterator<Item = RestrictionHit> {
+fn labeled_resites(record: &Record, opt: &MapOptions) -> impl Iterator<Item = RestrictionHit> {
     scan_restriction_sites(
         &record.sequence,
         &ScanOptions {
-            min_recognition_len: 6,
-            unique_only: false,
+            min_recognition_len: opt.min_recognition_len,
+            unique_only: opt.unique_only,
             circular: record.circular,
-            allowed_enzymes: None,
+            allowed_enzymes: opt.allowed_enzymes.clone(),
+            extra_enzymes: opt.extra_enzymes.clone(),
         },
     )
     .into_iter()

@@ -12,6 +12,7 @@ pub use splicecraft_core as core;
 pub use splicecraft_gels as gels;
 pub use splicecraft_io as io;
 pub use splicecraft_persist as persist;
+pub use splicecraft_primer as primer;
 
 mod action;
 mod commands;
@@ -21,7 +22,7 @@ mod keys;
 mod render;
 mod state;
 
-pub use action::{Action, CollisionChoice, FocusMode, Overlay, Pane, PathKind};
+pub use action::{Action, CollisionChoice, DesignKind, FocusMode, Overlay, Pane, PathKind};
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
 pub use editor::{UNDO_LIMIT, UndoStack};
@@ -36,8 +37,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (library + map + sequence).
-pub const IMPLEMENTATION_STAGE: u8 = 6;
+/// Stage this crate currently satisfies (enzymes + primers).
+pub const IMPLEMENTATION_STAGE: u8 = 7;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -188,7 +189,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 06") || text.contains("stage 6"),
+            text.contains("stage 07") || text.contains("stage 7"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -325,6 +326,7 @@ mod tests {
                 show_restr: false,
                 show_labels: true,
                 ascii: false,
+                ..MapOptions::default()
             },
         );
         let blob = lines.join("\n");
@@ -531,5 +533,47 @@ mod tests {
             .collect();
         assert!(names.contains(&"pDemo"), "{names:?}");
         assert!(names.iter().any(|n| n.contains("COPY")), "{names:?}");
+    }
+
+    #[test]
+    fn unique_and_six_plus_keys_toggle_scan_filters() {
+        let mut state = AppState::new();
+        assert!(!state.restr_unique);
+        assert!(state.restr_min_six);
+        assert!(apply_key(&mut state, key(KeyCode::Char('u'))));
+        assert!(state.restr_unique);
+        assert!(apply_key(&mut state, key(KeyCode::Char('6'))));
+        assert!(!state.restr_min_six);
+    }
+
+    #[test]
+    fn primer_design_overlay_and_generic_pair() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        assert!(state.reduce(Action::OpenPrimerDesign));
+        assert_eq!(state.overlay, Overlay::PrimerDesign);
+        assert!(state.reduce(Action::ToolEnter));
+        assert!(state.design_fwd.is_some(), "expected a designed oligo");
+        let text = draw_text(80, 24, &state);
+        assert!(
+            text.to_ascii_lowercase().contains("primer"),
+            "design overlay missing: {text}"
+        );
+    }
+
+    #[test]
+    fn palette_primer_design_is_live() {
+        let mut state = AppState::new();
+        state.reduce(Action::OpenPalette);
+        let titles: Vec<_> = state.visible_commands().iter().map(|c| c.title).collect();
+        assert!(titles.contains(&"Primer design"), "{titles:?}");
+        assert!(titles.contains(&"Primer check"), "{titles:?}");
+        assert!(titles.contains(&"Enzyme collections"), "{titles:?}");
+        let cmd = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Primer design")
+            .expect("primer design");
+        assert_eq!(cmd.action, Action::OpenPrimerDesign);
     }
 }

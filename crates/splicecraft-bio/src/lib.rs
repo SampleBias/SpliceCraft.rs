@@ -12,17 +12,22 @@ pub mod enzymes;
 pub mod iupac;
 pub mod orient;
 pub mod scan;
+pub mod search;
 pub mod translate;
 
 pub use digest::{EnzymeCut, digest_with_enzymes, enzyme_cuts, fragments_from_cuts};
 pub use enzymes::{
-    EnzymeSpec, STAGE01_ENZYMES, enzyme, enzyme_color, feat_decorated_label, superscript_int,
+    CustomEnzyme, EnzymeSpec, NebEnzyme, STAGE01_ENZYMES, all_enzymes, enzyme, enzyme_color,
+    enzyme_lookup, feat_decorated_label, neb_enzymes, superscript_int,
 };
-pub use iupac::{BioError, iupac_pattern, pattern_cache_clear, pattern_cache_contains, rc};
+pub use iupac::{
+    BioError, iupac_compatible, iupac_pattern, pattern_cache_clear, pattern_cache_contains, rc,
+};
 pub use orient::{extract_feature, reverse_complement_record};
 pub use scan::{
     HitKind, RestrictionHit, ScanOptions, scan_restriction_sites, scan_restriction_sites_default,
 };
+pub use search::{SubseqHit, circ_slice, normalize_dna_for_align, search_subsequence};
 pub use translate::{CODON_TABLE, codon_aa, codon_table_for, translate_cds};
 
 /// Stage that implements this crate's real biology.
@@ -77,6 +82,7 @@ mod scan_invariants {
                 unique_only: unique,
                 circular,
                 allowed_enzymes: None,
+                extra_enzymes: Vec::new(),
             },
         )
     }
@@ -89,6 +95,7 @@ mod scan_invariants {
                 unique_only: false,
                 circular,
                 allowed_enzymes: Some(names.iter().map(|s| (*s).to_owned()).collect()),
+                extra_enzymes: Vec::new(),
             },
         )
     }
@@ -341,6 +348,38 @@ mod scan_invariants {
     }
 
     #[test]
+    fn inv01_full_catalog_still_counts_ecori_once() {
+        let seq = format!("AAA{}AAA", "GAATTC");
+        let feats = scan(&seq, 6, true, true);
+        let eco = resites(&feats, Some("EcoRI"));
+        assert_eq!(eco.len(), 1, "full NEB catalog must not double-count EcoRI");
+        assert_eq!(eco[0].strand, 1);
+        assert!(neb_enzymes().len() >= 200);
+    }
+
+    #[test]
+    fn custom_enzyme_participates_in_scan() {
+        let extra = vec![CustomEnzyme {
+            name: "LabI".into(),
+            site: "AAAATTTT".into(),
+            fwd_cut: 4,
+            rev_cut: 4,
+        }];
+        let seq = format!("CCC{}CCC", "AAAATTTT");
+        let feats = scan_restriction_sites(
+            &seq,
+            &ScanOptions {
+                min_recognition_len: 6,
+                unique_only: true,
+                circular: false,
+                allowed_enzymes: None,
+                extra_enzymes: extra,
+            },
+        );
+        assert_eq!(resites(&feats, Some("LabI")).len(), 1);
+    }
+
+    #[test]
     fn linear_in_body_still_found() {
         let seq = format!("AAA{}AAAA", "GAATTC");
         let feats = scan(&seq, 6, true, false);
@@ -375,6 +414,7 @@ mod proptests {
                     unique_only: true,
                     circular: false,
                     allowed_enzymes: Some(vec!["EcoRI".into()]),
+                    extra_enzymes: Vec::new(),
                 },
             );
             let labeled = feats.iter().filter(|h| h.is_resite() && h.label == "EcoRI").count();

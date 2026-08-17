@@ -10,7 +10,7 @@ check a box early.
 - [x] 04 Ratatui shell
 - [x] 05 Map + sequence editor
 - [x] 06 Library
-- [ ] 07 Enzymes + primers
+- [x] 07 Enzymes + primers
 - [ ] 08 Cloning workbench
 - [ ] 09 Mutato + codon + synthesis
 - [ ] 10 Simulator + gels
@@ -21,9 +21,8 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 07 (`docs/stages/07-enzymes-primers.md`).
+**Next:** stage 08 (`docs/stages/08-cloning.md`).
 
 Stage 05 notes: sticky-cut visualization (upstream/downstream tint on a
 clicked Type IIS site) is deferred. Restriction overlay draws labeled
-resite ticks only; unique / 6+ / connector filters stay all-sites until
-stage 07.
+resite ticks; unique / 6+ / collection filters landed in stage 07.

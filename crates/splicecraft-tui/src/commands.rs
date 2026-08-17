@@ -91,8 +91,13 @@ pub fn palette_commands() -> &'static [Command] {
             keywords: "prefs online",
             action: Action::Stub {
                 name: "Settings",
-                stage: 6,
+                stage: 15,
             },
+        },
+        Command {
+            title: "Enzyme collections",
+            keywords: "neb custom restriction collection",
+            action: Action::OpenEnzymes,
         },
         Command {
             title: "BLAST",
@@ -104,11 +109,13 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "Primer design",
-            keywords: "primer tm",
-            action: Action::Stub {
-                name: "Primer design",
-                stage: 7,
-            },
+            keywords: "primer tm cloning detection golden",
+            action: Action::OpenPrimerDesign,
+        },
+        Command {
+            title: "Primer check",
+            keywords: "pcr oligo identity amplicon",
+            action: Action::OpenPrimerCheck,
         },
         Command {
             title: "Constructor",

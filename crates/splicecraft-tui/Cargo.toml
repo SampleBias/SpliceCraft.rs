@@ -18,6 +18,7 @@ splicecraft-core.workspace = true
 splicecraft-gels.workspace = true
 splicecraft-io.workspace = true
 splicecraft-persist.workspace = true
+splicecraft-primer.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]

@@ -29,8 +29,34 @@ pub enum Action {
     ToggleMapView,
     /// Restriction overlay (`r`).
     ToggleRestr,
+    /// Unique-cutter filter (`u`).
+    ToggleRestrUnique,
+    /// 6+ vs all-length recognition filter (`6`).
+    ToggleRestrSixPlus,
+    /// Cycle the active enzyme collection. Negative is previous.
+    CycleEnzymeCollection(i32),
     /// Feature label connectors (`l`).
     ToggleLabels,
+    /// Open the primer-design overlay.
+    OpenPrimerDesign,
+    /// Open primer-check.
+    OpenPrimerCheck,
+    /// Open enzyme collections.
+    OpenEnzymes,
+    /// Cycle designer kind (generic / cloning / detection / GB).
+    ToolTab,
+    /// Confirm the current tool overlay (design / check / activate).
+    ToolEnter,
+    /// Save the last designed pair into the primer library.
+    PrimerDesignSave,
+    /// Type into a tool overlay.
+    ToolInput(char),
+    /// Delete the last tool-overlay character.
+    ToolBackspace,
+    /// Move a tool-overlay highlight. Negative is up.
+    ToolMove(i32),
+    /// Cycle Designed → Ordered → Validated on the highlighted primer.
+    PrimerLibCycleStatus,
     /// Move the sequence cursor. Negative is left.
     MoveCursor(i32),
     /// Rotate the map display origin (not a record edit).
@@ -108,6 +134,50 @@ pub enum Overlay {
     Collision,
     /// Path / folder prompt.
     Path,
+    /// Primer designers.
+    PrimerDesign,
+    /// In-silico primer-check / PCR listing.
+    PrimerCheck,
+    /// Enzyme collections + custom catalog.
+    Enzymes,
+}
+
+/// Which designer the primer overlay will run.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DesignKind {
+    /// No tails.
+    #[default]
+    Generic,
+    /// Pad + RE-site tails (EcoRI / BamHI).
+    Cloning,
+    /// Pair inside the selected region.
+    Detection,
+    /// BsaI / BsaI Golden Braid tails.
+    GoldenBraid,
+}
+
+impl DesignKind {
+    /// Next designer in the Tab cycle.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Generic => Self::Cloning,
+            Self::Cloning => Self::Detection,
+            Self::Detection => Self::GoldenBraid,
+            Self::GoldenBraid => Self::Generic,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Generic => "generic",
+            Self::Cloning => "cloning",
+            Self::Detection => "detection",
+            Self::GoldenBraid => "golden braid",
+        }
+    }
 }
 
 /// What the path prompt will do on submit.

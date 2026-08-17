@@ -58,6 +58,14 @@ pub const KEY_TABLE: &[KeyEntry] = &[
         description: "Map view / RE overlay / labels",
     },
     KeyEntry {
+        keys: "u / 6",
+        description: "Unique cutters / 6+ sites",
+    },
+    KeyEntry {
+        keys: "[ / ]",
+        description: "Previous / next enzyme collection",
+    },
+    KeyEntry {
         keys: "Ctrl+Z / Y",
         description: "Undo / redo",
     },
@@ -83,6 +91,7 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         Overlay::Palette => palette_key(key),
         Overlay::Collision => collision_key(key),
         Overlay::Path => path_prompt_key(key),
+        Overlay::PrimerDesign | Overlay::PrimerCheck | Overlay::Enzymes => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
 }
@@ -139,6 +148,32 @@ fn path_prompt_key(key: KeyEvent) -> Option<Action> {
     }
 }
 
+fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
+    if has_ctrl(key, 'k') {
+        return Some(Action::OpenPalette);
+    }
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => Some(Action::CloseOverlay),
+        KeyCode::Tab => Some(Action::ToolTab),
+        KeyCode::Enter => Some(Action::ToolEnter),
+        KeyCode::Up => Some(Action::ToolMove(-1)),
+        KeyCode::Down => Some(Action::ToolMove(1)),
+        KeyCode::Backspace => Some(Action::ToolBackspace),
+        KeyCode::Char('s')
+            if state.overlay == Overlay::PrimerDesign && key.modifiers.is_empty() =>
+        {
+            Some(Action::PrimerDesignSave)
+        }
+        KeyCode::Char(c)
+            if state.overlay == Overlay::PrimerCheck
+                && !key.modifiers.contains(KeyModifiers::CONTROL) =>
+        {
+            Some(Action::ToolInput(c))
+        }
+        _ => None,
+    }
+}
+
 fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_ctrl(key, 'k') {
         return Some(Action::OpenPalette);
@@ -186,6 +221,10 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         }
         KeyCode::Char('v') if key.modifiers.is_empty() => Some(Action::ToggleMapView),
         KeyCode::Char('r') if key.modifiers.is_empty() => Some(Action::ToggleRestr),
+        KeyCode::Char('u') if key.modifiers.is_empty() => Some(Action::ToggleRestrUnique),
+        KeyCode::Char('6') if key.modifiers.is_empty() => Some(Action::ToggleRestrSixPlus),
+        KeyCode::Char('[') if key.modifiers.is_empty() => Some(Action::CycleEnzymeCollection(-1)),
+        KeyCode::Char(']') if key.modifiers.is_empty() => Some(Action::CycleEnzymeCollection(1)),
         KeyCode::Char('l') if key.modifiers.is_empty() => Some(Action::ToggleLabels),
         KeyCode::Char('o') if key.modifiers.is_empty() => Some(Action::OpenPathPrompt),
         KeyCode::Char('f') if key.modifiers.is_empty() => Some(Action::Stub {

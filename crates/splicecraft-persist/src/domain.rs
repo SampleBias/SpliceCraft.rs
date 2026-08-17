@@ -62,3 +62,44 @@ pub fn save_features(layout: &DataLayout, entries: &[Value]) -> Result<(), Persi
 pub fn load_features(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.features_file(), "Features")
 }
+
+/// Persist named enzyme collections.
+pub fn save_enzyme_collections(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(
+        &layout.enzyme_collections_file(),
+        entries,
+        "Enzyme collections",
+    )
+}
+
+/// Load named enzyme collections.
+#[must_use]
+pub fn load_enzyme_collections(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.enzyme_collections_file(), "Enzyme collections")
+}
+
+/// Persist user-defined enzymes.
+pub fn save_custom_enzymes(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.custom_enzymes_file(), entries, "Custom enzymes")
+}
+
+/// Load user-defined enzymes.
+#[must_use]
+pub fn load_custom_enzymes(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.custom_enzymes_file(), "Custom enzymes")
+}
+
+/// Persist the active enzyme-collection pointer (`[{name}]` or `[]`).
+pub fn save_enzyme_active(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(
+        &layout.enzyme_active_file(),
+        entries,
+        "Active enzyme collection",
+    )
+}
+
+/// Load the active enzyme-collection pointer.
+#[must_use]
+pub fn load_enzyme_active(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.enzyme_active_file(), "Active enzyme collection")
+}

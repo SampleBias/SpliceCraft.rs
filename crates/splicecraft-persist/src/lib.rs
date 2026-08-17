@@ -12,6 +12,7 @@ mod auth;
 mod crash;
 mod domain;
 mod envelope;
+mod enzymes;
 mod error;
 mod event;
 mod library;
@@ -30,13 +31,16 @@ pub use crash::{
     write_crash_recovery,
 };
 pub use domain::{
-    load_collections, load_features, load_library, load_parts_bin, load_primers, save_collections,
-    save_features, save_library, save_parts_bin, save_primers,
+    load_collections, load_custom_enzymes, load_enzyme_active, load_enzyme_collections,
+    load_features, load_library, load_parts_bin, load_primers, save_collections,
+    save_custom_enzymes, save_enzyme_active, save_enzyme_collections, save_features, save_library,
+    save_parts_bin, save_primers,
 };
 pub use envelope::{
     BACKUP_RETENTION_COUNT, CURRENT_SCHEMA_VERSION, LoadResult, SAFE_LOAD_JSON_MAX_BYTES,
     extract_entries,
 };
+pub use enzymes::{CustomEnzymeRecord, EnzymeCollection, EnzymeStore};
 pub use error::PersistError;
 pub use event::{format_event, log_event};
 pub use library::{
@@ -46,8 +50,9 @@ pub use library::{
 };
 pub use load::safe_load_json;
 pub use paths::{
-    COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME, DataLayout, FEATURES_FILE_NAME,
-    LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
+    COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME, CUSTOM_ENZYMES_FILE_NAME, DataLayout,
+    ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME, FEATURES_FILE_NAME, LIBRARY_FILE_NAME,
+    LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
     PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
     path_has_python_leaf,
 };

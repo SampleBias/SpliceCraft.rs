@@ -51,6 +51,9 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Palette => draw_palette(frame, area, state),
         Overlay::Collision => draw_collision(frame, area, state),
         Overlay::Path => draw_path(frame, area, state),
+        Overlay::PrimerDesign => draw_primer_design(frame, area, state),
+        Overlay::PrimerCheck => draw_primer_check(frame, area, state),
+        Overlay::Enzymes => draw_enzymes(frame, area, state),
         Overlay::None => {}
     }
 }
@@ -163,6 +166,10 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
                     show_restr: state.show_restr,
                     show_labels: state.show_labels,
                     ascii: false,
+                    unique_only: state.restr_unique,
+                    min_recognition_len: if state.restr_min_six { 6 } else { 4 },
+                    allowed_enzymes: state.enzymes.allowed_enzymes(),
+                    extra_enzymes: state.custom_for_scan(),
                 },
             )
             .join("\n"),
@@ -356,6 +363,102 @@ fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     ];
     let block = Block::default()
         .title(" Path ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_primer_design(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 62, 14);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Primer design — {}", state.design_kind.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab cycle mode · Enter design · s save to library · Esc close"),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.design_summary {
+        for row in summary.lines() {
+            lines.push(Line::from(row.to_owned()));
+        }
+    } else {
+        lines.push(Line::from(
+            "  Uses the selected feature, or the whole record if none.",
+        ));
+    }
+    let block = Block::default()
+        .title(" Primers ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_primer_check(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 64, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            "Primer check",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  One oligo: sites. Two oligos (space or /): amplicon length."),
+        Line::from(format!("  {}", state.tool_query)),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.check_summary {
+        for row in summary.lines().take(8) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    let block = Block::default()
+        .title(" Primer check ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_enzymes(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 56, 14);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            "Enzyme collections",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Enter activate · Esc close · [ ] also cycle on the map"),
+        Line::from(""),
+    ];
+    if state.enzymes.collections.is_empty() {
+        lines.push(Line::from("  (no collections — full NEB catalog)"));
+    } else {
+        for (i, c) in state.enzymes.collections.iter().enumerate() {
+            let mark = if i == state.enzyme_selected { ">" } else { " " };
+            let on = if state.enzymes.active.as_deref() == Some(c.name.as_str()) {
+                "*"
+            } else {
+                " "
+            };
+            lines.push(Line::from(format!(
+                " {mark}{on} {}  ({} enzymes)",
+                c.name,
+                c.enzymes.len()
+            )));
+        }
+    }
+    lines.push(Line::from(format!(
+        "  custom enzymes: {}",
+        state.enzymes.custom.len()
+    )));
+    let block = Block::default()
+        .title(" Enzymes ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);

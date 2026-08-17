@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::enzymes::{STAGE01_ENZYMES, enzyme_color};
+use crate::enzymes::{CustomEnzyme, all_enzymes, enzyme_color};
 use crate::iupac::{iter_match_starts, iupac_pattern, rc};
 
 /// One overlay hit (`resite` bar or `recut` tick).
@@ -70,6 +70,8 @@ pub struct ScanOptions {
     pub circular: bool,
     /// When set, only these names are scanned (bypasses min length).
     pub allowed_enzymes: Option<Vec<String>>,
+    /// User-defined enzymes merged into the NEB catalog for this scan.
+    pub extra_enzymes: Vec<CustomEnzyme>,
 }
 
 impl Default for ScanOptions {
@@ -79,6 +81,7 @@ impl Default for ScanOptions {
             unique_only: true,
             circular: true,
             allowed_enzymes: None,
+            extra_enzymes: Vec::new(),
         }
     }
 }
@@ -87,10 +90,10 @@ impl Default for ScanOptions {
 pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionHit> {
     let seq_u = seq.to_ascii_uppercase();
     let n = seq_u.len();
-    let mut by_enzyme: HashMap<String, Vec<RestrictionHit>> = HashMap::new();
+    let mut by_enzyme: Vec<(String, Vec<RestrictionHit>)> = Vec::new();
     let mut seen: HashSet<(String, usize, i8)> = HashSet::new();
 
-    let catalog = scan_catalog();
+    let catalog = scan_catalog(&opts.extra_enzymes);
     let max_site_len = catalog.iter().map(|e| e.site_len).max().unwrap_or(0);
     let scan_seq = if opts.circular && n > 0 && max_site_len > 1 {
         let mut s = seq_u.clone();
@@ -107,7 +110,7 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
 
     for entry in &catalog {
         if let Some(allow) = &allowed {
-            if !allow.contains(entry.name) {
+            if !allow.contains(entry.name.as_str()) {
                 continue;
             }
         } else if entry.site_len < opts.min_recognition_len {
@@ -119,7 +122,7 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
             if p >= n {
                 continue;
             }
-            let key = (entry.name.to_owned(), p, 1);
+            let key = (entry.name.clone(), p, 1);
             if !seen.insert(key) {
                 continue;
             }
@@ -146,8 +149,8 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
                     p,
                     site_len: entry.site_len,
                     strand: 1,
-                    color: entry.color,
-                    name: entry.name,
+                    color: entry.color.as_str(),
+                    name: entry.name.as_str(),
                     cut_col: cc,
                     ext_cut_bp: ext,
                     top_cut_bp: top_cut,
@@ -155,7 +158,7 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
                     n,
                 },
             );
-            hits.push(recut(top_cut, 1, entry.color, entry.name));
+            hits.push(recut(top_cut, 1, entry.color.as_str(), entry.name.as_str()));
         }
 
         if !entry.is_palindrome {
@@ -163,7 +166,7 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
                 if p >= n {
                     continue;
                 }
-                let key = (entry.name.to_owned(), p, -1);
+                let key = (entry.name.clone(), p, -1);
                 if !seen.insert(key) {
                     continue;
                 }
@@ -188,8 +191,8 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
                         p,
                         site_len: entry.site_len,
                         strand: -1,
-                        color: entry.color,
-                        name: entry.name,
+                        color: entry.color.as_str(),
+                        name: entry.name.as_str(),
                         cut_col: cc,
                         ext_cut_bp: ext,
                         top_cut_bp: top_cut,
@@ -197,16 +200,24 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
                         n,
                     },
                 );
-                hits.push(recut(bot_cut, -1, entry.color, entry.name));
+                hits.push(recut(
+                    bot_cut,
+                    -1,
+                    entry.color.as_str(),
+                    entry.name.as_str(),
+                ));
             }
         }
 
         if !hits.is_empty() {
-            by_enzyme.insert(entry.name.to_owned(), hits);
+            by_enzyme.push((entry.name.clone(), hits));
         }
     }
 
-    let site_of: HashMap<&str, &str> = catalog.iter().map(|e| (e.name, e.site)).collect();
+    let site_of: HashMap<&str, &str> = catalog
+        .iter()
+        .map(|e| (e.name.as_str(), e.site.as_str()))
+        .collect();
     let effective_unique = opts.unique_only && allowed.is_none();
     let mut placed: HashSet<(usize, usize, String)> = HashSet::new();
     let mut feats = Vec::new();
@@ -242,35 +253,35 @@ pub fn scan_restriction_sites(seq: &str, opts: &ScanOptions) -> Vec<RestrictionH
 }
 
 struct CatalogEntry {
-    name: &'static str,
-    site: &'static str,
+    name: String,
+    site: String,
     site_len: usize,
     fwd_cut: i32,
     rev_cut: i32,
-    color: &'static str,
+    color: String,
     is_palindrome: bool,
     pat: std::sync::Arc<regex::Regex>,
     rc_pat: std::sync::Arc<regex::Regex>,
 }
 
-fn scan_catalog() -> Vec<CatalogEntry> {
+fn scan_catalog(extra: &[CustomEnzyme]) -> Vec<CatalogEntry> {
     let mut out = Vec::new();
-    for (name, (site, fwd, rev)) in STAGE01_ENZYMES {
-        let Ok(pat) = iupac_pattern(site) else {
+    for (name, site, fwd, rev) in all_enzymes(extra) {
+        let Ok(pat) = iupac_pattern(&site) else {
             continue;
         };
-        let rc_site = rc(site);
+        let rc_site = rc(&site);
         let Ok(rc_pat) = iupac_pattern(&rc_site) else {
             continue;
         };
         out.push(CatalogEntry {
-            name,
-            site,
+            name: name.clone(),
+            site: site.clone(),
             site_len: site.len(),
-            fwd_cut: *fwd,
-            rev_cut: *rev,
-            color: enzyme_color(name),
-            is_palindrome: rc_site == *site,
+            fwd_cut: fwd,
+            rev_cut: rev,
+            color: enzyme_color(&name).to_owned(),
+            is_palindrome: rc_site == site,
             pat,
             rc_pat,
         });

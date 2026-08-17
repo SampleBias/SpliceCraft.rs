@@ -10,7 +10,13 @@ description = "Primer Tm, SOE/QuikChange design, primer-check, and site-scrub de
 readme.workspace = true
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-codon.workspace = true
 splicecraft-core.workspace = true
+splicecraft-persist.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

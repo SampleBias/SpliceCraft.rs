@@ -1,0 +1,32 @@
+[
+  {
+    "seq": "AAAAAAAAAA",
+    "tm": 20.0,
+    "note": "Wallace AT-rich 10-mer: 2*10"
+  },
+  {
+    "seq": "GCGCGCGCGC",
+    "tm": 40.0,
+    "note": "Wallace GC-rich 10-mer: 4*10"
+  },
+  {
+    "seq": "NNNNNNNNNN",
+    "tm": 30.0,
+    "note": "Wallace N-rich 10-mer: 3*10 (AT/GC midpoint)"
+  },
+  {
+    "seq": "ACGTACGTNN",
+    "tm": 30.0,
+    "note": "4 AT + 4 GC + 2 N → 8+16+6"
+  },
+  {
+    "seq": "ACGTACGTACGT",
+    "tm": 36.0,
+    "note": "6 AT + 6 GC → 12+24"
+  },
+  {
+    "seq": "",
+    "tm": null,
+    "note": "empty oligo"
+  }
+]

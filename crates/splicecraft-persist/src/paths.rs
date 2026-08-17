@@ -19,6 +19,12 @@ pub const PARTS_BIN_FILE_NAME: &str = "parts_bin.json";
 pub const PRIMERS_FILE_NAME: &str = "primers.json";
 /// Feature snippets.
 pub const FEATURES_FILE_NAME: &str = "features.json";
+/// Named enzyme collections (`{name, enzymes}`).
+pub const ENZYME_COLLECTIONS_FILE_NAME: &str = "enzyme_collections.json";
+/// User-defined enzymes merged into the NEB catalog.
+pub const CUSTOM_ENZYMES_FILE_NAME: &str = "custom_enzymes.json";
+/// Active enzyme-collection pointer (`[{name}]` or empty).
+pub const ENZYME_ACTIVE_FILE_NAME: &str = "enzyme_active.json";
 /// App preferences (dict-shaped; still saved through the JSON chokepoint later).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// Debounced `.gb` crash-recovery snapshots.
@@ -83,6 +89,24 @@ impl DataLayout {
     #[must_use]
     pub fn features_file(&self) -> PathBuf {
         self.root.join(FEATURES_FILE_NAME)
+    }
+
+    /// Enzyme collections JSON.
+    #[must_use]
+    pub fn enzyme_collections_file(&self) -> PathBuf {
+        self.root.join(ENZYME_COLLECTIONS_FILE_NAME)
+    }
+
+    /// Custom enzymes JSON.
+    #[must_use]
+    pub fn custom_enzymes_file(&self) -> PathBuf {
+        self.root.join(CUSTOM_ENZYMES_FILE_NAME)
+    }
+
+    /// Active enzyme-collection pointer JSON.
+    #[must_use]
+    pub fn enzyme_active_file(&self) -> PathBuf {
+        self.root.join(ENZYME_ACTIVE_FILE_NAME)
     }
 
     /// Settings JSON.

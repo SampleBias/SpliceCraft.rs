@@ -1,0 +1,1208 @@
+[
+  {
+    "name": "EcoRI",
+    "site": "GAATTC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "EcoRV",
+    "site": "GATATC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BamHI",
+    "site": "GGATCC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "HindIII",
+    "site": "AAGCTT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NcoI",
+    "site": "CCATGG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NdeI",
+    "site": "CATATG",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "XhoI",
+    "site": "CTCGAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "SalI",
+    "site": "GTCGAC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "KpnI",
+    "site": "GGTACC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "SacI",
+    "site": "GAGCTC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "SacII",
+    "site": "CCGCGG",
+    "fwd_cut": 4,
+    "rev_cut": 2
+  },
+  {
+    "name": "SpeI",
+    "site": "ACTAGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "XbaI",
+    "site": "TCTAGA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NotI",
+    "site": "GCGGCCGC",
+    "fwd_cut": 2,
+    "rev_cut": 6
+  },
+  {
+    "name": "PstI",
+    "site": "CTGCAG",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "SphI",
+    "site": "GCATGC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "ClaI",
+    "site": "ATCGAT",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "NheI",
+    "site": "GCTAGC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AvaI",
+    "site": "CYCGRG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AvaII",
+    "site": "GGWCC",
+    "fwd_cut": 1,
+    "rev_cut": 4
+  },
+  {
+    "name": "AvrII",
+    "site": "CCTAGG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BclI",
+    "site": "TGATCA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BglII",
+    "site": "AGATCT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsiWI",
+    "site": "CGTACG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BspEI",
+    "site": "TCCGGA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsrGI",
+    "site": "TGTACA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BssHII",
+    "site": "GCGCGC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BstBI",
+    "site": "TTCGAA",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "BstEII",
+    "site": "GGTNACC",
+    "fwd_cut": 1,
+    "rev_cut": 6
+  },
+  {
+    "name": "BstXI",
+    "site": "CCANNNNNNTGG",
+    "fwd_cut": 8,
+    "rev_cut": 4
+  },
+  {
+    "name": "BstYI",
+    "site": "RGATCY",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "CpoI",
+    "site": "CGGWCCG",
+    "fwd_cut": 2,
+    "rev_cut": 5
+  },
+  {
+    "name": "DraI",
+    "site": "TTTAAA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "DraIII",
+    "site": "CACNNNGTG",
+    "fwd_cut": 6,
+    "rev_cut": 3
+  },
+  {
+    "name": "EagI",
+    "site": "CGGCCG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "Eco47III",
+    "site": "AGCGCT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "Eco53kI",
+    "site": "GAGCTC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "EcoNI",
+    "site": "CCTNNNNNAGG",
+    "fwd_cut": 5,
+    "rev_cut": 6
+  },
+  {
+    "name": "FseI",
+    "site": "GGCCGGCC",
+    "fwd_cut": 6,
+    "rev_cut": 2
+  },
+  {
+    "name": "FspI",
+    "site": "TGCGCA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "HaeII",
+    "site": "RGCGCY",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "HaeIII",
+    "site": "GGCC",
+    "fwd_cut": 2,
+    "rev_cut": 2
+  },
+  {
+    "name": "HincII",
+    "site": "GTYRAC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "HindII",
+    "site": "GTYRAC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "HpaI",
+    "site": "GTTAAC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "HpaII",
+    "site": "CCGG",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "MfeI",
+    "site": "CAATTG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "MluI",
+    "site": "ACGCGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "MscI",
+    "site": "TGGCCA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "MspI",
+    "site": "CCGG",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "MunI",
+    "site": "CAATTG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NarI",
+    "site": "GGCGCC",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "NruI",
+    "site": "TCGCGA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "NsiI",
+    "site": "ATGCAT",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "NspI",
+    "site": "RCATGY",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "PacI",
+    "site": "TTAATTAA",
+    "fwd_cut": 5,
+    "rev_cut": 3
+  },
+  {
+    "name": "PaeR7I",
+    "site": "CTCGAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "PciI",
+    "site": "ACATGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "PmeI",
+    "site": "GTTTAAAC",
+    "fwd_cut": 4,
+    "rev_cut": 4
+  },
+  {
+    "name": "PmlI",
+    "site": "CACGTG",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "PscI",
+    "site": "ACATGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "PvuI",
+    "site": "CGATCG",
+    "fwd_cut": 4,
+    "rev_cut": 2
+  },
+  {
+    "name": "PvuII",
+    "site": "CAGCTG",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "RsrII",
+    "site": "CGGWCCG",
+    "fwd_cut": 2,
+    "rev_cut": 5
+  },
+  {
+    "name": "SbfI",
+    "site": "CCTGCAGG",
+    "fwd_cut": 6,
+    "rev_cut": 2
+  },
+  {
+    "name": "ScaI",
+    "site": "AGTACT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SfiI",
+    "site": "GGCCNNNNNGGCC",
+    "fwd_cut": 8,
+    "rev_cut": 5
+  },
+  {
+    "name": "SgrAI",
+    "site": "CRCCGGYG",
+    "fwd_cut": 2,
+    "rev_cut": 6
+  },
+  {
+    "name": "SmaI",
+    "site": "CCCGGG",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SnaBI",
+    "site": "TACGTA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SrfI",
+    "site": "GCCCGGGC",
+    "fwd_cut": 4,
+    "rev_cut": 4
+  },
+  {
+    "name": "StuI",
+    "site": "AGGCCT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SwaI",
+    "site": "ATTTAAAT",
+    "fwd_cut": 4,
+    "rev_cut": 4
+  },
+  {
+    "name": "Tth111I",
+    "site": "GACNNNGTC",
+    "fwd_cut": 4,
+    "rev_cut": 5
+  },
+  {
+    "name": "XmaI",
+    "site": "CCCGGG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "XmnI",
+    "site": "GAANNNNTTC",
+    "fwd_cut": 5,
+    "rev_cut": 5
+  },
+  {
+    "name": "AscI",
+    "site": "GGCGCGCC",
+    "fwd_cut": 2,
+    "rev_cut": 6
+  },
+  {
+    "name": "AsiSI",
+    "site": "GCGATCGC",
+    "fwd_cut": 5,
+    "rev_cut": 3
+  },
+  {
+    "name": "AccI",
+    "site": "GTMKAC",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "AclI",
+    "site": "AACGTT",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "AfeI",
+    "site": "AGCGCT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "AflII",
+    "site": "CTTAAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AflIII",
+    "site": "ACRYGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AgeI",
+    "site": "ACCGGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AhdI",
+    "site": "GACNNNNNGTC",
+    "fwd_cut": 6,
+    "rev_cut": 5
+  },
+  {
+    "name": "AluI",
+    "site": "AGCT",
+    "fwd_cut": 2,
+    "rev_cut": 2
+  },
+  {
+    "name": "ApaI",
+    "site": "GGGCCC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "ApaLI",
+    "site": "GTGCAC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "ApoI",
+    "site": "RAATTY",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "AatII",
+    "site": "GACGTC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "BaeGI",
+    "site": "GKGCMC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "BglI",
+    "site": "GCCNNNNNGGC",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "BmgBI",
+    "site": "CACGTC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BsaAI",
+    "site": "YACGTR",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BsaBI",
+    "site": "GATNNNNATC",
+    "fwd_cut": 5,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsaHI",
+    "site": "GRCGYC",
+    "fwd_cut": 2,
+    "rev_cut": 4
+  },
+  {
+    "name": "BsaWI",
+    "site": "WCCGGW",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BseYI",
+    "site": "CCCAGC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsiEI",
+    "site": "CGRYCG",
+    "fwd_cut": 4,
+    "rev_cut": 2
+  },
+  {
+    "name": "BsiHKAI",
+    "site": "GWGCWC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "BsrFI",
+    "site": "RCCGGY",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "Bsp1286I",
+    "site": "GDGCHC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "BspHI",
+    "site": "TCATGA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsrI",
+    "site": "ACTGG",
+    "fwd_cut": 6,
+    "rev_cut": 4
+  },
+  {
+    "name": "BstAPI",
+    "site": "GCANNNNNTGC",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "BstNI",
+    "site": "CCWGG",
+    "fwd_cut": 2,
+    "rev_cut": 3
+  },
+  {
+    "name": "BstUI",
+    "site": "CGCG",
+    "fwd_cut": 2,
+    "rev_cut": 2
+  },
+  {
+    "name": "BstZ17I",
+    "site": "GTATAC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BtgI",
+    "site": "CCRYGG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "Cac8I",
+    "site": "GCNNGC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "CviAII",
+    "site": "CATG",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "CviQI",
+    "site": "GTAC",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "DpnI",
+    "site": "GATC",
+    "fwd_cut": 2,
+    "rev_cut": 2
+  },
+  {
+    "name": "DpnII",
+    "site": "GATC",
+    "fwd_cut": 0,
+    "rev_cut": 4
+  },
+  {
+    "name": "DrdI",
+    "site": "GACNNNNNNGTC",
+    "fwd_cut": 7,
+    "rev_cut": 5
+  },
+  {
+    "name": "EcoO109I",
+    "site": "RGGNCCY",
+    "fwd_cut": 2,
+    "rev_cut": 5
+  },
+  {
+    "name": "HphI",
+    "site": "GGTGA",
+    "fwd_cut": 13,
+    "rev_cut": 12
+  },
+  {
+    "name": "KasI",
+    "site": "GGCGCC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "MboI",
+    "site": "GATC",
+    "fwd_cut": 0,
+    "rev_cut": 4
+  },
+  {
+    "name": "MboII",
+    "site": "GAAGA",
+    "fwd_cut": 13,
+    "rev_cut": 12
+  },
+  {
+    "name": "MlyI",
+    "site": "GAGTC",
+    "fwd_cut": 10,
+    "rev_cut": 10
+  },
+  {
+    "name": "MmeI",
+    "site": "TCCRAC",
+    "fwd_cut": 26,
+    "rev_cut": 24
+  },
+  {
+    "name": "MspA1I",
+    "site": "CMGCKG",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "NgoMIV",
+    "site": "GCCGGC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NmeAIII",
+    "site": "GCCGAG",
+    "fwd_cut": 27,
+    "rev_cut": 25
+  },
+  {
+    "name": "PflMI",
+    "site": "CCANNNNNTGG",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "PspOMI",
+    "site": "GGGCCC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "Sau3AI",
+    "site": "GATC",
+    "fwd_cut": 0,
+    "rev_cut": 4
+  },
+  {
+    "name": "SfcI",
+    "site": "CTRYAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "SspI",
+    "site": "AATATT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "TaqI",
+    "site": "TCGA",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "Van91I",
+    "site": "CCANNNNNTGG",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "ZraI",
+    "site": "GACGTC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BaeI",
+    "site": "ACNNNNGTAYC",
+    "fwd_cut": -10,
+    "rev_cut": -15
+  },
+  {
+    "name": "BbsI",
+    "site": "GAAGAC",
+    "fwd_cut": 8,
+    "rev_cut": 12
+  },
+  {
+    "name": "BcoDI",
+    "site": "GTCTC",
+    "fwd_cut": 6,
+    "rev_cut": 10
+  },
+  {
+    "name": "BceAI",
+    "site": "ACGGC",
+    "fwd_cut": 17,
+    "rev_cut": 19
+  },
+  {
+    "name": "BciVI",
+    "site": "GTATCC",
+    "fwd_cut": 12,
+    "rev_cut": 11
+  },
+  {
+    "name": "BfuAI",
+    "site": "ACCTGC",
+    "fwd_cut": 10,
+    "rev_cut": 14
+  },
+  {
+    "name": "BmrI",
+    "site": "ACTGGG",
+    "fwd_cut": 11,
+    "rev_cut": 10
+  },
+  {
+    "name": "BpiI",
+    "site": "GAAGAC",
+    "fwd_cut": 8,
+    "rev_cut": 12
+  },
+  {
+    "name": "BsaI",
+    "site": "GGTCTC",
+    "fwd_cut": 7,
+    "rev_cut": 11
+  },
+  {
+    "name": "BsaXI",
+    "site": "ACNNNNNCTCC",
+    "fwd_cut": -9,
+    "rev_cut": -12
+  },
+  {
+    "name": "BseLI",
+    "site": "CCNNNNNNNGG",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "BseMII",
+    "site": "CTCAG",
+    "fwd_cut": 15,
+    "rev_cut": 13
+  },
+  {
+    "name": "BseRI",
+    "site": "GAGGAG",
+    "fwd_cut": 16,
+    "rev_cut": 14
+  },
+  {
+    "name": "BsgI",
+    "site": "GTGCAG",
+    "fwd_cut": 22,
+    "rev_cut": 20
+  },
+  {
+    "name": "BslI",
+    "site": "CCNNNNNNNGG",
+    "fwd_cut": 7,
+    "rev_cut": 4
+  },
+  {
+    "name": "BsmAI",
+    "site": "GTCTC",
+    "fwd_cut": 6,
+    "rev_cut": 10
+  },
+  {
+    "name": "BsmBI",
+    "site": "CGTCTC",
+    "fwd_cut": 7,
+    "rev_cut": 11
+  },
+  {
+    "name": "BsmFI",
+    "site": "GGGAC",
+    "fwd_cut": 15,
+    "rev_cut": 19
+  },
+  {
+    "name": "BsmI",
+    "site": "GAATGC",
+    "fwd_cut": 7,
+    "rev_cut": 5
+  },
+  {
+    "name": "BspMI",
+    "site": "ACCTGC",
+    "fwd_cut": 10,
+    "rev_cut": 14
+  },
+  {
+    "name": "BspQI",
+    "site": "GCTCTTC",
+    "fwd_cut": 8,
+    "rev_cut": 11
+  },
+  {
+    "name": "BspTNI",
+    "site": "GGTCTC",
+    "fwd_cut": 7,
+    "rev_cut": 11
+  },
+  {
+    "name": "BsrBI",
+    "site": "CCGCTC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "BsrDI",
+    "site": "GCAATG",
+    "fwd_cut": 8,
+    "rev_cut": 6
+  },
+  {
+    "name": "BssSI",
+    "site": "CACGAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BtgZI",
+    "site": "GCGATG",
+    "fwd_cut": 16,
+    "rev_cut": 20
+  },
+  {
+    "name": "BtsCI",
+    "site": "GGATG",
+    "fwd_cut": 7,
+    "rev_cut": 5
+  },
+  {
+    "name": "BtsI",
+    "site": "GCAGTG",
+    "fwd_cut": 8,
+    "rev_cut": 6
+  },
+  {
+    "name": "BtsIMutI",
+    "site": "CAGTG",
+    "fwd_cut": 7,
+    "rev_cut": 5
+  },
+  {
+    "name": "EarI",
+    "site": "CTCTTC",
+    "fwd_cut": 7,
+    "rev_cut": 10
+  },
+  {
+    "name": "Esp3I",
+    "site": "CGTCTC",
+    "fwd_cut": 7,
+    "rev_cut": 11
+  },
+  {
+    "name": "PaqCI",
+    "site": "CACCTGC",
+    "fwd_cut": 11,
+    "rev_cut": 15
+  },
+  {
+    "name": "SapI",
+    "site": "GCTCTTC",
+    "fwd_cut": 8,
+    "rev_cut": 11
+  },
+  {
+    "name": "BsmBI-v2",
+    "site": "CGTCTC",
+    "fwd_cut": 7,
+    "rev_cut": 11
+  },
+  {
+    "name": "AgeI-HF",
+    "site": "ACCGGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BamHI-HF",
+    "site": "GGATCC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BclI-HF",
+    "site": "TGATCA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BmtI",
+    "site": "GCTAGC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "BsiWI-HF",
+    "site": "CGTACG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsrFI-v2",
+    "site": "RCCGGY",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BsrGI-HF",
+    "site": "TGTACA",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BssSI-v2",
+    "site": "CACGAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "BstEII-HF",
+    "site": "GGTNACC",
+    "fwd_cut": 1,
+    "rev_cut": 6
+  },
+  {
+    "name": "BstZ17I-HF",
+    "site": "GTATAC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "DraIII-HF",
+    "site": "CACNNNGTG",
+    "fwd_cut": 6,
+    "rev_cut": 3
+  },
+  {
+    "name": "EcoRI-HF",
+    "site": "GAATTC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "EcoRV-HF",
+    "site": "GATATC",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "HindIII-HF",
+    "site": "AAGCTT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "KpnI-HF",
+    "site": "GGTACC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "MfeI-HF",
+    "site": "CAATTG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "MluI-HF",
+    "site": "ACGCGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "MunI-HF",
+    "site": "CAATTG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NcoI-HF",
+    "site": "CCATGG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NheI-HF",
+    "site": "GCTAGC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "NotI-HF",
+    "site": "GCGGCCGC",
+    "fwd_cut": 2,
+    "rev_cut": 6
+  },
+  {
+    "name": "NruI-HF",
+    "site": "TCGCGA",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "NsiI-HF",
+    "site": "ATGCAT",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "PstI-HF",
+    "site": "CTGCAG",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "PvuI-HF",
+    "site": "CGATCG",
+    "fwd_cut": 4,
+    "rev_cut": 2
+  },
+  {
+    "name": "PvuII-HF",
+    "site": "CAGCTG",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SacI-HF",
+    "site": "GAGCTC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "SalI-HF",
+    "site": "GTCGAC",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "SbfI-HF",
+    "site": "CCTGCAGG",
+    "fwd_cut": 6,
+    "rev_cut": 2
+  },
+  {
+    "name": "ScaI-HF",
+    "site": "AGTACT",
+    "fwd_cut": 3,
+    "rev_cut": 3
+  },
+  {
+    "name": "SpeI-HF",
+    "site": "ACTAGT",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  },
+  {
+    "name": "SphI-HF",
+    "site": "GCATGC",
+    "fwd_cut": 5,
+    "rev_cut": 1
+  },
+  {
+    "name": "TaqI-v2",
+    "site": "TCGA",
+    "fwd_cut": 1,
+    "rev_cut": 3
+  },
+  {
+    "name": "XhoI-HF",
+    "site": "CTCGAG",
+    "fwd_cut": 1,
+    "rev_cut": 5
+  }
+]
