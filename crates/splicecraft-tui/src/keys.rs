@@ -66,6 +66,10 @@ pub const KEY_TABLE: &[KeyEntry] = &[
         description: "Previous / next enzyme collection",
     },
     KeyEntry {
+        keys: "Del (library)",
+        description: "Delete plasmid (session undo)",
+    },
+    KeyEntry {
         keys: "Ctrl+Z / Y",
         description: "Undo / redo",
     },
@@ -91,7 +95,11 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         Overlay::Palette => palette_key(key),
         Overlay::Collision => collision_key(key),
         Overlay::Path => path_prompt_key(key),
-        Overlay::PrimerDesign | Overlay::PrimerCheck | Overlay::Enzymes => tool_key(state, key),
+        Overlay::PrimerDesign
+        | Overlay::PrimerCheck
+        | Overlay::Enzymes
+        | Overlay::Constructor
+        | Overlay::Parts => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
 }
@@ -164,9 +172,17 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         {
             Some(Action::PrimerDesignSave)
         }
+        KeyCode::Char('s') if state.overlay == Overlay::Constructor && key.modifiers.is_empty() => {
+            Some(Action::ConstructorSave)
+        }
+        KeyCode::Char('a') if state.overlay == Overlay::Constructor && key.modifiers.is_empty() => {
+            Some(Action::ConstructorDesignArms)
+        }
         KeyCode::Char(c)
-            if state.overlay == Overlay::PrimerCheck
-                && !key.modifiers.contains(KeyModifiers::CONTROL) =>
+            if matches!(state.overlay, Overlay::PrimerCheck | Overlay::Constructor)
+                && !key.modifiers.contains(KeyModifiers::CONTROL)
+                && c != 's'
+                && c != 'a' =>
         {
             Some(Action::ToolInput(c))
         }
@@ -210,6 +226,7 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Enter => Some(Action::EnterPickFeature),
         KeyCode::Up if lib => Some(Action::LibraryMove(-1)),
         KeyCode::Down if lib => Some(Action::LibraryMove(1)),
+        KeyCode::Delete if lib => Some(Action::LibraryDelete),
         KeyCode::Backspace | KeyCode::Delete => Some(Action::DeleteBack),
         KeyCode::Left if seq => Some(Action::MoveCursor(-1)),
         KeyCode::Right if seq => Some(Action::MoveCursor(1)),

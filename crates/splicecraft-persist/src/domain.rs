@@ -103,3 +103,14 @@ pub fn save_enzyme_active(layout: &DataLayout, entries: &[Value]) -> Result<(), 
 pub fn load_enzyme_active(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.enzyme_active_file(), "Active enzyme collection")
 }
+
+/// Persist user-defined cloning grammars.
+pub fn save_grammars(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.grammars_file(), entries, "Cloning grammars")
+}
+
+/// Load user-defined cloning grammars.
+#[must_use]
+pub fn load_grammars(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.grammars_file(), "Cloning grammars")
+}

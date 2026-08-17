@@ -10,8 +10,14 @@ description = "Traditional, Gibson, Golden Braid / MoClo construction simulation
 readme.workspace = true
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-codon.workspace = true
 splicecraft-core.workspace = true
+splicecraft-persist.workspace = true
 splicecraft-primer.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

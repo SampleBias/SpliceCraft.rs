@@ -32,9 +32,9 @@ pub use crash::{
 };
 pub use domain::{
     load_collections, load_custom_enzymes, load_enzyme_active, load_enzyme_collections,
-    load_features, load_library, load_parts_bin, load_primers, save_collections,
-    save_custom_enzymes, save_enzyme_active, save_enzyme_collections, save_features, save_library,
-    save_parts_bin, save_primers,
+    load_features, load_grammars, load_library, load_parts_bin, load_primers, save_collections,
+    save_custom_enzymes, save_enzyme_active, save_enzyme_collections, save_features, save_grammars,
+    save_library, save_parts_bin, save_primers,
 };
 pub use envelope::{
     BACKUP_RETENTION_COUNT, CURRENT_SCHEMA_VERSION, LoadResult, SAFE_LOAD_JSON_MAX_BYTES,
@@ -51,8 +51,8 @@ pub use library::{
 pub use load::safe_load_json;
 pub use paths::{
     COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME, CUSTOM_ENZYMES_FILE_NAME, DataLayout,
-    ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME, FEATURES_FILE_NAME, LIBRARY_FILE_NAME,
-    LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
+    ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME, FEATURES_FILE_NAME, GRAMMARS_FILE_NAME,
+    LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
     PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
     path_has_python_leaf,
 };
@@ -404,6 +404,20 @@ mod tests {
         let loaded = load_library(&layout);
         assert_eq!(loaded.entries, vec![json!({"id":"p1"})]);
         assert!(layout.library_file().starts_with(&layout.root));
+    }
+
+    #[test]
+    fn domain_grammars_save_is_sandboxed() {
+        let (tmp, layout) = sandbox();
+        assert!(layout.root.starts_with(tmp.path()));
+        save_grammars(&layout, &[json!({"id":"lab_l0","name":"Lab"})]).unwrap();
+        let loaded = load_grammars(&layout);
+        assert_eq!(loaded.entries[0]["id"], "lab_l0");
+        assert!(layout.grammars_file().starts_with(&layout.root));
+        assert_eq!(
+            layout.grammars_file().file_name().and_then(|s| s.to_str()),
+            Some(GRAMMARS_FILE_NAME)
+        );
     }
 
     #[test]

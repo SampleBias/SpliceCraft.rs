@@ -119,11 +119,23 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "Constructor",
-            keywords: "gibson moclo cloning",
-            action: Action::Stub {
-                name: "Constructor",
-                stage: 8,
-            },
+            keywords: "gibson moclo cloning traditional domesticator",
+            action: Action::OpenConstructor,
+        },
+        Command {
+            title: "Parts Bin",
+            keywords: "parts grammar classify",
+            action: Action::OpenParts,
+        },
+        Command {
+            title: "Delete selected plasmid",
+            keywords: "library delete remove",
+            action: Action::LibraryDelete,
+        },
+        Command {
+            title: "Undo last library delete",
+            keywords: "library undelete restore",
+            action: Action::LibraryUndelete,
         },
         Command {
             title: "Mutato — mutagenesis + Scrub",

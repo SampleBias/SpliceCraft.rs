@@ -95,6 +95,16 @@ in [`invariants.md`](invariants.md).
 | `_export_primers_to_csv` | `splicecraft_primer::export_primers_csv` |
 | `_NEB_ENZYMES` / `_all_enzymes` | `splicecraft_bio::{neb_enzymes,all_enzymes}` |
 | `_load/_save_enzyme_collections` | `splicecraft_persist::EnzymeStore` |
+| `_ends_compatible` / `_ligate_fragments` / `_close_circular` | `splicecraft_clone::{ends_compatible,ligate_fragments,close_circular}` |
+| `_make_synthetic_fragment` / `_rc_fragment` | `splicecraft_clone::{make_synthetic_fragment,rc_fragment}` |
+| `_simulate_traditional_cloning` | `splicecraft_clone::simulate_traditional_cloning` |
+| `_gibson_overlap_len` / `_simulate_gibson_assembly` | `splicecraft_clone::{gibson_overlap_len,simulate_gibson_assembly}` |
+| `_design_homology_arms` | `splicecraft_clone::design_homology_arms` |
+| `_design_gb_primers` | `splicecraft_clone::design_gb_primers` |
+| `_BUILTIN_GRAMMARS` | `splicecraft_clone::{gb_l0,moclo_plant,GrammarStore}` |
+| `_l0_part_from_syn_fragment` | `splicecraft_clone::l0_part_from_syn_fragment` |
+| `_classify_part_from_plasmid` | `splicecraft_clone::classify_part_from_plasmid` |
+| `_simulate_golden_gate` | `splicecraft_clone::simulate_golden_gate` |
 
 ## Docs worth fetching per area
 

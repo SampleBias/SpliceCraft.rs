@@ -1,6 +1,6 @@
 # Stage 08 — Cloning workbench
 
-**Status:** not started
+**Status:** done
 **Depends on:** 07
 **Primary crates:** `splicecraft-clone`, `splicecraft-tui`
 
@@ -51,11 +51,21 @@ Saves [INV-07].
 
 ## Acceptance
 
-- [ ] Golden: ligate two known sticky fragments → expected circle
-- [ ] Gibson wrap junction tested
-- [ ] Type IIS domestication primer tails follow grammar pad/site/spacer/overhang
-- [ ] Syn-frag mismatch refused
-- [ ] `cargo test -p splicecraft-clone`
+- [x] Golden: ligate two known sticky fragments → expected circle
+- [x] Gibson wrap junction tested
+- [x] Type IIS domestication primer tails follow grammar pad/site/spacer/overhang
+- [x] Syn-frag mismatch refused
+- [x] `cargo test -p splicecraft-clone`
+
+## Notes
+
+NEB-scale digest + ligation live in `splicecraft-clone`. Default Tm for
+domestication primers is still Wallace (stage 07). Codon silent-repair of
+internal Type IIS sites is gated until stage 09 — the domesticator refuses
+those inserts instead of mutating them. User grammars persist as
+`grammars.json` through `safe_save_json`. Constructor / Parts Bin overlays
+land products in the library with a history comment (full History UI is
+stage 12). Session undo covers last-N library deletes.
 
 ## Forbidden
 

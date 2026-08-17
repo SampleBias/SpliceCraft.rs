@@ -1,6 +1,12 @@
 //! Workbench state. Library writes go through the persist chokepoint.
 
 use splicecraft_bio::{CustomEnzyme, extract_feature, reverse_complement_record};
+use splicecraft_clone::{
+    GibsonFragment, GrammarStore, HistoryNode, PartRecord, PartsBinStore, assemble_parts,
+    classify_part_from_plasmid, design_gb_primers, design_homology_arms, excise_fragment_pair,
+    gb_l0, l0_part_from_syn_fragment, product_record, simulate_gibson_assembly,
+    simulate_traditional_cloning, stub_entry_vector, traditional_closed,
+};
 use splicecraft_core::{Record, rotate_record};
 use splicecraft_persist::{
     CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet, KeepOutcome,
@@ -12,7 +18,7 @@ use splicecraft_primer::{
     primer_binding_sites, primer_check_confidence, primer_tm, rederive_primer_binding,
 };
 
-use crate::action::{Action, DesignKind, FocusMode, Overlay, Pane, PathKind};
+use crate::action::{Action, ConstructorTab, DesignKind, FocusMode, Overlay, Pane, PathKind};
 use crate::commands::{Command, filter_commands};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
 
@@ -85,6 +91,24 @@ pub struct AppState {
     pub path_query: String,
     /// What [`Action::PathSubmit`] will do.
     pub path_kind: PathKind,
+    /// Constructor tab.
+    pub ctor_tab: ConstructorTab,
+    /// Last constructor / domestication summary (no sequence dump).
+    pub ctor_summary: Option<String>,
+    /// Product waiting to be kept.
+    pub ctor_product: Option<Record>,
+    /// 4-source picker (0 record, 1 feature, 2 library, 3 feature library).
+    pub ctor_source: usize,
+    /// Active grammar id.
+    pub grammar_id: String,
+    /// Highlighted row in constructor / parts lists.
+    pub tool_selected: usize,
+    /// User-defined + built-in grammars.
+    pub grammars: GrammarStore,
+    /// Parts bin.
+    pub parts: PartsBinStore,
+    /// Session stack of last-N library deletes.
+    pub deleted_stack: Vec<(usize, LibraryEntry)>,
 }
 
 /// Collision modal payload.
@@ -140,6 +164,15 @@ impl AppState {
             pending_collision: None,
             path_query: String::new(),
             path_kind: PathKind::OpenFile,
+            ctor_tab: ConstructorTab::Traditional,
+            ctor_summary: None,
+            ctor_product: None,
+            ctor_source: 0,
+            grammar_id: "gb_l0".into(),
+            tool_selected: 0,
+            grammars: GrammarStore::default(),
+            parts: PartsBinStore::default(),
+            deleted_stack: Vec::new(),
         }
     }
 
@@ -148,6 +181,8 @@ impl AppState {
         self.library = LibraryStore::load(&layout);
         self.enzymes = EnzymeStore::load(&layout);
         self.primers = PrimerStore::load(&layout);
+        self.grammars = GrammarStore::load(&layout);
+        self.parts = PartsBinStore::load(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
         self.clamp_enzyme_selection();
@@ -258,26 +293,48 @@ impl AppState {
                 self.clamp_enzyme_selection();
                 self.toast = None;
             }
+            Action::OpenConstructor => {
+                self.overlay = Overlay::Constructor;
+                self.ctor_summary = None;
+                self.toast = None;
+            }
+            Action::OpenParts => {
+                self.overlay = Overlay::Parts;
+                self.tool_selected = 0;
+                self.toast = None;
+            }
+            Action::ConstructorSave => self.save_constructor_product(),
+            Action::ConstructorDesignArms => self.run_gibson_arms(),
+            Action::LibraryDelete => self.delete_selected_plasmid(),
+            Action::LibraryUndelete => self.undelete_plasmid(),
             Action::ToolTab => {
                 if self.overlay == Overlay::PrimerDesign {
                     self.design_kind = self.design_kind.next();
                     self.design_summary = None;
+                } else if self.overlay == Overlay::Constructor {
+                    self.ctor_tab = self.ctor_tab.next();
+                    self.ctor_summary = None;
+                    self.ctor_product = None;
                 }
             }
             Action::ToolEnter => match self.overlay {
                 Overlay::PrimerDesign => self.run_primer_design(),
                 Overlay::PrimerCheck => self.run_primer_check(),
                 Overlay::Enzymes => self.activate_selected_collection(),
+                Overlay::Constructor => self.run_constructor(),
+                Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
             Action::PrimerDesignSave => self.save_designed_primers(),
             Action::ToolInput(c) => {
-                if self.overlay == Overlay::PrimerCheck && !c.is_control() {
+                if matches!(self.overlay, Overlay::PrimerCheck | Overlay::Constructor)
+                    && !c.is_control()
+                {
                     self.tool_query.push(c);
                 }
             }
             Action::ToolBackspace => {
-                if self.overlay == Overlay::PrimerCheck {
+                if matches!(self.overlay, Overlay::PrimerCheck | Overlay::Constructor) {
                     self.tool_query.pop();
                 }
             }
@@ -295,6 +352,14 @@ impl AppState {
                     if n > 0 {
                         let cur = self.enzyme_selected as i32 + delta;
                         self.enzyme_selected = cur.rem_euclid(n as i32) as usize;
+                    }
+                } else if self.overlay == Overlay::Constructor {
+                    self.ctor_source = (self.ctor_source as i32 + delta).rem_euclid(4) as usize;
+                } else if self.overlay == Overlay::Parts {
+                    let n = self.parts.parts.len();
+                    if n > 0 {
+                        self.tool_selected =
+                            (self.tool_selected as i32 + delta).rem_euclid(n as i32) as usize;
                     }
                 }
             }
@@ -1066,6 +1131,434 @@ impl AppState {
                 self.toast = Some(format!("Export failed: {e}"));
             }
         }
+    }
+
+    fn persist_parts(&mut self) {
+        let Some(layout) = &self.layout else {
+            return;
+        };
+        if !splicecraft_persist::writes_authorized() {
+            return;
+        }
+        if let Err(e) = self.parts.persist(layout) {
+            self.toast = Some(format!("Parts bin save failed: {e}"));
+        }
+    }
+
+    fn active_grammar(&self) -> splicecraft_clone::Grammar {
+        self.grammars.get(&self.grammar_id).unwrap_or_else(gb_l0)
+    }
+
+    fn ctor_source_record(&self) -> Option<Record> {
+        match self.ctor_source {
+            1 => {
+                let rec = self.record.as_ref()?;
+                let i = self.selected_feat?;
+                let feat = rec.features.get(i)?;
+                let seq = extract_feature(rec, feat);
+                Some(Record::new(feat.label.clone(), seq, false))
+            }
+            2 => {
+                let entry = self.library.plasmids.get(self.selected_lib)?;
+                crate::io::gb_text_to_record(&entry.gb_text).ok()
+            }
+            3 => {
+                let Some(layout) = &self.layout else {
+                    return None;
+                };
+                let feats = splicecraft_persist::feature_library(layout);
+                let snip = feats.first()?;
+                Some(Record::new(snip.name.clone(), snip.sequence.clone(), false))
+            }
+            _ => self.record.clone(),
+        }
+    }
+
+    fn parse_enzyme_pair(&self) -> (String, String) {
+        let q = self.tool_query.trim();
+        let mut parts = q.split_whitespace().filter(|s| !s.is_empty());
+        let a = parts.next().unwrap_or("EcoRI").to_owned();
+        let b = parts.next().unwrap_or("BamHI").to_owned();
+        (a, b)
+    }
+
+    fn ctor_part_type(&self, grammar: &splicecraft_clone::Grammar) -> String {
+        let q = self.tool_query.trim();
+        if grammar.position_for_type(q).is_some() {
+            return q.to_owned();
+        }
+        grammar
+            .position_for_type("CDS")
+            .or_else(|| grammar.positions.first())
+            .map(|p| p.type_name.clone())
+            .unwrap_or_else(|| "CDS".into())
+    }
+
+    fn run_constructor(&mut self) {
+        match self.ctor_tab {
+            ConstructorTab::Traditional => self.run_traditional(),
+            ConstructorTab::Gibson => self.run_gibson(),
+            ConstructorTab::Domesticator => self.run_domesticator(),
+            ConstructorTab::Parts => self.run_assemble_parts(),
+            ConstructorTab::SynFrag => self.run_syn_frag(),
+        }
+    }
+
+    fn run_traditional(&mut self) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a plasmid first".into());
+            return;
+        };
+        let (e1, e2) = self.parse_enzyme_pair();
+        let names = [e1.as_str(), e2.as_str()];
+        match excise_fragment_pair(
+            &rec.sequence,
+            &names,
+            rec.circular,
+            &rec.features,
+            &rec.name,
+        ) {
+            Ok(frags) if frags.len() == 2 => {
+                let (insert, vector) = if frags[0].top_seq.len() <= frags[1].top_seq.len() {
+                    (&frags[0], &frags[1])
+                } else {
+                    (&frags[1], &frags[0])
+                };
+                let result = simulate_traditional_cloning(insert, vector);
+                let fwd = if result.forward.compatible {
+                    "ok"
+                } else {
+                    "no"
+                };
+                let rev = if result.reverse.compatible {
+                    "ok"
+                } else {
+                    "no"
+                };
+                self.ctor_summary = Some(format!(
+                    "Traditional {e1}/{e2}: fwd {fwd}  rev {rev}  ({} bp / {} bp)\n{}",
+                    result.forward.top_seq.len(),
+                    result.reverse.top_seq.len(),
+                    result
+                        .warnings
+                        .iter()
+                        .chain(result.errors.iter())
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                ));
+                let reverse = result.reverse.compatible && !result.forward.compatible;
+                if let Some(closed) = traditional_closed(insert, vector, reverse) {
+                    let hist = HistoryNode::new(
+                        if reverse { "ligateRev" } else { "ligateFwd" },
+                        format!("{}_clone", rec.name),
+                        closed.top_seq.len(),
+                        true,
+                        vec![rec.name.clone()],
+                        format!("{e1}/{e2}"),
+                    );
+                    self.ctor_product = Some(product_record(
+                        &format!("{}_clone", rec.name),
+                        &closed.top_seq,
+                        true,
+                        &closed.features,
+                        &hist,
+                    ));
+                    self.toast = Some("Traditional product ready — s to keep".into());
+                } else {
+                    self.ctor_product = None;
+                    self.toast = Some("Neither orientation ligates".into());
+                }
+            }
+            Ok(frags) => {
+                self.ctor_product = None;
+                self.ctor_summary = Some(format!(
+                    "Digest produced {} fragment(s) — need exactly 2.",
+                    frags.len()
+                ));
+                self.toast = Some("Need exactly two fragments".into());
+            }
+            Err(e) => {
+                self.ctor_product = None;
+                self.ctor_summary = Some(e.to_string());
+                self.toast = Some("Digest refused".into());
+            }
+        }
+    }
+
+    fn gibson_lane(&self) -> Vec<GibsonFragment> {
+        let mut lane = Vec::new();
+        if let Some(rec) = &self.record {
+            lane.push(GibsonFragment::from_record(rec));
+        }
+        if let Some(entry) = self.library.plasmids.get(self.selected_lib)
+            && let Ok(lib_rec) = crate::io::gb_text_to_record(&entry.gb_text)
+            && self.record.as_ref().is_none_or(|r| r.name != lib_rec.name)
+        {
+            lane.push(GibsonFragment::from_record(&lib_rec));
+        }
+        lane
+    }
+
+    fn run_gibson(&mut self) {
+        let lane = self.gibson_lane();
+        if lane.is_empty() {
+            self.toast = Some("Load a record (and optionally highlight a library plasmid)".into());
+            return;
+        }
+        let circular = lane.len() >= 2;
+        let r = simulate_gibson_assembly(&lane, 15, circular);
+        let wrap = r.overlaps.iter().filter(|o| o.is_wrap).count();
+        self.ctor_summary = Some(format!(
+            "Gibson: {}  {} bp  {} junctions ({} wrap)\n{}",
+            if r.success { "ok" } else { "failed" },
+            r.product_seq.len(),
+            r.overlaps.len(),
+            wrap,
+            r.errors
+                .iter()
+                .chain(r.warnings.iter())
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+        if r.success {
+            let hist = HistoryNode::new(
+                "gibson",
+                "gibson_product",
+                r.product_seq.len(),
+                r.circular,
+                lane.iter().map(|f| f.name.clone()).collect(),
+                format!("{} junctions", r.overlaps.len()),
+            );
+            self.ctor_product = Some(product_record(
+                "gibson_product",
+                &r.product_seq,
+                r.circular,
+                &r.features,
+                &hist,
+            ));
+            self.toast = Some("Gibson product ready — s to keep".into());
+        } else {
+            self.ctor_product = None;
+            self.toast = Some("Gibson failed — see overlay".into());
+        }
+    }
+
+    fn run_gibson_arms(&mut self) {
+        let mut lane = self.gibson_lane();
+        let circular = lane.len() >= 2;
+        match design_homology_arms(&mut lane, 15, circular) {
+            Ok((armed, already, skipped)) => {
+                self.ctor_summary = Some(format!(
+                    "Homology arms: added {armed}, {already} already overlapped, {} skipped",
+                    skipped.len()
+                ));
+                self.toast = Some("Arms designed — Enter to simulate".into());
+            }
+            Err(e) => {
+                self.toast = Some(e.to_string());
+            }
+        }
+    }
+
+    fn run_domesticator(&mut self) {
+        let Some(rec) = self.ctor_source_record() else {
+            self.toast = Some("No source in the 4-picker".into());
+            return;
+        };
+        let g = self.active_grammar();
+        let part_type = self.ctor_part_type(&g);
+        let end = rec.len();
+        match design_gb_primers(&rec.sequence, 0, end, &part_type, &g, 60.0, None) {
+            Ok(p) => {
+                self.ctor_summary = Some(format!(
+                    "Domesticator {part_type} ({})  pad+{}+spacer+{}/{}  amplicon {} bp",
+                    p.position, p.enzyme_site, p.oh5, p.oh3, p.amplicon_len
+                ));
+                self.design_fwd = Some(p.fwd_full);
+                self.design_rev = Some(p.rev_full);
+                self.toast = Some("Primers designed — s saves the pair".into());
+            }
+            Err(e) => {
+                self.ctor_summary = Some(e.to_string());
+                self.toast = Some("Domestication refused".into());
+            }
+        }
+    }
+
+    fn run_syn_frag(&mut self) {
+        let Some(rec) = self.ctor_source_record() else {
+            self.toast = Some("No source in the 4-picker".into());
+            return;
+        };
+        let g = self.active_grammar();
+        let part_type = self.ctor_part_type(&g);
+        let Some(pos) = g.position_for_type(&part_type) else {
+            self.toast = Some("Unknown part type".into());
+            return;
+        };
+        let built = splicecraft_clone::build_synthesis_l0_fragment(
+            &rec.sequence,
+            &pos.oh5,
+            &pos.oh3,
+            &g,
+            &part_type,
+            None,
+        );
+        let vec = stub_entry_vector(&g, &built.entry_oh5, &built.entry_oh3);
+        match l0_part_from_syn_fragment(&built.fragment, &vec, &g, &part_type, &rec.name, &[], &[])
+        {
+            Ok(part) => {
+                let hist = HistoryNode::new(
+                    "l0FromSynFrag",
+                    part.name.clone(),
+                    part.cloned_seq.len(),
+                    true,
+                    vec![rec.name.clone()],
+                    format!("{}/{}", part.oh5, part.oh3),
+                );
+                self.ctor_product = Some(product_record(
+                    &part.name,
+                    &part.cloned_seq,
+                    true,
+                    &part.cloned_features,
+                    &hist,
+                ));
+                if let Err(e) = self.parts.file(PartRecord::from_l0(&part)) {
+                    self.toast = Some(e.to_string());
+                    return;
+                }
+                self.persist_parts();
+                self.ctor_summary = Some(format!(
+                    "Filed {} ({}) {}/{}  {} bp body",
+                    part.name,
+                    part.type_name,
+                    part.oh5,
+                    part.oh3,
+                    part.sequence.len()
+                ));
+                self.toast = Some("Part filed — s keeps the cloned plasmid".into());
+            }
+            Err(e) => {
+                self.ctor_product = None;
+                self.ctor_summary = Some(e.to_string());
+                self.toast = Some("Syn-frag refused".into());
+            }
+        }
+    }
+
+    fn run_assemble_parts(&mut self) {
+        let g = self.active_grammar();
+        let mine: Vec<PartRecord> = self.parts.for_grammar(&g.id).into_iter().cloned().collect();
+        match assemble_parts(&mine, &g, None) {
+            Ok(r) => {
+                let hist = HistoryNode::new(
+                    "goldenGate",
+                    "gg_product",
+                    r.product_seq.len(),
+                    true,
+                    mine.iter().map(|p| p.name.clone()).collect(),
+                    g.enzyme.clone(),
+                );
+                self.ctor_product = Some(product_record(
+                    "gg_product",
+                    &r.product_seq,
+                    true,
+                    &[],
+                    &hist,
+                ));
+                self.ctor_summary = Some(format!(
+                    "Golden Gate {} parts → {} bp  {} residual sites",
+                    mine.len(),
+                    r.product_seq.len(),
+                    r.n_residual_sites
+                ));
+                self.toast = Some("Assembly ready — s to keep".into());
+            }
+            Err(e) => {
+                self.ctor_product = None;
+                self.ctor_summary = Some(e.to_string());
+                self.toast = Some("Assembly refused".into());
+            }
+        }
+    }
+
+    fn classify_into_parts_bin(&mut self) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a plasmid first".into());
+            return;
+        };
+        match classify_part_from_plasmid(&rec.sequence, rec.circular, &rec.features, &self.grammars)
+        {
+            Some(hit) => {
+                self.ctor_summary = Some(format!(
+                    "Classified as {} {} ({}) {}/{} via {}",
+                    hit.grammar_id,
+                    hit.position,
+                    hit.type_name,
+                    hit.oh5,
+                    hit.oh3,
+                    hit.release_enzyme
+                ));
+                self.toast = Some(format!("Classified: {} {}", hit.grammar_name, hit.position));
+            }
+            None => {
+                self.toast = Some("No grammar matched this digest".into());
+            }
+        }
+    }
+
+    fn save_constructor_product(&mut self) {
+        if self.ctor_tab == ConstructorTab::Domesticator {
+            self.save_designed_primers();
+            return;
+        }
+        let Some(rec) = self.ctor_product.clone() else {
+            self.toast = Some("No product to keep — Enter to simulate first".into());
+            return;
+        };
+        let entry = match crate::io::record_to_library_entry(&rec) {
+            Ok(e) => e,
+            Err(e) => {
+                self.toast = Some(format!("Keep failed: {e}"));
+                return;
+            }
+        };
+        self.apply_keep(entry, None);
+    }
+
+    fn delete_selected_plasmid(&mut self) {
+        if self.library.plasmids.is_empty() {
+            self.toast = Some("Library is empty".into());
+            return;
+        }
+        let idx = self.selected_lib.min(self.library.plasmids.len() - 1);
+        let Some(entry) = self.library.remove_at(idx) else {
+            return;
+        };
+        let name = entry.name.clone();
+        self.deleted_stack.push((idx, entry));
+        if self.deleted_stack.len() > 20 {
+            self.deleted_stack.remove(0);
+        }
+        self.clamp_lib_selection();
+        self.persist_library();
+        self.toast = Some(format!(
+            "Deleted {name} — palette: Undo last library delete"
+        ));
+    }
+
+    fn undelete_plasmid(&mut self) {
+        let Some((idx, entry)) = self.deleted_stack.pop() else {
+            self.toast = Some("Nothing to undelete".into());
+            return;
+        };
+        let name = entry.name.clone();
+        self.library.restore_at(idx, entry);
+        self.clamp_lib_selection();
+        self.persist_library();
+        self.toast = Some(format!("Restored {name}"));
     }
 }
 

@@ -25,6 +25,8 @@ pub const ENZYME_COLLECTIONS_FILE_NAME: &str = "enzyme_collections.json";
 pub const CUSTOM_ENZYMES_FILE_NAME: &str = "custom_enzymes.json";
 /// Active enzyme-collection pointer (`[{name}]` or empty).
 pub const ENZYME_ACTIVE_FILE_NAME: &str = "enzyme_active.json";
+/// User-defined cloning grammars (built-ins live in `splicecraft-clone`).
+pub const GRAMMARS_FILE_NAME: &str = "grammars.json";
 /// App preferences (dict-shaped; still saved through the JSON chokepoint later).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// Debounced `.gb` crash-recovery snapshots.
@@ -107,6 +109,12 @@ impl DataLayout {
     #[must_use]
     pub fn enzyme_active_file(&self) -> PathBuf {
         self.root.join(ENZYME_ACTIVE_FILE_NAME)
+    }
+
+    /// User-defined cloning grammars JSON.
+    #[must_use]
+    pub fn grammars_file(&self) -> PathBuf {
+        self.root.join(GRAMMARS_FILE_NAME)
     }
 
     /// Settings JSON.

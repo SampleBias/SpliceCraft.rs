@@ -1,6 +1,6 @@
-//! Ratatui workbench: map, sequence editor, help, palette.
+//! Ratatui workbench: map, sequence editor, help, palette, cloning tools.
 //!
-//! Stage 06. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 08. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -22,7 +22,9 @@ mod keys;
 mod render;
 mod state;
 
-pub use action::{Action, CollisionChoice, DesignKind, FocusMode, Overlay, Pane, PathKind};
+pub use action::{
+    Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, Overlay, Pane, PathKind,
+};
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
 pub use editor::{UNDO_LIMIT, UndoStack};
@@ -37,8 +39,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (enzymes + primers).
-pub const IMPLEMENTATION_STAGE: u8 = 7;
+/// Stage this crate currently satisfies (cloning workbench).
+pub const IMPLEMENTATION_STAGE: u8 = 8;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -189,7 +191,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 07") || text.contains("stage 7"),
+            text.contains("stage 08") || text.contains("stage 8"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -569,11 +571,47 @@ mod tests {
         assert!(titles.contains(&"Primer design"), "{titles:?}");
         assert!(titles.contains(&"Primer check"), "{titles:?}");
         assert!(titles.contains(&"Enzyme collections"), "{titles:?}");
+        assert!(titles.contains(&"Constructor"), "{titles:?}");
+        assert!(titles.contains(&"Parts Bin"), "{titles:?}");
         let cmd = state
             .visible_commands()
             .into_iter()
             .find(|c| c.title == "Primer design")
             .expect("primer design");
         assert_eq!(cmd.action, Action::OpenPrimerDesign);
+        let ctor = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Constructor")
+            .expect("constructor");
+        assert_eq!(ctor.action, Action::OpenConstructor);
+    }
+
+    #[test]
+    fn constructor_overlay_opens_and_cycles_tabs() {
+        let mut state = AppState::new();
+        assert!(state.reduce(Action::OpenConstructor));
+        assert_eq!(state.overlay, Overlay::Constructor);
+        let text = draw_text(80, 24, &state);
+        assert!(
+            text.to_ascii_lowercase().contains("constructor"),
+            "constructor overlay missing: {text}"
+        );
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.ctor_tab, ConstructorTab::Gibson);
+    }
+
+    #[test]
+    fn library_delete_is_session_undoable() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        state.reduce(Action::KeepRecord);
+        assert_eq!(state.library.plasmids.len(), 1);
+        assert!(state.reduce(Action::LibraryDelete));
+        assert!(state.library.plasmids.is_empty());
+        assert_eq!(state.deleted_stack.len(), 1);
+        assert!(state.reduce(Action::LibraryUndelete));
+        assert_eq!(state.library.plasmids.len(), 1);
+        assert_eq!(state.library.plasmids[0].name, "pDemo");
     }
 }

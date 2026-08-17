@@ -54,6 +54,8 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::PrimerDesign => draw_primer_design(frame, area, state),
         Overlay::PrimerCheck => draw_primer_check(frame, area, state),
         Overlay::Enzymes => draw_enzymes(frame, area, state),
+        Overlay::Constructor => draw_constructor(frame, area, state),
+        Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
 }
@@ -459,6 +461,87 @@ fn draw_enzymes(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     )));
     let block = Block::default()
         .title(" Enzymes ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_constructor(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 70, 18);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Constructor — {}", state.ctor_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab cycle · Enter run · s save product · a Gibson arms · Esc close"),
+        Line::from(format!(
+            "  source {}/4  ·  grammar {}  ·  {}",
+            state.ctor_source + 1,
+            state.grammar_id,
+            if state.tool_query.is_empty() {
+                "EcoRI BamHI"
+            } else {
+                &state.tool_query
+            }
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.ctor_summary {
+        for row in summary.lines().take(10) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    } else {
+        lines.push(Line::from(
+            "  Traditional: digest the loaded plasmid with two enzymes.",
+        ));
+        lines.push(Line::from(
+            "  Gibson: current record + highlighted library plasmid.",
+        ));
+        lines.push(Line::from(
+            "  Domesticator / syn-frag: 4-source picker (↑↓) + part type.",
+        ));
+    }
+    let block = Block::default()
+        .title(" Constructor ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_parts(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 64, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            "Parts Bin",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Enter classify loaded plasmid · Esc close"),
+        Line::from(""),
+    ];
+    if state.parts.parts.is_empty() {
+        lines.push(Line::from(
+            "  (empty — file a syn-frag or classify a digest)",
+        ));
+    } else {
+        for (i, p) in state.parts.parts.iter().enumerate().take(8) {
+            let mark = if i == state.tool_selected { ">" } else { " " };
+            lines.push(Line::from(format!(
+                " {mark} {}  {}  {}/{}  {} bp",
+                p.name,
+                p.type_name,
+                p.oh5,
+                p.oh3,
+                p.sequence.len()
+            )));
+        }
+    }
+    let block = Block::default()
+        .title(" Parts ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);

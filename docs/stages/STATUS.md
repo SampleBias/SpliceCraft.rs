@@ -11,7 +11,7 @@ check a box early.
 - [x] 05 Map + sequence editor
 - [x] 06 Library
 - [x] 07 Enzymes + primers
-- [ ] 08 Cloning workbench
+- [x] 08 Cloning workbench
 - [ ] 09 Mutato + codon + synthesis
 - [ ] 10 Simulator + gels
 - [ ] 11 Sequencing
@@ -21,7 +21,11 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 08 (`docs/stages/08-cloning.md`).
+**Next:** stage 09 (`docs/stages/09-mutato-codon-synthesis.md`).
+
+Stage 08 notes: codon silent-repair of internal Type IIS sites is deferred
+to stage 09 (domesticator fail-closes). Sticky-cut visualization remains
+deferred from stage 05.
 
 Stage 05 notes: sticky-cut visualization (upstream/downstream tint on a
 clicked Type IIS site) is deferred. Restriction overlay draws labeled

@@ -43,6 +43,18 @@ pub enum Action {
     OpenPrimerCheck,
     /// Open enzyme collections.
     OpenEnzymes,
+    /// Open the cloning Constructor (Traditional / Gibson / Domesticator / Syn-frag).
+    OpenConstructor,
+    /// Open the Parts Bin.
+    OpenParts,
+    /// Save the last constructor product into the library.
+    ConstructorSave,
+    /// Append a 5′ Gibson homology arm (idempotent).
+    ConstructorDesignArms,
+    /// Delete the highlighted library plasmid (session-undoable).
+    LibraryDelete,
+    /// Restore the last session library delete.
+    LibraryUndelete,
     /// Cycle designer kind (generic / cloning / detection / GB).
     ToolTab,
     /// Confirm the current tool overlay (design / check / activate).
@@ -140,6 +152,10 @@ pub enum Overlay {
     PrimerCheck,
     /// Enzyme collections + custom catalog.
     Enzymes,
+    /// Cloning workbench tabs.
+    Constructor,
+    /// Parts Bin.
+    Parts,
 }
 
 /// Which designer the primer overlay will run.
@@ -154,6 +170,48 @@ pub enum DesignKind {
     Detection,
     /// BsaI / BsaI Golden Braid tails.
     GoldenBraid,
+}
+
+/// Constructor overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ConstructorTab {
+    /// Two-enzyme directional ligation.
+    #[default]
+    Traditional,
+    /// N-fragment Gibson.
+    Gibson,
+    /// Type IIS domestication primers.
+    Domesticator,
+    /// Classify / list the parts bin.
+    Parts,
+    /// New part from a synthetic fragment.
+    SynFrag,
+}
+
+impl ConstructorTab {
+    /// Next tab in the cycle.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Traditional => Self::Gibson,
+            Self::Gibson => Self::Domesticator,
+            Self::Domesticator => Self::Parts,
+            Self::Parts => Self::SynFrag,
+            Self::SynFrag => Self::Traditional,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Traditional => "traditional",
+            Self::Gibson => "gibson",
+            Self::Domesticator => "domesticator",
+            Self::Parts => "parts",
+            Self::SynFrag => "syn-frag",
+        }
+    }
 }
 
 impl DesignKind {

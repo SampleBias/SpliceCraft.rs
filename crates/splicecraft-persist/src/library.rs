@@ -246,6 +246,24 @@ impl LibraryStore {
         }
     }
 
+    /// Remove the plasmid at `index` (session undo lives in the TUI).
+    pub fn remove_at(&mut self, index: usize) -> Option<LibraryEntry> {
+        if index >= self.plasmids.len() {
+            return None;
+        }
+        let entry = self.plasmids.remove(index);
+        self.sync_active_plasmids();
+        Some(entry)
+    }
+
+    /// Put a previously removed plasmid back (does not re-sort until persist).
+    pub fn restore_at(&mut self, index: usize, entry: LibraryEntry) {
+        let i = index.min(self.plasmids.len());
+        self.plasmids.insert(i, entry);
+        self.sort_plasmids();
+        self.sync_active_plasmids();
+    }
+
     /// Natural-sort the live list (`pBin2` before `pBin10`).
     pub fn sort_plasmids(&mut self) {
         sort_entries_natural(&mut self.plasmids);
@@ -474,6 +492,19 @@ mod tests {
                 .any(|c| c.name == DEFAULT_COLLECTION_NAME
                     && c.plasmids.iter().any(|e| e.name == "pKeep"))
         );
+    }
+
+    #[test]
+    fn remove_at_then_restore_at_round_trips() {
+        let mut store = LibraryStore::new();
+        store.keep(entry("pA", "LOCUS pA"), None);
+        store.keep(entry("pB", "LOCUS pB"), None);
+        let idx = store.plasmids.iter().position(|e| e.name == "pA").unwrap();
+        let removed = store.remove_at(idx).expect("pA");
+        assert_eq!(removed.name, "pA");
+        assert!(!store.plasmids.iter().any(|e| e.name == "pA"));
+        store.restore_at(idx, removed);
+        assert!(store.plasmids.iter().any(|e| e.name == "pA"));
     }
 
     #[test]

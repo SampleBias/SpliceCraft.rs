@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**08 — Cloning workbench** is next.
+**09 — Mutato + codon + synthesis** is next.
 
-Stages 00–07 are done.
+Stages 00–08 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 
