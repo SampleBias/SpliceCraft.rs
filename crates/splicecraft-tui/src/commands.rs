@@ -152,6 +152,11 @@ pub fn palette_commands() -> &'static [Command] {
             keywords: "pcr gel agarose mobility",
             action: Action::OpenSimulator,
         },
+        Command {
+            title: "Sequencing",
+            keywords: "plasmidsaurus zip align ab1 sanger verify identity",
+            action: Action::OpenSequencing,
+        },
     ]
 }
 

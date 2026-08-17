@@ -14,14 +14,20 @@ check a box early.
 - [x] 08 Cloning workbench
 - [x] 09 Mutato + codon + synthesis
 - [x] 10 Simulator + gels
-- [ ] 11 Sequencing
+- [x] 11 Sequencing
 - [ ] 12 Experiments + History UI
 - [ ] 13 Search
 - [ ] 14 Agent API + CLI
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 11 (`docs/stages/11-sequencing.md`).
+**Next:** stage 12 (`docs/stages/12-experiments-history.md`).
+
+Stage 11 notes: honest identity display (99.6% never becomes 100%). Zip
+members with `../` are refused. Plasmidsaurus zip/API ingest tags
+`plasmidsaurus:` and never overwrites library rows. Linear-map overlay
+plus `j` jump-to-variant. Sticky-cut visualization remains deferred from
+stage 05.
 
 Stage 10 notes: Helling–Goodman–Boyer mobility with form factors
 (supercoiled 0.7× / nicked 1.4×). Gels persist as `gels.json` through

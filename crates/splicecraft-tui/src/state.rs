@@ -15,8 +15,8 @@ use splicecraft_gels::{
     append_pcr_gel_lane, render_gel_image, simulate_pcr, snapshot_gel,
 };
 use splicecraft_persist::{
-    CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet, KeepOutcome,
-    LibraryEntry, LibraryStore,
+    AlignmentBadge, CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet,
+    KeepOutcome, LibraryEntry, LibraryStore,
 };
 use splicecraft_primer::{
     PrimerRecord, PrimerStatus, PrimerStore, design_cloning_primers, design_detection_primers,
@@ -27,7 +27,7 @@ use splicecraft_primer::{
 
 use crate::action::{
     Action, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane, PathKind,
-    SimulatorTab, SynthTab,
+    SequencingTab, SimulatorTab, SynthTab,
 };
 use crate::commands::{Command, filter_commands};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
@@ -157,6 +157,20 @@ pub struct AppState {
     pub sim_gel_demo: bool,
     /// Saved gel snapshots.
     pub gels: GelStore,
+    /// Sequencing overlay tab.
+    pub seq_tab: SequencingTab,
+    /// Zip / AB1 / folder path box.
+    pub seq_query: String,
+    /// Last sequencing summary (no DNA).
+    pub seq_summary: Option<String>,
+    /// Alignment overlay segments in target coordinates.
+    pub seq_segments: Vec<(usize, usize, splicecraft_io::AlignState)>,
+    /// Variants for jump-to-sequence.
+    pub seq_variants: Vec<splicecraft_io::AlignVariant>,
+    /// Highlighted variant.
+    pub seq_variant_idx: usize,
+    /// Zip samples listed.
+    pub seq_zip_n: usize,
 }
 
 /// Collision modal payload.
@@ -240,6 +254,13 @@ impl AppState {
             sim_gel_image: None,
             sim_gel_demo: true,
             gels: GelStore::new(),
+            seq_tab: SequencingTab::Zip,
+            seq_query: String::new(),
+            seq_summary: None,
+            seq_segments: Vec::new(),
+            seq_variants: Vec::new(),
+            seq_variant_idx: 0,
+            seq_zip_n: 0,
         }
     }
 
@@ -391,6 +412,12 @@ impl AppState {
                     self.seed_demo_gel();
                 }
             }
+            Action::OpenSequencing => {
+                self.overlay = Overlay::Sequencing;
+                self.seq_summary = None;
+                self.toast = None;
+            }
+            Action::SequencingJump => self.jump_to_variant(),
             Action::ConstructorSave => self.save_constructor_product(),
             Action::SimulatorSave => self.save_simulator(),
             Action::SimulatorSendToGel => self.send_pcr_to_gel(),
@@ -414,6 +441,9 @@ impl AppState {
                 } else if self.overlay == Overlay::Simulator {
                     self.sim_tab = self.sim_tab.next();
                     self.sim_summary = None;
+                } else if self.overlay == Overlay::Sequencing {
+                    self.seq_tab = self.seq_tab.next();
+                    self.seq_summary = None;
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -424,6 +454,7 @@ impl AppState {
                 Overlay::Mutato => self.run_mutato(),
                 Overlay::Synthesis => self.run_synthesis(),
                 Overlay::Simulator => self.run_simulator(),
+                Overlay::Sequencing => self.run_sequencing(),
                 Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
@@ -436,12 +467,15 @@ impl AppState {
                         | Overlay::Mutato
                         | Overlay::Synthesis
                         | Overlay::Simulator
+                        | Overlay::Sequencing
                 ) && !c.is_control()
                 {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.push(c);
                     } else if self.overlay == Overlay::Simulator {
                         self.sim_query.push(c);
+                    } else if self.overlay == Overlay::Sequencing {
+                        self.seq_query.push(c);
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
@@ -461,11 +495,14 @@ impl AppState {
                         | Overlay::Mutato
                         | Overlay::Synthesis
                         | Overlay::Simulator
+                        | Overlay::Sequencing
                 ) {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.pop();
                     } else if self.overlay == Overlay::Simulator {
                         self.sim_query.pop();
+                    } else if self.overlay == Overlay::Sequencing {
+                        self.seq_query.pop();
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => {
@@ -543,6 +580,12 @@ impl AppState {
                             .unwrap_or(3);
                         let next = (cur as i32 + delta).rem_euclid(choices.len() as i32) as usize;
                         self.sim_agarose = choices[next].0;
+                    }
+                } else if self.overlay == Overlay::Sequencing {
+                    let n = self.seq_variants.len();
+                    if n > 0 {
+                        self.seq_variant_idx =
+                            (self.seq_variant_idx as i32 + delta).rem_euclid(n as i32) as usize;
                     }
                 }
             }
@@ -1267,6 +1310,12 @@ impl AppState {
             },
             PathKind::BulkImport => self.bulk_import(&path),
             PathKind::BulkExport => self.bulk_export(&path),
+            PathKind::BulkAlign => {
+                self.seq_query = path.display().to_string();
+                self.seq_tab = SequencingTab::Report;
+                self.overlay = Overlay::Sequencing;
+                self.run_sequencing();
+            }
         }
     }
 
@@ -2118,6 +2167,258 @@ impl AppState {
             Ok(()) => {}
             Err(e) => self.toast = Some(format!("Gel save failed: {e}")),
         }
+    }
+
+    fn run_sequencing(&mut self) {
+        match self.seq_tab {
+            SequencingTab::Zip => self.run_seq_zip(),
+            SequencingTab::Align => self.run_seq_align(),
+            SequencingTab::Sanger => self.run_seq_sanger(),
+            SequencingTab::Report => self.run_seq_report(),
+        }
+    }
+
+    fn jump_to_variant(&mut self) {
+        let Some(v) = self.seq_variants.get(self.seq_variant_idx).cloned() else {
+            self.toast = Some("No alignment variants to jump".into());
+            return;
+        };
+        let max = self.record.as_ref().map(|r| r.len()).unwrap_or(0);
+        self.cursor = if max == 0 {
+            v.target_pos
+        } else {
+            v.target_pos.min(max.saturating_sub(1))
+        };
+        self.focus = Pane::Sequence;
+        self.toast = Some(format!("Jumped to {} @{}", v.kind, self.cursor));
+    }
+
+    fn seq_path(&self) -> Option<std::path::PathBuf> {
+        let raw = self.seq_query.trim();
+        if raw.is_empty() {
+            return None;
+        }
+        splicecraft_persist::util::sanitize_path(raw)
+    }
+
+    fn seq_query_dna(&self) -> Result<(String, String), String> {
+        let raw = self.seq_query.trim();
+        if raw.is_empty() {
+            return Err("Type a read sequence or file path".into());
+        }
+        if let Some(path) = splicecraft_persist::util::sanitize_path(raw)
+            && path.is_file()
+        {
+            let rec = crate::io::load_path(&path).map_err(|e| e.to_string())?;
+            let label = rec.name.clone();
+            return Ok((rec.sequence, label));
+        }
+        Ok((raw.to_ascii_uppercase(), "read".into()))
+    }
+
+    fn run_seq_zip(&mut self) {
+        let Some(path) = self.seq_path() else {
+            self.toast = Some("Type a Plasmidsaurus zip path".into());
+            return;
+        };
+        match crate::io::parse_plasmidsaurus_zip(&path) {
+            Ok(zip) => {
+                self.seq_zip_n = zip.samples.len();
+                match crate::io::plasmidsaurus_zip_to_entries(&path, &zip.run_id) {
+                    Ok((entries, warnings)) => {
+                        let mut imported = 0usize;
+                        for entry in entries {
+                            if matches!(
+                                self.library.import_without_overwrite(entry),
+                                KeepOutcome::Applied { .. }
+                            ) {
+                                imported += 1;
+                            }
+                        }
+                        self.clamp_lib_selection();
+                        if imported > 0 {
+                            self.persist_library();
+                        }
+                        let warn = if warnings.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" · {} warning(s)", warnings.len())
+                        };
+                        self.seq_summary = Some(format!(
+                            "run {} · {} sample(s) · {imported} imported (never overwrite){warn}",
+                            zip.run_id, self.seq_zip_n
+                        ));
+                        self.toast = Some(format!("Zip: {} sample(s)", self.seq_zip_n));
+                        if self.record.is_none()
+                            && let Ok(rec) = crate::io::first_gbk_record_from_zip(&path)
+                        {
+                            self.source_label = rec.name.clone();
+                            self.record = Some(rec);
+                            self.cursor = 0;
+                            self.undo = UndoStack::new();
+                            self.dirty = false;
+                        }
+                    }
+                    Err(e) => {
+                        self.seq_summary = Some(e.to_string());
+                        self.toast = Some("Zip import failed".into());
+                    }
+                }
+            }
+            Err(e) => {
+                self.seq_summary = Some(e.to_string());
+                self.toast = Some("Zip refused".into());
+            }
+        }
+    }
+
+    fn run_seq_align(&mut self) {
+        match self.seq_query_dna() {
+            Ok((query, label)) => self.apply_alignment(&query, &label),
+            Err(e) => {
+                self.toast = Some(e);
+            }
+        }
+    }
+
+    fn apply_alignment(&mut self, query: &str, label: &str) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a plasmid first".into());
+            return;
+        };
+        match crate::io::pairwise_align(query, &rec.sequence, crate::io::AlignMode::Global) {
+            Ok(result) => {
+                let segs = crate::io::alignment_to_target_segments(
+                    &result.aligned_q,
+                    &result.aligned_t,
+                    0,
+                )
+                .unwrap_or_default();
+                let vars = crate::io::extract_variants_from_alignment(
+                    &result.aligned_q,
+                    &result.aligned_t,
+                );
+                let status = crate::io::alignment_quality_status(&result, rec.len());
+                let ident = crate::io::format_identity_pct(Some(result.identity_pct), 1);
+                self.seq_segments = segs;
+                self.seq_variants = vars;
+                self.seq_variant_idx = 0;
+                self.map_circular = false;
+                self.seq_summary = Some(format!(
+                    "{ident}  {}  {} mismatch(es)  {} indel(s)  {} variant(s)  j jump",
+                    status.code(),
+                    result.n_mismatches,
+                    crate::io::alignment_indel_events(&result),
+                    self.seq_variants.len()
+                ));
+                let badge = crate::io::badge_from_result(label, &result, rec.len());
+                self.attach_alignment_badges(&rec.name, vec![badge]);
+                self.toast = Some(format!("Aligned {ident}"));
+            }
+            Err(e) => {
+                self.seq_segments.clear();
+                self.seq_variants.clear();
+                self.seq_summary = Some(e.to_string());
+                self.toast = Some("Align refused".into());
+            }
+        }
+    }
+
+    fn attach_alignment_badges(&mut self, rec_name: &str, badges: Vec<AlignmentBadge>) {
+        if badges.is_empty() {
+            return;
+        }
+        let Some(entry) = self
+            .library
+            .plasmids
+            .iter_mut()
+            .find(|e| e.name == rec_name)
+        else {
+            return;
+        };
+        for badge in badges {
+            if let Some(existing) = entry.alignments.iter_mut().find(|b| b.label == badge.label) {
+                *existing = badge;
+            } else {
+                entry.alignments.push(badge);
+            }
+        }
+        self.persist_library();
+    }
+
+    fn run_seq_sanger(&mut self) {
+        let Some(path) = self.seq_path() else {
+            self.toast = Some("Type an AB1 path".into());
+            return;
+        };
+        match crate::io::load_ab1(&path) {
+            Ok(tr) => {
+                let phred = tr
+                    .mean_phred()
+                    .map(|p| format!("{p:.1}"))
+                    .unwrap_or_else(|| "—".into());
+                let n = tr.sequence.len();
+                if self.record.is_some() {
+                    let seq = tr.sequence.clone();
+                    let label = tr.name.clone();
+                    self.apply_alignment(&seq, &label);
+                    if let Some(summary) = &mut self.seq_summary {
+                        *summary = format!("{}  {n} bp  mean Phred {phred}  ·  {summary}", tr.name);
+                    } else {
+                        self.seq_summary = Some(format!("{}  {n} bp  mean Phred {phred}", tr.name));
+                    }
+                } else {
+                    let rec = tr.to_record();
+                    self.source_label = rec.name.clone();
+                    self.record = Some(rec);
+                    self.cursor = 0;
+                    self.undo = UndoStack::new();
+                    self.dirty = false;
+                    self.map_circular = false;
+                    self.seq_summary = Some(format!("{}  {n} bp  mean Phred {phred}", tr.name));
+                    self.toast = Some("Loaded AB1 (linear)".into());
+                }
+            }
+            Err(e) => {
+                self.seq_summary = Some(e.to_string());
+                self.toast = Some("AB1 refused".into());
+            }
+        }
+    }
+
+    fn run_seq_report(&mut self) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a plasmid first".into());
+            return;
+        };
+        let Some(path) = self.seq_path() else {
+            self.toast = Some("Type a folder of reads".into());
+            return;
+        };
+        let mut rows = crate::io::bulk_align_folder(&path, &rec.sequence, rec.circular);
+        rows.sort_by_key(|row| match &row.result {
+            Some(res) => crate::io::alignment_quality_status(res, rec.len()).report_priority(),
+            None => 0,
+        });
+        let mut lines = Vec::new();
+        let mut badges = Vec::new();
+        for row in rows.iter().take(12) {
+            if let Some(res) = &row.result {
+                let st = crate::io::alignment_quality_status(res, rec.len());
+                let ident = crate::io::format_identity_pct(Some(res.identity_pct), 1);
+                lines.push(format!("{}  {}  {ident}", row.label, st.code()));
+                badges.push(crate::io::badge_from_result(&row.label, res, rec.len()));
+            } else {
+                lines.push(format!(
+                    "{}  error  {}",
+                    row.label,
+                    row.error.as_deref().unwrap_or("failed")
+                ));
+            }
+        }
+        self.attach_alignment_badges(&rec.name, badges);
+        self.seq_summary = Some(format!("{} file(s)\n{}", rows.len(), lines.join("\n")));
+        self.toast = Some(format!("Report: {} file(s)", rows.len()));
     }
 }
 

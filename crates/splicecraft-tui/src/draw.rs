@@ -58,6 +58,7 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Mutato => draw_mutato(frame, area, state),
         Overlay::Synthesis => draw_synthesis(frame, area, state),
         Overlay::Simulator => draw_simulator(frame, area, state),
+        Overlay::Sequencing => draw_sequencing(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
@@ -175,6 +176,7 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
                     min_recognition_len: if state.restr_min_six { 6 } else { 4 },
                     allowed_enzymes: state.enzymes.allowed_enzymes(),
                     extra_enzymes: state.custom_for_scan(),
+                    align_segments: state.seq_segments.clone(),
                 },
             )
             .join("\n"),
@@ -206,7 +208,10 @@ fn library_pane(state: &AppState) -> String {
     } else {
         for (i, e) in state.library.plasmids.iter().enumerate() {
             let mark = if state.selected_lib == i { ">" } else { " " };
-            lines.push(format!("{mark} {}  {} bp", e.name, e.size));
+            let seq = crate::io::library_entry_alignment_summary(&e.alignments)
+                .map(|s| format!("  {}", s.glyph()))
+                .unwrap_or_default();
+            lines.push(format!("{mark} {}  {} bp{seq}", e.name, e.size));
         }
     }
     lines.join("\n")
@@ -355,6 +360,7 @@ fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
         PathKind::OpenFile => "Open file",
         PathKind::BulkImport => "Bulk import folder",
         PathKind::BulkExport => "Bulk export folder",
+        PathKind::BulkAlign => "Bulk-align folder",
     };
     let lines = vec![
         Line::from(Span::styled(
@@ -641,6 +647,80 @@ fn draw_simulator(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" Simulator ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_sequencing(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 72, 18);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Sequencing — {}", state.seq_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab zip/align/Sanger/report · Enter run · j jump variant · Esc close"),
+        Line::from(format!(
+            "  {}  ·  {} variant(s)",
+            if state.seq_query.is_empty() {
+                match state.seq_tab {
+                    crate::action::SequencingTab::Zip => "(zip path)",
+                    crate::action::SequencingTab::Align => "(read DNA or path)",
+                    crate::action::SequencingTab::Sanger => "(AB1 path)",
+                    crate::action::SequencingTab::Report => "(reads folder)",
+                }
+            } else {
+                &state.seq_query
+            },
+            state.seq_variants.len()
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.seq_summary {
+        for row in summary.lines().take(10) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    } else {
+        match state.seq_tab {
+            crate::action::SequencingTab::Zip => {
+                lines.push(Line::from(
+                    "  Import a Plasmidsaurus zip. Tagged plasmidsaurus:run:sample; never clobbers.",
+                ));
+            }
+            crate::action::SequencingTab::Align => {
+                lines.push(Line::from(
+                    "  Pairwise overlay vs the loaded plasmid. Identity <100 never shows as 100%.",
+                ));
+            }
+            crate::action::SequencingTab::Sanger => {
+                lines.push(Line::from(
+                    "  Load an AB1/ABIF trace (Phred). Aligns against the loaded plasmid if any.",
+                ));
+            }
+            crate::action::SequencingTab::Report => {
+                lines.push(Line::from(
+                    "  Bulk-align a folder of reads. Grades: verified / near / partial / divergent.",
+                ));
+            }
+        }
+    }
+    if !state.seq_variants.is_empty() {
+        let idx = state.seq_variant_idx.min(state.seq_variants.len() - 1);
+        let v = &state.seq_variants[idx];
+        lines.push(Line::from(format!(
+            "  variant {}/{}  {} @{}",
+            idx + 1,
+            state.seq_variants.len(),
+            v.kind,
+            v.target_pos
+        )));
+    }
+    let block = Block::default()
+        .title(" Sequencing ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(

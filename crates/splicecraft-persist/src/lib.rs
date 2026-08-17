@@ -45,8 +45,8 @@ pub use enzymes::{CustomEnzymeRecord, EnzymeCollection, EnzymeStore};
 pub use error::PersistError;
 pub use event::{format_event, log_event};
 pub use library::{
-    Collection, CollisionChoice, CollisionClass, DEFAULT_COLLECTION_NAME, FeatureSnippet,
-    KeepOutcome, LibraryEntry, LibraryStore, classify_entry, classify_name_content,
+    AlignmentBadge, Collection, CollisionChoice, CollisionClass, DEFAULT_COLLECTION_NAME,
+    FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore, classify_entry, classify_name_content,
     feature_library, sort_entries_natural, unique_copy_name, unique_export_stem, upsert_feature,
 };
 pub use load::safe_load_json;

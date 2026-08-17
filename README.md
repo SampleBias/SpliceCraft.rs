@@ -6,9 +6,10 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–08 done (workspace, sacred biology, persist, file I/O,
+**Status:** stages 00–11 done (workspace, sacred biology, persist, file I/O,
 Ratatui chrome, map + sequence editor, plasmid library, enzymes + primers,
-cloning workbench). Later agents implement stages 09–16 until parity.
+cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing).
+Later agents implement stages 12–16 until parity.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start
@@ -41,7 +42,7 @@ Requires Rust 1.88+ (Ratatui 0.30).
 | `splicecraft-util` | Helpers, time source, sanitizers |
 | `splicecraft-bio` | IUPAC, reverse-complement, restriction scan, translate |
 | `splicecraft-persist` | Atomic JSON, backups, write chokepoint |
-| `splicecraft-io` | GenBank / FASTA / GFF / NCBI / later `.dna` |
+| `splicecraft-io` | GenBank / FASTA / GFF / NCBI / sequencing / `.dna` |
 | `splicecraft-codon` | Codon tables, optimize, forbidden-site scrub |
 | `splicecraft-primer` | Primer design (MIT path; no GPL `primer3` crate) |
 | `splicecraft-clone` | Traditional / Gibson / Golden Braid / MoClo |

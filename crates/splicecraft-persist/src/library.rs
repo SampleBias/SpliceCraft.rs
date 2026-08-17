@@ -30,6 +30,34 @@ pub struct LibraryEntry {
     /// GenBank text. Empty is allowed for fixture-only tests.
     #[serde(default)]
     pub gb_text: String,
+    /// Provenance stamp (`plasmidsaurus:<run>:<sample>`). Never logged as sequence.
+    #[serde(default)]
+    pub source: String,
+    /// Compact sequencing badges (no aligned strings — those stay in the TUI session).
+    #[serde(default)]
+    pub alignments: Vec<AlignmentBadge>,
+}
+
+/// Library-column sequencing status. Counts only; no DNA payload.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AlignmentBadge {
+    /// Read / zip-member label.
+    #[serde(default)]
+    pub label: String,
+    /// `verified` / `near` / `partial` / `divergent`.
+    #[serde(default)]
+    pub status: String,
+    /// Honest identity display (`99.6%`, never a false `100%`).
+    #[serde(default)]
+    pub identity: String,
+    /// Mismatched columns.
+    #[serde(default)]
+    pub n_mismatches: i64,
+    /// Indel events (gap runs), not gapped bp.
+    #[serde(default)]
+    pub n_indels: i64,
+    /// First variant in target coordinates, for jump-to-sequence.
+    pub first_variant_bp: Option<usize>,
 }
 
 /// A named plasmid collection.
@@ -243,6 +271,18 @@ impl LibraryStore {
                     KeepOutcome::Applied { name: entry.name }
                 }
             },
+        }
+    }
+
+    /// Plasmidsaurus / sequencing import: never clobber an existing row.
+    ///
+    /// Name collisions become a unique copy (`COPY` suffix). Exact sequence
+    /// copies are skipped. The `source` stamp (`plasmidsaurus:…`) is left intact.
+    pub fn import_without_overwrite(&mut self, entry: LibraryEntry) -> KeepOutcome {
+        match classify_entry(&entry, &self.plasmids) {
+            CollisionClass::ExactCopy => KeepOutcome::Applied { name: entry.name },
+            CollisionClass::New => self.keep(entry, None),
+            CollisionClass::NameClash => self.keep(entry, Some(CollisionChoice::Copy)),
         }
     }
 
@@ -468,6 +508,8 @@ mod tests {
             name: name.into(),
             size: gb.len(),
             gb_text: gb.into(),
+            source: String::new(),
+            alignments: Vec::new(),
         }
     }
 
@@ -492,6 +534,28 @@ mod tests {
                 .any(|c| c.name == DEFAULT_COLLECTION_NAME
                     && c.plasmids.iter().any(|e| e.name == "pKeep"))
         );
+    }
+
+    #[test]
+    fn import_without_overwrite_never_clobbers() {
+        let mut store = LibraryStore::new();
+        assert!(matches!(
+            store.keep(entry("pA", "LOCUS a"), None),
+            KeepOutcome::Applied { .. }
+        ));
+        let clash = store.import_without_overwrite(entry("pA", "LOCUS different"));
+        assert!(matches!(clash, KeepOutcome::Applied { .. }));
+        assert_eq!(store.plasmids.len(), 2);
+        let original = store
+            .plasmids
+            .iter()
+            .find(|e| e.name == "pA")
+            .expect("original");
+        assert_eq!(original.gb_text, "LOCUS a");
+        assert!(store.plasmids.iter().any(|e| e.name.contains("COPY")));
+        let n = store.plasmids.len();
+        store.import_without_overwrite(entry("pA", "LOCUS a"));
+        assert_eq!(store.plasmids.len(), n);
     }
 
     #[test]

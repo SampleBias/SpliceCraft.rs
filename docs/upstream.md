@@ -110,6 +110,14 @@ in [`invariants.md`](invariants.md).
 | `_render_gel_image` | `splicecraft_gels::render_gel_image` |
 | `_load_gels` / `_save_gels` | `splicecraft_persist::{load_gels,save_gels}` / `GelStore` |
 | `_extract_gel_refs` | `splicecraft_gels::extract_gel_refs` |
+| `_format_identity_pct` | `splicecraft_util::format_identity_pct` |
+| `_normalize_dna_for_align` | `splicecraft_bio::normalize_dna_for_align` |
+| `_pairwise_align` | `splicecraft_io::pairwise_align` |
+| `_alignment_to_target_segments` / bar | `splicecraft_io::{alignment_to_target_segments,render_alignment_bar}` |
+| zip member safety / extract | `splicecraft_io::{is_safe_zip_member_name,extract_gbk_member}` |
+| `_plasmidsaurus_*` zip / API | `splicecraft_io::{parse_plasmidsaurus_zip,plasmidsaurus_list_items,…}` |
+| AB1 / Phred | `splicecraft_io::load_ab1` |
+| `.dna` TLV / history XML | `splicecraft_io::{load_dna_path,write_dna_bytes,extract_history_xml}` |
 
 ## Docs worth fetching per area
 

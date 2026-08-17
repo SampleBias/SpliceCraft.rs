@@ -1,6 +1,6 @@
-//! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato, Simulator.
+//! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato, Simulator, Sequencing.
 //!
-//! Stage 10. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 11. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -25,7 +25,7 @@ mod state;
 
 pub use action::{
     Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane,
-    PathKind, SimulatorTab, SynthTab,
+    PathKind, SequencingTab, SimulatorTab, SynthTab,
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
@@ -41,8 +41,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (Simulator + gels).
-pub const IMPLEMENTATION_STAGE: u8 = 10;
+/// Stage this crate currently satisfies (Sequencing).
+pub const IMPLEMENTATION_STAGE: u8 = 11;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -193,7 +193,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 10") || text.contains("stage 10"),
+            text.contains("stage 11"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -581,6 +581,7 @@ mod tests {
         );
         assert!(titles.contains(&"Synthesis"), "{titles:?}");
         assert!(titles.contains(&"Simulator"), "{titles:?}");
+        assert!(titles.contains(&"Sequencing"), "{titles:?}");
         let cmd = state
             .visible_commands()
             .into_iter()
@@ -710,5 +711,67 @@ mod tests {
         assert!(state.reduce(Action::LibraryUndelete));
         assert_eq!(state.library.plasmids.len(), 1);
         assert_eq!(state.library.plasmids[0].name, "pDemo");
+    }
+
+    #[test]
+    fn sequencing_overlay_is_live() {
+        let mut state = AppState::new();
+        let seq = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Sequencing")
+            .expect("sequencing");
+        assert_eq!(seq.action, Action::OpenSequencing);
+        assert!(state.reduce(Action::OpenSequencing));
+        assert_eq!(state.overlay, Overlay::Sequencing);
+        assert_eq!(state.seq_tab, SequencingTab::Zip);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("sequencing"), "{text}");
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.seq_tab, SequencingTab::Align);
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.seq_tab, SequencingTab::Sanger);
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.seq_tab, SequencingTab::Report);
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.seq_tab, SequencingTab::Zip);
+
+        state.record = Some(core::Record::new("tiny", "ATGG", false));
+        state.seq_tab = SequencingTab::Align;
+        state.seq_query = "ATGC".into();
+        assert!(state.reduce(Action::ToolEnter));
+        assert!(!state.seq_segments.is_empty());
+        assert!(
+            state
+                .seq_variants
+                .iter()
+                .any(|v| v.kind == "snp" && v.target_pos == 3),
+            "{:?}",
+            state.seq_variants
+        );
+        let summary = state.seq_summary.clone().unwrap_or_default();
+        assert!(!summary.contains("100%"), "{summary}");
+        assert!(summary.contains('%'), "{summary}");
+        let text = draw_text(80, 24, &state);
+        assert!(!text.contains("100%"), "{text}");
+        assert!(apply_key(&mut state, key(KeyCode::Char('j'))));
+        assert_eq!(state.focus, Pane::Sequence);
+        assert_eq!(state.cursor, 3);
+
+        let lines = render_map(
+            state.record.as_ref().unwrap(),
+            &MapOptions {
+                width: 24,
+                height: 8,
+                circular: false,
+                align_segments: state.seq_segments.clone(),
+                ..MapOptions::default()
+            },
+        );
+        let blob = lines.join("\n");
+        assert!(
+            blob.contains('X'),
+            "linear overlay missing mismatch:\n{blob}"
+        );
     }
 }

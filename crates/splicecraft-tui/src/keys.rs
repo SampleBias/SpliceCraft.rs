@@ -102,6 +102,7 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::Mutato
         | Overlay::Synthesis
         | Overlay::Simulator
+        | Overlay::Sequencing
         | Overlay::Parts => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
@@ -184,6 +185,9 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Char('g') if state.overlay == Overlay::Simulator && key.modifiers.is_empty() => {
             Some(Action::SimulatorSendToGel)
         }
+        KeyCode::Char('j') if state.overlay == Overlay::Sequencing && key.modifiers.is_empty() => {
+            Some(Action::SequencingJump)
+        }
         KeyCode::Char('a') if state.overlay == Overlay::Constructor && key.modifiers.is_empty() => {
             Some(Action::ConstructorDesignArms)
         }
@@ -195,10 +199,12 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
                     | Overlay::Mutato
                     | Overlay::Synthesis
                     | Overlay::Simulator
+                    | Overlay::Sequencing
             ) && !key.modifiers.contains(KeyModifiers::CONTROL)
                 && c != 's'
                 && c != 'a'
-                && c != 'g' =>
+                && c != 'g'
+                && c != 'j' =>
         {
             Some(Action::ToolInput(c))
         }

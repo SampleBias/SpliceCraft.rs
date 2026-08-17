@@ -2,6 +2,10 @@
 
 #![forbid(unsafe_code)]
 
+mod identity;
+
+pub use identity::{format_identity_pct, identity_pct_color};
+
 use std::path::{Component, Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 

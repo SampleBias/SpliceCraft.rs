@@ -1,6 +1,6 @@
-//! Sequence-format I/O: GenBank, FASTA, GFF, NCBI fetch, later `.dna` / AB1.
+//! Sequence-format I/O: GenBank, FASTA, GFF, NCBI fetch, sequencing, `.dna`.
 //!
-//! Stage 03. See `docs/stages/03-file-io.md`.
+//! Stages 03 and 11. See `docs/stages/03-file-io.md` and `docs/stages/11-sequencing.md`.
 
 #![forbid(unsafe_code)]
 
@@ -9,20 +9,38 @@ pub use splicecraft_core as core;
 pub use splicecraft_persist as persist;
 pub use splicecraft_util as util;
 
+mod ab1;
+mod align;
 mod bulk;
 mod detect;
+mod dna;
 mod error;
 mod fasta;
 mod genbank;
 mod gff;
 mod locus;
 mod net;
+mod plasmidsaurus;
+mod zip;
 
+pub use ab1::{Ab1Trace, is_ab1_path, load_ab1, write_test_ab1};
+pub use align::{
+    AlignMode, AlignResult, AlignState, AlignVariant, BulkAlignRow, PAIRWISE_MAX_LEN, SeqStatus,
+    alignment_bar_columns, alignment_indel_events, alignment_quality_status,
+    alignment_to_target_segments, badge_from_result, bulk_align_folder, coverage_pct_from_result,
+    extract_variants_from_alignment, library_entry_alignment_summary, pairwise_align,
+    render_alignment_bar,
+};
 pub use bulk::{
     BULK_IMPORT_MAX_FILES, BulkExportFormat, BulkFailure, BulkImportReport, bulk_export_folder,
     bulk_import_folder, record_to_library_entry,
 };
 pub use detect::{SeqFormat, detect_format};
+pub use dna::{
+    PACKET_COOKIE, PACKET_DNA, PACKET_FEATURES, PACKET_HISTORY, build_cookie_packet,
+    build_dna_packet, build_dna_seq_packet, dna_bytes_to_record, extract_history_xml,
+    inject_history_xml, iter_dna_packets, load_dna_path, write_dna_bytes,
+};
 pub use error::IoError;
 pub use fasta::{
     BULK_IMPORT_MAX_BYTES, FastaRecord, detect_fasta_topology, export_fasta_to_path,
@@ -39,16 +57,31 @@ pub use net::{
     NCBI_ALLOWLIST, assert_ncbi_host, assert_public_ip, fetch_genbank, ip_is_non_public,
     ncbi_efetch_url, sanitize_accession,
 };
+pub use plasmidsaurus::{
+    HttpRequest, HttpResponse, HttpTransport, OfflineTransport, PLASMIDSAURUS_API_HOST,
+    PLASMIDSAURUS_API_URL, PLASMIDSAURUS_CACHE_TTL, PLASMIDSAURUS_DOWNLOAD_MAX_BYTES,
+    PLASMIDSAURUS_ITEMS_LIMIT, PLASMIDSAURUS_RATE_PER_MIN, PsItem, PsSample, PsZip,
+    assert_plasmidsaurus_host, clear_plasmidsaurus_orders_cache, first_gbk_record_from_zip,
+    parse_plasmidsaurus_zip, plasmidsaurus_credential_hint, plasmidsaurus_credentials,
+    plasmidsaurus_item_has_results, plasmidsaurus_list_items, plasmidsaurus_list_items_offline,
+    plasmidsaurus_oauth_token, plasmidsaurus_orders_cached, plasmidsaurus_zip_to_entries,
+    sanitize_plasmidsaurus_item_code,
+};
+pub use splicecraft_util::{format_identity_pct, identity_pct_color};
+pub use zip::{
+    ZIP_MAX_BYTES, ZIP_MAX_MEMBERS, ZIP_MEMBER_MAX_BYTES, ZipMember, extract_gbk_member,
+    extract_zip_member, is_safe_zip_member_name, list_gbk_members_in_zip, write_test_zip,
+};
 
 /// Stage that implements this crate's real parsers.
-pub const IMPLEMENTATION_STAGE: u8 = 3;
+pub const IMPLEMENTATION_STAGE: u8 = 11;
 
 /// Crate identity (workspace wiring check).
 pub fn crate_name() -> &'static str {
     env!("CARGO_PKG_NAME")
 }
 
-/// Load a path by detected format. `.dna` is refused (stage 11).
+/// Load a path by detected format.
 pub fn load_path(path: &std::path::Path) -> Result<core::Record, IoError> {
     match detect_format(path) {
         SeqFormat::Fasta => load_fasta(path),
@@ -59,9 +92,8 @@ pub fn load_path(path: &std::path::Path) -> Result<core::Record, IoError> {
         SeqFormat::Embl => Err(IoError::rejected(
             "EMBL import is not implemented in stage 03; detect and GenBank/FASTA loaders are",
         )),
-        SeqFormat::CommercialDna => Err(IoError::DnaDeferred {
-            path: path.to_path_buf(),
-        }),
+        SeqFormat::CommercialDna => load_dna_path(path),
+        SeqFormat::Ab1 => Ok(load_ab1(path)?.to_record()),
     }
 }
 
@@ -217,9 +249,17 @@ mod tests {
     }
 
     #[test]
-    fn commercial_dna_and_gff3_load_are_refused() {
-        let dna = load_path(std::path::Path::new("construct.dna")).unwrap_err();
-        assert!(matches!(dna, IoError::DnaDeferred { .. }));
+    fn commercial_dna_and_gff3_load() {
+        let tmp = persist_temp();
+        let rec = Record::new("pDna", "ATGCATGCATGC", true);
+        let bytes = write_dna_bytes(&rec, Some("<HistoryTree/>")).unwrap();
+        let path = tmp.path().join("construct.dna");
+        std::fs::write(&path, &bytes).unwrap();
+        let loaded = load_path(&path).unwrap();
+        assert_eq!(loaded.sequence, "ATGCATGCATGC");
+        assert!(loaded.circular);
+        let xml = extract_history_xml(&bytes).unwrap().expect("history");
+        assert!(xml.contains("HistoryTree"));
         let gff = load_path(std::path::Path::new("ann.gff3")).unwrap_err();
         assert!(matches!(gff, IoError::Rejected(_)));
         let embl = load_path(std::path::Path::new("x.embl")).unwrap_err();
@@ -303,6 +343,159 @@ mod tests {
         assert!(assert_public_ip(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8))).is_ok());
         assert!(assert_ncbi_host("eutils.ncbi.nlm.nih.gov").is_ok());
         assert!(assert_ncbi_host("evil.example").is_err());
+    }
+
+    #[test]
+    fn identity_99_6_never_formats_as_100() {
+        assert_eq!(format_identity_pct(Some(99.6), 0), "99.6%");
+        assert_eq!(format_identity_pct(Some(99.6), 1), "99.6%");
+        assert_ne!(format_identity_pct(Some(99.6), 0), "100%");
+        let v = 100.0 * 18093.0 / 18094.0;
+        assert_ne!(format_identity_pct(Some(v), 1), "100%");
+    }
+
+    #[test]
+    fn zip_parent_dir_member_is_rejected() {
+        assert!(!is_safe_zip_member_name("../escape.gbk"));
+        assert!(!is_safe_zip_member_name("foo/../../etc/passwd.gbk"));
+        assert!(!is_safe_zip_member_name("/etc/passwd.gbk"));
+        assert!(!is_safe_zip_member_name("C:/Windows/x.gbk"));
+        assert!(!is_safe_zip_member_name("ok/../x.gbk"));
+        assert!(is_safe_zip_member_name("34XK5N_genbank-files/DEMO.gbk"));
+        let tmp = persist_temp();
+        let zpath = tmp.path().join("run.zip");
+        write_test_zip(
+            &zpath,
+            &[
+                ("../escape.gbk", b"LOCUS bad"),
+                (
+                    "good.gbk",
+                    b"LOCUS good 12 bp ds-DNA circular\nORIGIN\n        1 atgcatgcatgc\n//\n",
+                ),
+            ],
+        )
+        .unwrap();
+        let members = list_gbk_members_in_zip(&zpath).unwrap();
+        assert!(
+            members.iter().all(|m| !m.name.contains("..")),
+            "{members:?}"
+        );
+        let err = extract_gbk_member(&zpath, "../escape.gbk").unwrap_err();
+        assert!(err.to_string().contains("unsafe"), "{err}");
+    }
+
+    #[test]
+    fn alignment_mismatch_positions_on_tiny_pair() {
+        let r = pairwise_align("ATGC", "ATGG", AlignMode::Global).unwrap();
+        assert_eq!(r.n_matches, 3);
+        assert_eq!(r.n_mismatches, 1);
+        assert!(r.identity_pct < 100.0);
+        let vars = extract_variants_from_alignment(&r.aligned_q, &r.aligned_t);
+        assert!(
+            vars.iter().any(|v| v.kind == "snp" && v.target_pos == 3),
+            "{vars:?} aq={} at={}",
+            r.aligned_q,
+            r.aligned_t
+        );
+        let segs = alignment_to_target_segments(&r.aligned_q, &r.aligned_t, 0).unwrap();
+        assert!(
+            segs.iter().any(|(_, _, s)| *s == AlignState::Mismatch),
+            "{segs:?}"
+        );
+        let n = pairwise_align("ANGC", "ATGC", AlignMode::Global).unwrap();
+        assert_eq!(n.n_matches, 4);
+        assert_eq!(n.identity_pct, 100.0);
+        let perfect = pairwise_align("ATGC", "ATGC", AlignMode::Global).unwrap();
+        assert_eq!(alignment_quality_status(&perfect, 4), SeqStatus::Verified);
+        assert_ne!(
+            format_identity_pct(Some(r.identity_pct), 1).as_str(),
+            "100%"
+        );
+    }
+
+    #[test]
+    fn plasmidsaurus_api_is_mocked_and_offline_by_default() {
+        assert!(sanitize_plasmidsaurus_item_code("abc123").as_deref() == Some("ABC123"));
+        assert!(sanitize_plasmidsaurus_item_code("ABC123/../x").is_none());
+        assert!(assert_plasmidsaurus_host(PLASMIDSAURUS_API_HOST).is_ok());
+        assert!(assert_plasmidsaurus_host("evil.example").is_err());
+        let hint = plasmidsaurus_credential_hint("seb@example.org", "hunter2");
+        assert!(hint.contains("email address"), "{hint}");
+        struct Mock;
+        impl HttpTransport for Mock {
+            fn execute(&self, req: &HttpRequest) -> Result<HttpResponse, IoError> {
+                if req.url.contains("/oauth/token") {
+                    return Ok(HttpResponse {
+                        status: 200,
+                        body: br#"{"access_token":"tok"}"#.to_vec(),
+                    });
+                }
+                if req.url.contains("/api/items") {
+                    return Ok(HttpResponse {
+                        status: 200,
+                        body: br#"[{"code":"ABC123","status":"complete","done_date":"2026-01-01","product_name":"plasmidsaurus","order_name":"run"}]"#.to_vec(),
+                    });
+                }
+                Err(IoError::NetworkDisabled)
+            }
+        }
+        clear_plasmidsaurus_orders_cache();
+        let token = plasmidsaurus_oauth_token(&Mock, "a", "b").unwrap();
+        assert_eq!(token, "tok");
+        let items = plasmidsaurus_list_items(&Mock, &token, 1000).unwrap();
+        assert_eq!(items.len(), 1);
+        assert!(items[0].has_results());
+        let err = plasmidsaurus_oauth_token(&OfflineTransport, "a", "b").unwrap_err();
+        assert!(matches!(err, IoError::NetworkDisabled));
+        let shipping = PsItem {
+            code: "SHIP01".into(),
+            status: "complete".into(),
+            done_date: String::new(),
+            product_name: "ups_shipping_label".into(),
+            order_name: "label".into(),
+        };
+        assert!(!plasmidsaurus_item_has_results(&shipping));
+    }
+
+    #[test]
+    fn ab1_roundtrip_carries_phred() {
+        let bytes = write_test_ab1("ATGCATGC", &[40; 8], "traceA");
+        let tmp = persist_temp();
+        let path = tmp.path().join("t.ab1");
+        std::fs::write(&path, bytes).unwrap();
+        let tr = load_ab1(&path).unwrap();
+        assert_eq!(tr.sequence, "ATGCATGC");
+        assert_eq!(tr.phred.len(), 8);
+        assert!(tr.mean_phred().unwrap() > 30.0);
+        assert!(!tr.sequence.is_empty());
+    }
+
+    #[test]
+    fn plasmidsaurus_zip_tags_source_and_skips_traversal() {
+        let tmp = persist_temp();
+        let gb = record_to_gb_text(&Record::new("samp", "ATGAAACGCATT", true)).unwrap();
+        let zpath = tmp.path().join("ps.zip");
+        write_test_zip(
+            &zpath,
+            &[
+                ("34XK5N_genbank-files/DEMO34.gbk", gb.as_bytes()),
+                ("../evil.gbk", b"LOCUS x"),
+            ],
+        )
+        .unwrap();
+        let parsed = parse_plasmidsaurus_zip(&zpath).unwrap();
+        assert_eq!(parsed.run_id, "34XK5N");
+        assert!(parsed.samples.iter().any(|s| s.gbk.is_some()));
+        let (entries, _warn) = plasmidsaurus_zip_to_entries(&zpath, "ABC123").unwrap();
+        assert!(!entries.is_empty());
+        assert!(
+            entries
+                .iter()
+                .all(|e| e.source.starts_with("plasmidsaurus:")),
+            "{:?}",
+            entries.iter().map(|e| &e.source).collect::<Vec<_>>()
+        );
+        assert!(entries.iter().all(|e| !e.source.contains("evil")));
     }
 
     #[test]

@@ -4,6 +4,7 @@ use splicecraft_bio::{
     CustomEnzyme, RestrictionHit, ScanOptions, feat_decorated_label, scan_restriction_sites,
 };
 use splicecraft_core::{Feature, Record, wrap_midpoint};
+use splicecraft_io::{AlignState, render_alignment_bar};
 
 use super::canvas::{BrailleCanvas, CharCanvas};
 
@@ -32,6 +33,8 @@ pub struct MapOptions {
     pub allowed_enzymes: Option<Vec<String>>,
     /// User-defined enzymes merged into the scan.
     pub extra_enzymes: Vec<CustomEnzyme>,
+    /// Pairwise overlay in target coordinates (linear map only).
+    pub align_segments: Vec<(usize, usize, AlignState)>,
 }
 
 impl Default for MapOptions {
@@ -48,6 +51,7 @@ impl Default for MapOptions {
             min_recognition_len: 6,
             allowed_enzymes: None,
             extra_enzymes: Vec::new(),
+            align_segments: Vec::new(),
         }
     }
 }
@@ -165,6 +169,10 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<S
         0,
         &format!("{} bp", record.len()),
     );
+    if !opt.align_segments.is_empty() {
+        let bar = render_alignment_bar(&opt.align_segments, n, w);
+        text.put_text(0, h.saturating_sub(1) as i32, &bar);
+    }
     dots.to_lines(&text, opt.ascii)
 }
 

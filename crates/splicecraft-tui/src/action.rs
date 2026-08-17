@@ -51,6 +51,10 @@ pub enum Action {
     OpenSynthesis,
     /// Open the in-silico PCR + agarose gel Simulator.
     OpenSimulator,
+    /// Open Sequencing (zip / align / Sanger / report).
+    OpenSequencing,
+    /// Jump the sequence cursor to the first alignment variant.
+    SequencingJump,
     /// Open the Parts Bin.
     OpenParts,
     /// Save the last constructor product into the library.
@@ -170,6 +174,8 @@ pub enum Overlay {
     Synthesis,
     /// In-silico PCR + agarose gel.
     Simulator,
+    /// Sequencing verification (zip / align / Sanger / report).
+    Sequencing,
     /// Parts Bin.
     Parts,
 }
@@ -328,6 +334,44 @@ impl SimulatorTab {
     }
 }
 
+/// Sequencing overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SequencingTab {
+    /// Plasmidsaurus zip ingest.
+    #[default]
+    Zip,
+    /// Pairwise overlay vs the loaded plasmid.
+    Align,
+    /// Sanger AB1 traces.
+    Sanger,
+    /// Verification report / bulk folder.
+    Report,
+}
+
+impl SequencingTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Zip => Self::Align,
+            Self::Align => Self::Sanger,
+            Self::Sanger => Self::Report,
+            Self::Report => Self::Zip,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Zip => "zip",
+            Self::Align => "align",
+            Self::Sanger => "Sanger",
+            Self::Report => "report",
+        }
+    }
+}
+
 impl DesignKind {
     /// Next designer in the Tab cycle.
     #[must_use]
@@ -361,6 +405,8 @@ pub enum PathKind {
     BulkImport,
     /// Export the active collection.
     BulkExport,
+    /// Bulk-align a folder of reads against the loaded plasmid.
+    BulkAlign,
 }
 
 /// Re-export so keys/state stay on one collision vocabulary.

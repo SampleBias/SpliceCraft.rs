@@ -31,7 +31,7 @@ pub struct BulkImportReport {
     pub records: Vec<Record>,
     /// Per-file failures; the rest of the batch continues.
     pub failures: Vec<BulkFailure>,
-    /// `.dna` files counted and skipped (codec is stage 11).
+    /// `.dna` files counted and skipped (open via `load_path`, not bulk).
     pub skipped_dna: usize,
 }
 
@@ -48,6 +48,8 @@ pub fn record_to_library_entry(record: &Record) -> Result<LibraryEntry, IoError>
         name,
         size: record.len(),
         gb_text,
+        source: String::new(),
+        alignments: Vec::new(),
     })
 }
 
@@ -126,7 +128,7 @@ fn ingest_one(path: &Path) -> Ingest {
             Ok(rec) => Ingest::Ok(rec),
             Err(e) => Ingest::Fail(e.to_string()),
         },
-        Some(SeqFormat::Gff3 | SeqFormat::Embl) => Ingest::Skip,
+        Some(SeqFormat::Gff3 | SeqFormat::Embl | SeqFormat::Ab1) => Ingest::Skip,
     }
 }
 

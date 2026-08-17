@@ -55,12 +55,10 @@ pub fn record_to_gb_text(record: &Record) -> Result<String, IoError> {
     String::from_utf8(buf).map_err(|e| IoError::parse(format!("GenBank write was not UTF-8: {e}")))
 }
 
-/// Load a single-record GenBank file (size-capped). `.dna` is refused.
+/// Load a single-record GenBank file (size-capped). `.dna` routes to the TLV reader.
 pub fn load_genbank(path: &Path) -> Result<Record, IoError> {
     if crate::detect::detect_format(path) == crate::detect::SeqFormat::CommercialDna {
-        return Err(IoError::DnaDeferred {
-            path: path.to_path_buf(),
-        });
+        return crate::dna::load_dna_path(path);
     }
     let meta = std::fs::metadata(path)?;
     if meta.len() > GB_INGEST_MAX_BYTES {

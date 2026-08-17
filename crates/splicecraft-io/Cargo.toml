@@ -6,7 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "GenBank, FASTA, GFF, NCBI fetch, and later .dna / sequencing I/O"
+description = "GenBank, FASTA, GFF, NCBI fetch, sequencing, and .dna I/O"
 readme.workspace = true
 
 [features]
@@ -20,6 +20,9 @@ splicecraft-core.workspace = true
 splicecraft-persist.workspace = true
 splicecraft-util.workspace = true
 thiserror.workspace = true
+zip.workspace = true
+lzma-rs.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
