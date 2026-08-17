@@ -130,6 +130,11 @@ in [`invariants.md`](invariants.md).
 | `_hmm_db_perform_download` | `splicecraft_io::hmm_db_perform_download` |
 | `_load/_save_hmm_db_catalog` | `splicecraft_persist::{load,save}_hmm_catalog` |
 | `_get_setting` / `allow_online_search` | `splicecraft_persist::{allow_online_search,set_setting_bool}` |
+| `_agent_endpoint` | `splicecraft_agent::Registry` / `builtin` |
+| `_agent_dirty_guard` | `splicecraft_agent::dirty_guard` |
+| `_check_agent_write_path` | `splicecraft_agent::check_write_path` |
+| `_check_agent_read_path_ancestors` | `splicecraft_agent::check_read_path` |
+| `cmd_call` | `splicecraft_cli::execute_call` |
 
 ## Docs worth fetching per area
 

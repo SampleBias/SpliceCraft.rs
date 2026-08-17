@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**14 — Agent API + CLI** is next.
+**15 — Satellites** is next.
 
-Stages 00–13 are done.
+Stages 00–14 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 

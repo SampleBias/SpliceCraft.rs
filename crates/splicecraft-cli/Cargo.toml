@@ -15,5 +15,13 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+serde_json.workspace = true
 splicecraft-agent.workspace = true
+splicecraft-persist.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+splicecraft-core.workspace = true
+splicecraft-io.workspace = true
+tempfile.workspace = true
+tokio.workspace = true

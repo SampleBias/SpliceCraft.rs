@@ -15,5 +15,6 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
+splicecraft-agent.workspace = true
 splicecraft-cli.workspace = true
 splicecraft-tui.workspace = true

@@ -17,11 +17,21 @@ check a box early.
 - [x] 11 Sequencing
 - [x] 12 Experiments + History UI
 - [x] 13 Search
-- [ ] 14 Agent API + CLI
+- [x] 14 Agent API + CLI
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 14 (`docs/stages/14-agent-api-cli.md`).
+**Next:** stage 15 (`docs/stages/15-satellites.md`).
+
+Stage 14 notes: axum serves `127.0.0.1` only (default port 6701).
+`/healthz` and `/tools` are unauthenticated and bare (no `data`
+envelope). Other endpoints need `Authorization: Bearer` from
+`$XDG_DATA_HOME/splicecraft-rs/agent_token` (never the Python leaf).
+Writes use the dirty-guard (`force` in the JSON body only) and the
+persist chokepoint; unauthorized process writes are 403. Master wipe
+is not registered. `blast-online` / `hmmscan-online` return 403 when
+`allow_online_search` is off. `splicecraft-cli call` hits the same
+registry over HTTP.
 
 Stage 13 notes: six-frame ORF finder reports wrap + `length_aa` (never
 `(end - start)` on a full lap). Local BLASTN/BLASTP/HMMscan is the

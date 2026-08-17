@@ -1,6 +1,6 @@
 # Stage 14 — Agent API + CLI
 
-**Status:** not started
+**Status:** done
 **Depends on:** 06–13 as available; minimum 02, 03, 06
 **Primary crates:** `splicecraft-agent`, `splicecraft-cli`, `splicecraft` binary
 
@@ -39,13 +39,30 @@ Suggested server: `axum` on `127.0.0.1` only.
 
 ## Acceptance
 
-- [ ] `/healthz` 200 in headless
-- [ ] `/tools` lists registered endpoints with schemas
-- [ ] A read endpoint returns JSON for a sandboxed library
-- [ ] A write endpoint without authorization fails
-- [ ] CLI `call` hits the same registry
-- [ ] Port bind test uses 127.0.0.1
-- [ ] `cargo test -p splicecraft-agent -p splicecraft-cli`
+- [x] `/healthz` 200 in headless
+- [x] `/tools` lists registered endpoints with schemas
+- [x] A read endpoint returns JSON for a sandboxed library
+- [x] A write endpoint without authorization fails
+- [x] CLI `call` hits the same registry
+- [x] Port bind test uses 127.0.0.1
+- [x] `cargo test -p splicecraft-agent -p splicecraft-cli`
+
+## Notes
+
+- Bind constant is `127.0.0.1` (`splicecraft_agent::BIND_HOST`). Host
+  headers that are not loopback are 403 (DNS-rebinding defence).
+- Registry: `splicecraft_agent::builtin()` — first-wave endpoints for
+  stages 01–13 (library, ORFs, restriction, local BLAST, gated online
+  search, settings, HMM catalog, experiments/primers/gels, PCR, file
+  load/export). `/tools` includes `schema` plus `doc` / `doc_full`.
+- Writes: dirty-guard 409 unless `{"force": true}` in the POST body;
+  persist writes 403 unless `writes_authorized()`. Token-less HTTP is
+  401. `set-setting` cannot enable `allow_online_search`.
+- Token file: `<data-dir>/agent_token` (`port\\ntoken`), mode 0600.
+  CLI refuses a symlink, a file > 1 KB, and the Python `splicecraft/`
+  leaf. Response cap 50 MB.
+- `splicecraft --agent` / `--headless` / `--agent-port`. `--headless`
+  (or `SPLICECRAFT_HEADLESS=1`, or `--agent` with no TTY) is API-only.
 
 ## Forbidden
 

@@ -6,10 +6,11 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–13 done (workspace, sacred biology, persist, file I/O,
+**Status:** stages 00–14 done (workspace, sacred biology, persist, file I/O,
 Ratatui chrome, map + sequence editor, plasmid library, enzymes + primers,
 cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing,
-Experiments + History, Search). Later agents implement stages 14–16 until parity.
+Experiments + History, Search, localhost agent API + CLI). Later agents
+implement stages 15–16 until parity.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start
@@ -23,6 +24,8 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 ```bash
 cargo run -p splicecraft-cli -- version
+cargo run -p splicecraft -- --headless --agent-port 6701   # localhost API only
+cargo run -p splicecraft-cli -- call list-library
 ```
 
 Requires Rust 1.88+ (Ratatui 0.30).
