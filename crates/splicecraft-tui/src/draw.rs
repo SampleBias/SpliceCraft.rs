@@ -57,6 +57,7 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Constructor => draw_constructor(frame, area, state),
         Overlay::Mutato => draw_mutato(frame, area, state),
         Overlay::Synthesis => draw_synthesis(frame, area, state),
+        Overlay::Simulator => draw_simulator(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
@@ -586,6 +587,60 @@ fn draw_synthesis(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" Synthesis ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_simulator(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 72, 18);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Simulator — {}", state.sim_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab PCR/gel · Enter run · g send to gel · s save · Esc close"),
+        Line::from(format!(
+            "  primers {}  ·  {}% agarose  ·  {} lanes",
+            if state.sim_query.is_empty() {
+                "(FWD/REV)"
+            } else {
+                &state.sim_query
+            },
+            state.sim_agarose,
+            state.sim_lanes.len()
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.sim_summary {
+        for row in summary.lines().take(3) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    if state.sim_tab == crate::action::SimulatorTab::Gel {
+        if let Some(img) = &state.sim_gel_image {
+            for row in img.lines().take(10) {
+                lines.push(Line::from(row.to_owned()));
+            }
+        } else {
+            lines.push(Line::from(
+                "  Enter renders HGB mobility (well → dye front).",
+            ));
+        }
+    } else if state.sim_summary.is_none() {
+        lines.push(Line::from(
+            "  Exact-match PCR. Wrap amplicons are legal on circular templates.",
+        ));
+        lines.push(Line::from(
+            "  Save writes a linear library entry with primer_bind features.",
+        ));
+    }
+    let block = Block::default()
+        .title(" Simulator ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(

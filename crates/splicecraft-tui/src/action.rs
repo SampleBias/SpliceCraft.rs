@@ -49,10 +49,16 @@ pub enum Action {
     OpenMutato,
     /// Open Synthesis (DNA / Protein / Operon).
     OpenSynthesis,
+    /// Open the in-silico PCR + agarose gel Simulator.
+    OpenSimulator,
     /// Open the Parts Bin.
     OpenParts,
     /// Save the last constructor product into the library.
     ConstructorSave,
+    /// Save the selected PCR amplicon or gel snapshot.
+    SimulatorSave,
+    /// Pin the selected PCR amplicon as a gel lane.
+    SimulatorSendToGel,
     /// Append a 5′ Gibson homology arm (idempotent).
     ConstructorDesignArms,
     /// Delete the highlighted library plasmid (session-undoable).
@@ -162,6 +168,8 @@ pub enum Overlay {
     Mutato,
     /// DNA / protein / operon composers.
     Synthesis,
+    /// In-silico PCR + agarose gel.
+    Simulator,
     /// Parts Bin.
     Parts,
 }
@@ -286,6 +294,36 @@ impl SynthTab {
             Self::Dna => "DNA",
             Self::Protein => "protein",
             Self::Operon => "operon",
+        }
+    }
+}
+
+/// Simulator overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SimulatorTab {
+    /// Exact-match PCR enumeration.
+    #[default]
+    Pcr,
+    /// Agarose gel image.
+    Gel,
+}
+
+impl SimulatorTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Pcr => Self::Gel,
+            Self::Gel => Self::Pcr,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pcr => "PCR",
+            Self::Gel => "gel",
         }
     }
 }

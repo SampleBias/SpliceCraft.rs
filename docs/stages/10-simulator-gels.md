@@ -1,6 +1,6 @@
 # Stage 10 — Simulator + gels
 
-**Status:** not started
+**Status:** done
 **Depends on:** 07, 08
 **Primary crates:** `splicecraft-gels`, `splicecraft-clone`, `splicecraft-tui`
 
@@ -35,11 +35,25 @@ Wrap PCR [INV-06]-adjacent: origin-spanning amplicons are legal. Saves
 
 ## Acceptance
 
-- [ ] Circular template wrap amplicon included
-- [ ] Mobility: larger band migrates less than smaller at 1% (numeric)
-- [ ] Supercoiled vs linear order test
-- [ ] Gel reload from sandboxed JSON
-- [ ] `cargo test -p splicecraft-gels`
+- [x] Circular template wrap amplicon included
+- [x] Mobility: larger band migrates less than smaller at 1% (numeric)
+- [x] Supercoiled vs linear order test
+- [x] Gel reload from sandboxed JSON
+- [x] `cargo test -p splicecraft-gels`
+
+## Notes
+
+- PCR: exact-match plus 3′-anchored partial fallback for cloning flaps.
+  Cap is 50 products (`PCR_MAX_AMPLICONS`). IUPAC primers error instead
+  of silently returning empty. Save-to-library writes a linear record
+  with `primer_bind` features at both ends.
+- Gel: 0.5–4.0% windows, in-window distance ∝ `-log10(bp)` compressed
+  into `[0.03, 0.97]`, damped edges keep size order. Lanes: ladder /
+  uncut (SC+nicked) / digest / PCR. UI cap 8 lanes.
+- Persist: `gels.json` via `save_gels` / `load_gels`. `&gel` ids via
+  `extract_gel_refs` for stage 12.
+- TUI Simulator overlay: PCR | gel. `g` pins an amplicon as a frozen
+  PCR lane; `s` saves the amplicon or gel snapshot.
 
 ## Forbidden
 

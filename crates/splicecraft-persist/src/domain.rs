@@ -136,3 +136,14 @@ pub fn save_protein_motifs(layout: &DataLayout, entries: &[Value]) -> Result<(),
 pub fn load_protein_motifs(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.protein_motifs_file(), "Protein motifs")
 }
+
+/// Persist saved agarose-gel snapshots.
+pub fn save_gels(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.gels_file(), entries, "Gels")
+}
+
+/// Load saved agarose-gel snapshots.
+#[must_use]
+pub fn load_gels(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.gels_file(), "Gels")
+}

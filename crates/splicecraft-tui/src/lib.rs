@@ -1,6 +1,6 @@
-//! Ratatui workbench: map, sequence editor, help, palette, cloning + Mutato/Synthesis.
+//! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato, Simulator.
 //!
-//! Stage 09. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 10. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -25,7 +25,7 @@ mod state;
 
 pub use action::{
     Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane,
-    PathKind, SynthTab,
+    PathKind, SimulatorTab, SynthTab,
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
@@ -41,8 +41,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (Mutato + synthesis).
-pub const IMPLEMENTATION_STAGE: u8 = 9;
+/// Stage this crate currently satisfies (Simulator + gels).
+pub const IMPLEMENTATION_STAGE: u8 = 10;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -193,7 +193,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 09") || text.contains("stage 9"),
+            text.contains("stage 10") || text.contains("stage 10"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -580,6 +580,7 @@ mod tests {
             "{titles:?}"
         );
         assert!(titles.contains(&"Synthesis"), "{titles:?}");
+        assert!(titles.contains(&"Simulator"), "{titles:?}");
         let cmd = state
             .visible_commands()
             .into_iter()
@@ -660,6 +661,41 @@ mod tests {
             "{summary}"
         );
         assert!(state.design_fwd.is_some());
+    }
+
+    #[test]
+    fn simulator_overlay_pcr_and_gel_are_live() {
+        let mut state = AppState::new();
+        let sim = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Simulator")
+            .expect("simulator");
+        assert_eq!(sim.action, Action::OpenSimulator);
+        assert!(state.reduce(Action::OpenSimulator));
+        assert_eq!(state.overlay, Overlay::Simulator);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("simulator"), "{text}");
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.sim_tab, SimulatorTab::Gel);
+
+        let seq = format!(
+            "{}{}{}",
+            "ATGCGATCGATCGATCGCGT",
+            "A".repeat(60),
+            "GCATCGTAGCTAGCTGATCG"
+        );
+        state.record = Some(core::Record::new("lin", seq, false));
+        state.sim_tab = SimulatorTab::Pcr;
+        state.sim_query = format!(
+            "{}/{}",
+            "ATGCGATCGATCGATCGCGT",
+            splicecraft_bio::rc("GCATCGTAGCTAGCTGATCG")
+        );
+        assert!(state.reduce(Action::ToolEnter));
+        assert_eq!(state.sim_amplicons.len(), 1);
+        assert_eq!(state.sim_amplicons[0].length, 100);
+        assert!(!state.sim_amplicons[0].wraps);
     }
 
     #[test]

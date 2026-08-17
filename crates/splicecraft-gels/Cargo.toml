@@ -10,7 +10,15 @@ description = "In-silico agarose gels (Helling–Goodman–Boyer mobility)"
 readme.workspace = true
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-clone.workspace = true
 splicecraft-core.workspace = true
+splicecraft-persist.workspace = true
+splicecraft-primer.workspace = true
+splicecraft-util.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

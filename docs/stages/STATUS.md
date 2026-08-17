@@ -13,7 +13,7 @@ check a box early.
 - [x] 07 Enzymes + primers
 - [x] 08 Cloning workbench
 - [x] 09 Mutato + codon + synthesis
-- [ ] 10 Simulator + gels
+- [x] 10 Simulator + gels
 - [ ] 11 Sequencing
 - [ ] 12 Experiments + History UI
 - [ ] 13 Search
@@ -21,7 +21,13 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 10 (`docs/stages/10-simulator-gels.md`).
+**Next:** stage 11 (`docs/stages/11-sequencing.md`).
+
+Stage 10 notes: Helling–Goodman–Boyer mobility with form factors
+(supercoiled 0.7× / nicked 1.4×). Gels persist as `gels.json` through
+`safe_save_json`. PCR is exact-match (plus 3′ partial for 5′ flaps),
+capped at 50 amplicons. Sticky-cut visualization remains deferred from
+stage 05.
 
 Stage 09 notes: codon silent-repair of internal Type IIS now runs on
 coding inserts when a codon table is supplied. Mutato Tm is Wallace only

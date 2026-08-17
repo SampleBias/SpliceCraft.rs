@@ -105,6 +105,11 @@ in [`invariants.md`](invariants.md).
 | `_l0_part_from_syn_fragment` | `splicecraft_clone::l0_part_from_syn_fragment` |
 | `_classify_part_from_plasmid` | `splicecraft_clone::classify_part_from_plasmid` |
 | `_simulate_golden_gate` | `splicecraft_clone::simulate_golden_gate` |
+| `_simulate_pcr` | `splicecraft_gels::simulate_pcr` |
+| `_agarose_mobility` / `_gel_bands_for_lane` | `splicecraft_gels::{agarose_mobility,gel_bands_for_lane}` |
+| `_render_gel_image` | `splicecraft_gels::render_gel_image` |
+| `_load_gels` / `_save_gels` | `splicecraft_persist::{load_gels,save_gels}` / `GelStore` |
+| `_extract_gel_refs` | `splicecraft_gels::extract_gel_refs` |
 
 ## Docs worth fetching per area
 

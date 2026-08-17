@@ -149,11 +149,8 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "Simulator",
-            keywords: "pcr gel",
-            action: Action::Stub {
-                name: "Simulator",
-                stage: 10,
-            },
+            keywords: "pcr gel agarose mobility",
+            action: Action::OpenSimulator,
         },
     ]
 }

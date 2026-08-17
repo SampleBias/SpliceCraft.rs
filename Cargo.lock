@@ -1611,9 +1611,15 @@ dependencies = [
 name = "splicecraft-gels"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "splicecraft-bio",
  "splicecraft-clone",
  "splicecraft-core",
+ "splicecraft-persist",
+ "splicecraft-primer",
+ "splicecraft-util",
+ "tempfile",
  "thiserror 2.0.20",
 ]
 

@@ -31,6 +31,8 @@ pub const GRAMMARS_FILE_NAME: &str = "grammars.json";
 pub const CODON_TABLES_FILE_NAME: &str = "codon_tables.json";
 /// User protein-motif overrides (built-ins live in `splicecraft-codon`).
 pub const PROTEIN_MOTIFS_FILE_NAME: &str = "protein_motifs.json";
+/// Saved agarose-gel snapshots (`&gel` ids for stage 12).
+pub const GELS_FILE_NAME: &str = "gels.json";
 /// App preferences (dict-shaped; still saved through the JSON chokepoint later).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// Debounced `.gb` crash-recovery snapshots.
@@ -131,6 +133,12 @@ impl DataLayout {
     #[must_use]
     pub fn protein_motifs_file(&self) -> PathBuf {
         self.root.join(PROTEIN_MOTIFS_FILE_NAME)
+    }
+
+    /// Saved agarose-gel snapshots JSON.
+    #[must_use]
+    pub fn gels_file(&self) -> PathBuf {
+        self.root.join(GELS_FILE_NAME)
     }
 
     /// Settings JSON.

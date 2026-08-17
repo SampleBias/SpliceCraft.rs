@@ -10,6 +10,10 @@ use splicecraft_clone::{
 };
 use splicecraft_codon::{CodonMode, CodonTableStore, DnaBuffer, MotifStore, ProteinBuffer};
 use splicecraft_core::{Record, rotate_record};
+use splicecraft_gels::{
+    GEL_UI_MAX_LANES, GelLane, GelRenderOpts, GelStore, PcrAmplicon, amplicon_to_record,
+    append_pcr_gel_lane, render_gel_image, simulate_pcr, snapshot_gel,
+};
 use splicecraft_persist::{
     CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet, KeepOutcome,
     LibraryEntry, LibraryStore,
@@ -22,7 +26,8 @@ use splicecraft_primer::{
 };
 
 use crate::action::{
-    Action, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane, PathKind, SynthTab,
+    Action, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane, PathKind,
+    SimulatorTab, SynthTab,
 };
 use crate::commands::{Command, filter_commands};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
@@ -132,6 +137,26 @@ pub struct AppState {
     pub codon_tables: CodonTableStore,
     /// Protein motif library.
     pub motifs: MotifStore,
+    /// Simulator tab.
+    pub sim_tab: SimulatorTab,
+    /// `FWD/REV` primer box.
+    pub sim_query: String,
+    /// Last PCR products (sequence stays out of logs).
+    pub sim_amplicons: Vec<PcrAmplicon>,
+    /// Highlighted PCR product.
+    pub sim_selected: usize,
+    /// Last PCR / gel summary (no sequence dump).
+    pub sim_summary: Option<String>,
+    /// Live gel lanes.
+    pub sim_lanes: Vec<GelLane>,
+    /// Agarose % for the gel tab.
+    pub sim_agarose: f64,
+    /// Last rendered gel image.
+    pub sim_gel_image: Option<String>,
+    /// True until the user sends a PCR lane (demo ladder/uncut).
+    pub sim_gel_demo: bool,
+    /// Saved gel snapshots.
+    pub gels: GelStore,
 }
 
 /// Collision modal payload.
@@ -205,6 +230,16 @@ impl AppState {
             synth_summary: None,
             codon_tables: CodonTableStore::with_builtin_k12(),
             motifs: MotifStore::default(),
+            sim_tab: SimulatorTab::Pcr,
+            sim_query: String::new(),
+            sim_amplicons: Vec::new(),
+            sim_selected: 0,
+            sim_summary: None,
+            sim_lanes: Vec::new(),
+            sim_agarose: 1.0,
+            sim_gel_image: None,
+            sim_gel_demo: true,
+            gels: GelStore::new(),
         }
     }
 
@@ -217,6 +252,7 @@ impl AppState {
         self.parts = PartsBinStore::load(&layout);
         self.codon_tables = CodonTableStore::load(&layout);
         self.motifs = MotifStore::load(&layout);
+        self.gels = GelStore::load(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
         self.clamp_enzyme_selection();
@@ -347,7 +383,17 @@ impl AppState {
                 self.synth_summary = None;
                 self.toast = None;
             }
+            Action::OpenSimulator => {
+                self.overlay = Overlay::Simulator;
+                self.sim_summary = None;
+                self.toast = None;
+                if self.sim_lanes.is_empty() {
+                    self.seed_demo_gel();
+                }
+            }
             Action::ConstructorSave => self.save_constructor_product(),
+            Action::SimulatorSave => self.save_simulator(),
+            Action::SimulatorSendToGel => self.send_pcr_to_gel(),
             Action::ConstructorDesignArms => self.run_gibson_arms(),
             Action::LibraryDelete => self.delete_selected_plasmid(),
             Action::LibraryUndelete => self.undelete_plasmid(),
@@ -365,6 +411,9 @@ impl AppState {
                 } else if self.overlay == Overlay::Synthesis {
                     self.synth_tab = self.synth_tab.next();
                     self.synth_summary = None;
+                } else if self.overlay == Overlay::Simulator {
+                    self.sim_tab = self.sim_tab.next();
+                    self.sim_summary = None;
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -374,6 +423,7 @@ impl AppState {
                 Overlay::Constructor => self.run_constructor(),
                 Overlay::Mutato => self.run_mutato(),
                 Overlay::Synthesis => self.run_synthesis(),
+                Overlay::Simulator => self.run_simulator(),
                 Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
@@ -385,10 +435,13 @@ impl AppState {
                         | Overlay::Constructor
                         | Overlay::Mutato
                         | Overlay::Synthesis
+                        | Overlay::Simulator
                 ) && !c.is_control()
                 {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.push(c);
+                    } else if self.overlay == Overlay::Simulator {
+                        self.sim_query.push(c);
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
@@ -407,9 +460,12 @@ impl AppState {
                         | Overlay::Constructor
                         | Overlay::Mutato
                         | Overlay::Synthesis
+                        | Overlay::Simulator
                 ) {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.pop();
+                    } else if self.overlay == Overlay::Simulator {
+                        self.sim_query.pop();
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => {
@@ -464,6 +520,29 @@ impl AppState {
                     if n > 0 {
                         self.tool_selected =
                             (self.tool_selected as i32 + delta).rem_euclid(n as i32) as usize;
+                    }
+                } else if self.overlay == Overlay::Simulator {
+                    if self.sim_tab == SimulatorTab::Pcr {
+                        let n = self.sim_amplicons.len();
+                        if n > 0 {
+                            self.sim_selected =
+                                (self.sim_selected as i32 + delta).rem_euclid(n as i32) as usize;
+                        }
+                    } else {
+                        let choices = splicecraft_gels::AGAROSE_RANGES;
+                        let cur = choices
+                            .iter()
+                            .enumerate()
+                            .min_by(|(_, a), (_, b)| {
+                                (a.0 - self.sim_agarose)
+                                    .abs()
+                                    .partial_cmp(&(b.0 - self.sim_agarose).abs())
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                            .map(|(i, _)| i)
+                            .unwrap_or(3);
+                        let next = (cur as i32 + delta).rem_euclid(choices.len() as i32) as usize;
+                        self.sim_agarose = choices[next].0;
                     }
                 }
             }
@@ -1865,6 +1944,179 @@ impl AppState {
                     }
                 }
             }
+        }
+    }
+
+    fn seed_demo_gel(&mut self) {
+        self.sim_lanes = vec![
+            GelLane::ladder("Ladder", "1 kb Plus"),
+            GelLane {
+                name: "Uncut".into(),
+                source: "plasmid".into(),
+                detail: String::new(),
+                pcr_bp: None,
+            },
+        ];
+        self.sim_gel_demo = true;
+    }
+
+    fn parse_sim_primers(&self) -> Option<(String, String)> {
+        let q = self.sim_query.trim();
+        if q.is_empty() {
+            return None;
+        }
+        if let Some((a, b)) = q.split_once('/') {
+            let fwd = a.trim();
+            let rev = b.trim();
+            if fwd.is_empty() || rev.is_empty() {
+                return None;
+            }
+            return Some((fwd.to_owned(), rev.to_owned()));
+        }
+        let parts: Vec<&str> = q.split_whitespace().collect();
+        if parts.len() >= 2 {
+            Some((parts[0].to_owned(), parts[1].to_owned()))
+        } else {
+            None
+        }
+    }
+
+    fn run_simulator(&mut self) {
+        match self.sim_tab {
+            SimulatorTab::Pcr => self.run_sim_pcr(),
+            SimulatorTab::Gel => self.run_sim_gel(),
+        }
+    }
+
+    fn run_sim_pcr(&mut self) {
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Load a record first".into());
+            return;
+        };
+        let Some((fwd, rev)) = self.parse_sim_primers() else {
+            self.toast = Some("Type FWD/REV primers".into());
+            return;
+        };
+        match simulate_pcr(&rec.sequence, &fwd, &rev, rec.circular, 20_000) {
+            Ok(amps) => {
+                let n = amps.len();
+                let wraps = amps.iter().filter(|a| a.wraps).count();
+                let preview: Vec<String> = amps
+                    .iter()
+                    .take(6)
+                    .map(|a| {
+                        format!(
+                            "{}bp{} @{}",
+                            a.length,
+                            if a.wraps { " wrap" } else { "" },
+                            a.start
+                        )
+                    })
+                    .collect();
+                self.sim_amplicons = amps;
+                self.sim_selected = 0;
+                self.sim_summary = Some(format!(
+                    "{n} amplicon(s), {wraps} wrap  {}",
+                    preview.join(" · ")
+                ));
+                self.toast = if n >= splicecraft_gels::PCR_MAX_AMPLICONS {
+                    Some("PCR cap hit — mispriming?".into())
+                } else {
+                    Some(format!("PCR: {n} product(s)"))
+                };
+            }
+            Err(e) => {
+                self.sim_amplicons.clear();
+                self.sim_summary = Some(e.to_string());
+                self.toast = Some("PCR refused".into());
+            }
+        }
+    }
+
+    fn run_sim_gel(&mut self) {
+        let rec = self.record.clone();
+        let pcr_len = self.sim_amplicons.get(self.sim_selected).map(|a| a.length);
+        let img = render_gel_image(
+            &self.sim_lanes,
+            &GelRenderOpts {
+                template_seq: rec.as_ref().map(|r| r.sequence.as_str()).unwrap_or(""),
+                template_circular: rec.as_ref().is_some_and(|r| r.circular),
+                pcr_length: pcr_len,
+                agarose_pct: self.sim_agarose,
+                height: 16,
+                lane_width: 5,
+                label_col: 7,
+            },
+        );
+        self.sim_gel_image = Some(img);
+        self.sim_summary = Some(format!(
+            "{}% agarose · {} lanes",
+            self.sim_agarose,
+            self.sim_lanes.len()
+        ));
+        self.toast = Some("Gel rendered".into());
+    }
+
+    fn send_pcr_to_gel(&mut self) {
+        let Some(amp) = self.sim_amplicons.get(self.sim_selected).cloned() else {
+            self.toast = Some("Run PCR first".into());
+            return;
+        };
+        if self.sim_gel_demo {
+            self.sim_lanes = vec![GelLane::ladder("Ladder", "1 kb")];
+            self.sim_gel_demo = false;
+        }
+        let name = format!("PCR {} bp", amp.length);
+        let (idx, at_cap) =
+            append_pcr_gel_lane(&mut self.sim_lanes, name, amp.length, GEL_UI_MAX_LANES);
+        if at_cap {
+            self.toast = Some("Gel is at 8 lanes".into());
+            return;
+        }
+        self.sim_tab = SimulatorTab::Gel;
+        self.toast = Some(format!("Lane {} pinned to {} bp", idx + 1, amp.length));
+        self.run_sim_gel();
+    }
+
+    fn save_simulator(&mut self) {
+        match self.sim_tab {
+            SimulatorTab::Pcr => {
+                let Some(amp) = self.sim_amplicons.get(self.sim_selected).cloned() else {
+                    self.toast = Some("Run PCR first".into());
+                    return;
+                };
+                let rec = amplicon_to_record(&amp);
+                self.record = Some(rec.clone());
+                self.source_label = rec.name.clone();
+                match crate::io::record_to_library_entry(&rec) {
+                    Ok(entry) => self.apply_keep(entry, None),
+                    Err(e) => self.toast = Some(format!("Save amplicon failed: {e}")),
+                }
+            }
+            SimulatorTab::Gel => {
+                let snap = snapshot_gel("Simulator gel", self.sim_agarose, &self.sim_lanes, "");
+                let id = snap.id.clone();
+                self.gels.upsert(snap);
+                self.persist_gels();
+                if self.toast.is_none() {
+                    self.toast = Some(format!("Saved &{id}"));
+                }
+            }
+        }
+    }
+
+    fn persist_gels(&mut self) {
+        let Some(layout) = &self.layout else {
+            self.toast = Some("Gel kept in memory — no data dir".into());
+            return;
+        };
+        if !splicecraft_persist::writes_authorized() {
+            self.toast = Some("Gel kept in memory — writes are not authorised".into());
+            return;
+        }
+        match self.gels.persist(layout) {
+            Ok(()) => {}
+            Err(e) => self.toast = Some(format!("Gel save failed: {e}")),
         }
     }
 }

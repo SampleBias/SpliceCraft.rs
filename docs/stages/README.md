@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**10 — Simulator + gels** is next.
+**11 — Sequencing** is next.
 
-Stages 00–09 are done.
+Stages 00–10 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 
