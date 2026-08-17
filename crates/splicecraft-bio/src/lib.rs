@@ -10,6 +10,7 @@ pub use splicecraft_util as util;
 pub mod digest;
 pub mod enzymes;
 pub mod iupac;
+pub mod orient;
 pub mod scan;
 pub mod translate;
 
@@ -18,6 +19,7 @@ pub use enzymes::{
     EnzymeSpec, STAGE01_ENZYMES, enzyme, enzyme_color, feat_decorated_label, superscript_int,
 };
 pub use iupac::{BioError, iupac_pattern, pattern_cache_clear, pattern_cache_contains, rc};
+pub use orient::{extract_feature, reverse_complement_record};
 pub use scan::{
     HitKind, RestrictionHit, ScanOptions, scan_restriction_sites, scan_restriction_sites_default,
 };

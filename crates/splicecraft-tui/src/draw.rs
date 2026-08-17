@@ -8,6 +8,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use crate::action::{FocusMode, Overlay, Pane};
 use crate::keys::KEY_TABLE;
+use crate::render::{MapOptions, SeqView, render_map, render_sequence};
 use crate::state::AppState;
 use crate::{IMPLEMENTATION_STAGE, WELCOME_TITLE};
 
@@ -110,7 +111,18 @@ fn draw_body(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
 }
 
 fn draw_pane(frame: &mut Frame<'_>, area: Rect, pane: Pane, state: &AppState, focused: bool) {
-    let (title, body) = pane_copy(pane, state);
+    let title = match pane {
+        Pane::Library => "Library",
+        Pane::Map => {
+            if state.map_circular {
+                "Map ⊙"
+            } else {
+                "Map ─"
+            }
+        }
+        Pane::Features => "Features",
+        Pane::Sequence => "Sequence",
+    };
     let border = if focused {
         Color::Cyan
     } else {
@@ -125,49 +137,75 @@ fn draw_pane(frame: &mut Frame<'_>, area: Rect, pane: Pane, state: &AppState, fo
     if inner.width == 0 || inner.height == 0 {
         return;
     }
+    let body = pane_body(pane, state, inner.width as usize, inner.height as usize);
     frame.render_widget(
         Paragraph::new(body)
             .style(Style::default().fg(Color::Gray))
-            .wrap(Wrap { trim: true }),
+            .wrap(Wrap { trim: false }),
         inner,
     );
 }
 
-fn pane_copy(pane: Pane, state: &AppState) -> (&'static str, String) {
+fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> String {
     match pane {
-        Pane::Library => (
-            "Library",
-            "No collections loaded.\nOpen stays in memory until stage 06.".into(),
-        ),
-        Pane::Map => {
-            let body = match &state.record {
-                None => "Empty canvas — no plasmid loaded.\nCtrl+K · Load demo plasmid".into(),
-                Some(rec) => format!(
-                    "{}\n{} · {} bp\nMap geometry lands in stage 05.",
-                    rec.name,
-                    if rec.circular { "circular" } else { "linear" },
-                    rec.len()
-                ),
-            };
-            ("Map", body)
-        }
-        Pane::Features => (
-            "Features",
-            match &state.record {
-                None => "No features.".into(),
-                Some(rec) => format!("{} annotations (sidebar in stage 05).", rec.features.len()),
-            },
-        ),
-        Pane::Sequence => {
-            let body = match &state.record {
-                None => "Sequence panel — empty.".into(),
-                Some(rec) => format!(
-                    "{} bp reserved for the two-strand editor (stage 05).",
-                    rec.len()
-                ),
-            };
-            ("Sequence", body)
-        }
+        Pane::Library => "No collections loaded.\nOpen stays in memory until stage 06.".into(),
+        Pane::Map => match &state.record {
+            None => "Empty canvas — no plasmid loaded.\nCtrl+K · Load demo plasmid".into(),
+            Some(rec) => render_map(
+                rec,
+                &MapOptions {
+                    width,
+                    height,
+                    circular: state.map_circular,
+                    origin: state.view_origin,
+                    show_restr: state.show_restr,
+                    show_labels: state.show_labels,
+                    ascii: false,
+                },
+            )
+            .join("\n"),
+        },
+        Pane::Features => match &state.record {
+            None => "No features.".into(),
+            Some(rec) => {
+                let mut lines = Vec::new();
+                for (i, f) in rec.features.iter().enumerate() {
+                    let mark = if state.selected_feat == Some(i) {
+                        ">"
+                    } else {
+                        " "
+                    };
+                    lines.push(format!(
+                        "{mark} {}  {}..{}  {} bp",
+                        f.label,
+                        f.start,
+                        f.end,
+                        f.len_on(rec.len())
+                    ));
+                }
+                if lines.is_empty() {
+                    "No features.".into()
+                } else {
+                    lines.join("\n")
+                }
+            }
+        },
+        Pane::Sequence => match &state.record {
+            None => "Sequence panel — empty.".into(),
+            Some(rec) => {
+                let w = width.max(8);
+                let start = state.cursor.saturating_sub(w / 4);
+                render_sequence(
+                    rec,
+                    &SeqView {
+                        width: w,
+                        window_start: start,
+                        cursor: state.cursor,
+                    },
+                )
+                .join("\n")
+            }
+        },
     }
 }
 

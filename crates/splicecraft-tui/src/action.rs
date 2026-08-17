@@ -25,6 +25,32 @@ pub enum Action {
     FocusAll,
     /// Memory-only demo plasmid. Never persisted.
     LoadDemo,
+    /// Circular ↔ linear map (`v`).
+    ToggleMapView,
+    /// Restriction overlay (`r`).
+    ToggleRestr,
+    /// Feature label connectors (`l`).
+    ToggleLabels,
+    /// Move the sequence cursor. Negative is left.
+    MoveCursor(i32),
+    /// Rotate the map display origin (not a record edit).
+    RotateView(i32),
+    /// Put display origin and cursor at 0.
+    ResetView,
+    /// Insert one IUPAC base at the cursor.
+    InsertBase(char),
+    /// Delete the base before the cursor.
+    DeleteBack,
+    /// Highlight the smallest feature enclosing the cursor.
+    EnterPickFeature,
+    /// Undo last record edit. [INV-10]
+    Undo,
+    /// Redo.
+    Redo,
+    /// Reverse-complement the whole record.
+    FlipRecord,
+    /// Re-cut origin at the cursor (circular only).
+    SetOriginHere,
     /// Tool that is chrome-only until a later stage.
     Stub {
         /// Palette / menu title (no sequence content).

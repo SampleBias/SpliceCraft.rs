@@ -102,7 +102,7 @@ part and only collapse when a single part survives.
 Push / undo / redo clone the whole `Record`. Shared mutability across the
 undo stack is a data-loss bug.
 
-**Rust home:** TUI undo (stage 05) + `Record: Clone` that is deep.
+**Rust home:** `splicecraft_tui::UndoStack` + `Record: Clone` that is deep.
 **Upstream:** `_push_undo` / `_action_undo` / `_action_redo`.
 
 ## Standing contracts (from upstream pitfalls)

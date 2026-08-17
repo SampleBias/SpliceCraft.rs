@@ -1652,6 +1652,7 @@ dependencies = [
  "splicecraft-clone",
  "splicecraft-core",
  "splicecraft-gels",
+ "splicecraft-io",
  "splicecraft-persist",
  "thiserror 2.0.20",
 ]

@@ -42,6 +42,26 @@ pub fn palette_commands() -> &'static [Command] {
             action: Action::LoadDemo,
         },
         Command {
+            title: "Undo",
+            keywords: "undo revert",
+            action: Action::Undo,
+        },
+        Command {
+            title: "Redo",
+            keywords: "redo",
+            action: Action::Redo,
+        },
+        Command {
+            title: "Flip sequence",
+            keywords: "flip reverse complement rc",
+            action: Action::FlipRecord,
+        },
+        Command {
+            title: "Set origin here",
+            keywords: "origin rotate recut circular",
+            action: Action::SetOriginHere,
+        },
+        Command {
             title: "Fetch from NCBI",
             keywords: "fetch accession entrez",
             action: Action::Stub {

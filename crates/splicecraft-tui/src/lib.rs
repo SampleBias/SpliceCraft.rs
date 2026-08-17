@@ -1,7 +1,7 @@
-//! Ratatui workbench shell for SpliceCraft.rs.
+//! Ratatui workbench: map, sequence editor, help, palette.
 //!
-//! Stage 04: menus, pane chrome, `?` help, Ctrl+K palette.
-//! Event → [`Action`] → [`AppState::reduce`] → draw. No persist writes.
+//! Stage 05. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Crash-recovery autosave goes through the persist chokepoint only.
 
 #![forbid(unsafe_code)]
 
@@ -9,28 +9,34 @@ pub use splicecraft_bio as bio;
 pub use splicecraft_clone as clone;
 pub use splicecraft_core as core;
 pub use splicecraft_gels as gels;
+pub use splicecraft_io as io;
 pub use splicecraft_persist as persist;
 
 mod action;
 mod commands;
 mod draw;
+mod editor;
 mod keys;
+mod render;
 mod state;
 
 pub use action::{Action, FocusMode, Overlay, Pane};
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
+pub use editor::{UNDO_LIMIT, UndoStack};
 pub use keys::{KEY_TABLE, KeyEntry, action_from_key};
-pub use state::AppState;
+pub use render::{
+    MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_sequence,
+};
+pub use state::{AppState, demo_record};
 
-use std::io;
 use std::time::Duration;
 
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (workbench chrome).
-pub const IMPLEMENTATION_STAGE: u8 = 4;
+/// Stage this crate currently satisfies (map + sequence editor).
+pub const IMPLEMENTATION_STAGE: u8 = 5;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -41,16 +47,19 @@ pub fn crate_name() -> &'static str {
 }
 
 /// Run the interactive TUI until Quit.
-pub fn run() -> io::Result<()> {
+pub fn run() -> std::io::Result<()> {
+    persist::authorize_writes("splicecraft-tui");
     let mut terminal = ratatui::init();
     let result = run_app(&mut terminal, &mut AppState::new());
     ratatui::restore();
     result
 }
 
-fn run_app(terminal: &mut DefaultTerminal, state: &mut AppState) -> io::Result<()> {
+fn run_app(terminal: &mut DefaultTerminal, state: &mut AppState) -> std::io::Result<()> {
+    let mut dirty_since: Option<std::time::Instant> = None;
     loop {
         terminal.draw(|frame| draw_workbench(frame, state))?;
+        maybe_autosave(state, &mut dirty_since);
         if !event::poll(Duration::from_millis(250))? {
             continue;
         }
@@ -59,12 +68,48 @@ fn run_app(terminal: &mut DefaultTerminal, state: &mut AppState) -> io::Result<(
                 if !apply_key(state, key) {
                     break;
                 }
+                if state.dirty {
+                    dirty_since.get_or_insert_with(std::time::Instant::now);
+                }
             }
             Event::Resize(_, _) => {}
             _ => {}
         }
     }
     Ok(())
+}
+
+fn maybe_autosave(state: &AppState, dirty_since: &mut Option<std::time::Instant>) {
+    let Some(started) = *dirty_since else {
+        return;
+    };
+    if started.elapsed() < persist::AUTOSAVE_DEBOUNCE {
+        return;
+    }
+    if try_autosave(state).unwrap_or(false) {
+        *dirty_since = None;
+    }
+}
+
+/// Write a crash-recovery `.gb` if writes are authorised. Tests stay offline.
+pub fn try_autosave(state: &AppState) -> Result<bool, persist::PersistError> {
+    if !persist::writes_authorized() {
+        return Ok(false);
+    }
+    let Some(rec) = &state.record else {
+        return Ok(false);
+    };
+    if rec.id.is_empty() {
+        return Ok(false);
+    }
+    let text =
+        io::record_to_gb_text(rec).map_err(|e| persist::PersistError::Commit(e.to_string()))?;
+    let dir = persist::data_dir()?;
+    let Some(path) = persist::crash_recovery_path(&dir, &rec.id) else {
+        return Ok(false);
+    };
+    persist::write_crash_recovery(&path, &text)?;
+    Ok(true)
 }
 
 /// Apply a key to `state`. `false` means the process should exit.
@@ -138,7 +183,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 04") || text.contains("stage 4"),
+            text.contains("stage 05") || text.contains("stage 5"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -248,7 +293,7 @@ mod tests {
         assert!(state.reduce(Action::PaletteExecute));
         assert!(state.record.is_some());
         assert_eq!(state.source_label, "pDemo (memory)");
-        assert_eq!(state.record.as_ref().map(|r| r.len()), Some(48));
+        assert_eq!(state.record.as_ref().map(|r| r.len()), Some(120));
     }
 
     #[test]
@@ -258,5 +303,167 @@ mod tests {
         let toast = state.toast.expect("toast");
         assert!(toast.contains("Open file"), "{toast}");
         assert!(toast.contains("stage 06"), "{toast}");
+    }
+
+    #[test]
+    fn circular_map_contains_braille_and_name_bp() {
+        let rec = demo_record();
+        let lines = render_map(
+            &rec,
+            &MapOptions {
+                width: 48,
+                height: 16,
+                circular: true,
+                origin: 0,
+                show_restr: false,
+                show_labels: true,
+                ascii: false,
+            },
+        );
+        let blob = lines.join("\n");
+        assert!(
+            lines_contain_braille(&lines),
+            "expected braille dots, got:\n{blob}"
+        );
+        assert!(blob.contains("pDemo"), "missing name:\n{blob}");
+        assert!(blob.contains("120 bp"), "missing bp:\n{blob}");
+    }
+
+    #[test]
+    fn wrap_feature_label_uses_wrap_midpoint() {
+        let rec = demo_record();
+        let wrap = rec
+            .features
+            .iter()
+            .find(|f| f.label == "wrap_ori")
+            .expect("wrap");
+        let n = rec.len();
+        let mid = feature_label_bp(wrap, n);
+        assert_eq!(mid, core::wrap_midpoint(wrap.start, wrap.end, n));
+        let naive = (wrap.start as i64 + wrap.end as i64) / 2;
+        assert_ne!(
+            mid as i64, naive,
+            "wrap midpoint must not be the naive average"
+        );
+        let lines = render_map(
+            &rec,
+            &MapOptions {
+                width: 40,
+                height: 14,
+                circular: true,
+                ..MapOptions::default()
+            },
+        );
+        let blob = lines.join("\n");
+        assert!(blob.contains("wrap") || blob.contains("pDemo"), "{blob}");
+        let half = lines.len() / 2;
+        let top = lines[..half].join("");
+        assert!(
+            top.contains("wrap") || top.contains("pDemo"),
+            "label should sit near 12 o'clock (wrap midpoint 0), got:\n{blob}"
+        );
+    }
+
+    #[test]
+    fn edit_undo_is_deep_clone() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        let original = state.record.clone().unwrap();
+        state.focus = Pane::Sequence;
+        assert!(apply_key(&mut state, key(KeyCode::Char('a'))));
+        let edited = state.record.clone().unwrap();
+        assert_ne!(edited.sequence, original.sequence);
+        let stacked = state.undo.peek_undo().expect("undo snapshot").clone();
+        assert_eq!(stacked.sequence, original.sequence);
+        let mut stacked = stacked;
+        stacked.sequence.clear();
+        stacked.features.clear();
+        assert_eq!(
+            state.undo.peek_undo().unwrap().sequence,
+            original.sequence,
+            "mutating a clone of the snapshot must not change the stack"
+        );
+        assert!(state.reduce(Action::Undo));
+        let restored = state.record.as_ref().unwrap();
+        assert_eq!(restored.sequence, original.sequence);
+        assert_eq!(restored.features, original.features);
+        if let Some(rec) = state.record.as_mut() {
+            rec.sequence.clear();
+        }
+        assert_eq!(
+            state.undo.peek_redo().unwrap().sequence,
+            edited.sequence,
+            "mutating the live record must not change the redo entry"
+        );
+    }
+
+    #[test]
+    fn reorigin_refused_on_linear() {
+        let mut state = AppState::new();
+        let mut rec = core::Record::new("lin", "ATGCATGCATGC", false);
+        rec.features
+            .push(core::Feature::new("misc_feature", 2, 6, 1, "x"));
+        state.record = Some(rec);
+        state.cursor = 4;
+        assert!(state.reduce(Action::SetOriginHere));
+        let rec = state.record.as_ref().unwrap();
+        assert!(!rec.circular);
+        assert_eq!(rec.sequence, "ATGCATGCATGC");
+        assert_eq!(rec.features[0].start, 2);
+        let toast = state.toast.unwrap_or_default();
+        assert!(
+            toast.to_ascii_lowercase().contains("circular")
+                || toast.to_ascii_lowercase().contains("linear"),
+            "{toast}"
+        );
+    }
+
+    #[test]
+    fn autosave_is_gated_without_authorisation() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        state.dirty = true;
+        let wrote = try_autosave(&state).expect("gated");
+        assert!(!wrote);
+    }
+
+    #[test]
+    fn sequence_bottom_strand_is_column_complement() {
+        let rec = demo_record();
+        let lines = render_sequence(
+            &rec,
+            &SeqView {
+                width: 12,
+                window_start: 0,
+                cursor: 0,
+            },
+        );
+        let top = lines.iter().find(|l| l.starts_with("ATG")).expect("top");
+        let bot = lines
+            .iter()
+            .find(|l| l.chars().all(|c| "ACGT ".contains(c)) && l.starts_with('T'))
+            .expect("bottom");
+        let top_bases: String = top.chars().filter(|c| !c.is_whitespace()).collect();
+        let bot_bases: String = bot
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .take(top_bases.len())
+            .collect();
+        let expected: String = top_bases
+            .chars()
+            .map(|c| match c {
+                'A' => 'T',
+                'T' => 'A',
+                'G' => 'C',
+                'C' => 'G',
+                other => other,
+            })
+            .collect();
+        assert_eq!(bot_bases, expected, "top={top} bot={bot}");
+        assert_ne!(
+            bot_bases,
+            bio::rc(&top_bases),
+            "must not reverse the window"
+        );
     }
 }

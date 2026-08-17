@@ -8,7 +8,7 @@ check a box early.
 - [x] 02 Persist + data safety
 - [x] 03 File I/O
 - [x] 04 Ratatui shell
-- [ ] 05 Map + sequence editor
+- [x] 05 Map + sequence editor
 - [ ] 06 Library
 - [ ] 07 Enzymes + primers
 - [ ] 08 Cloning workbench
@@ -21,4 +21,9 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 05 (`docs/stages/05-map-sequence.md`).
+**Next:** stage 06 (`docs/stages/06-library.md`).
+
+Stage 05 notes: sticky-cut visualization (upstream/downstream tint on a
+clicked Type IIS site) is deferred. Restriction overlay draws labeled
+resite ticks only; unique / 6+ / connector filters stay all-sites until
+stage 07.

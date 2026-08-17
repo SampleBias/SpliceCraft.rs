@@ -6,10 +6,12 @@
 
 pub mod circular;
 pub mod edit;
+pub mod orient;
 pub mod record;
 
 pub use circular::{bp_in, feat_len, slice_circular, wrap_midpoint};
 pub use edit::{EditMode, rebuild_record_with_edit};
+pub use orient::rotate_record;
 pub use record::{Feature, FeaturePart, Record};
 
 /// Stage that implements this crate's real types.

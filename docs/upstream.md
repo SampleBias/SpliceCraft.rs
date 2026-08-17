@@ -77,6 +77,10 @@ in [`invariants.md`](invariants.md).
 | `_record_to_gff3` | `splicecraft_io::record_to_gff3` |
 | `PlasmidApp` keys / `MenuBar` | `splicecraft_tui::{Action, AppState, KEY_TABLE}` |
 | `get_system_commands` | `splicecraft_tui::palette_commands` |
+| `_reverse_complement_record` | `splicecraft_bio::reverse_complement_record` |
+| `_rotate_seq_record` | `splicecraft_core::rotate_record` |
+| `_push_undo` / undo stack | `splicecraft_tui::UndoStack` |
+| `_BrailleCanvas` / map geometry | `splicecraft_tui::render_map` |
 
 ## Docs worth fetching per area
 

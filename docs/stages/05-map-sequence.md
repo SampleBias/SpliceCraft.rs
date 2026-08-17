@@ -1,6 +1,6 @@
 # Stage 05 — Map + sequence editor
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01, 04 (02–03 required before **saving** edits)
 **Primary crates:** `splicecraft-tui`, `splicecraft-bio`, `splicecraft-core`
 
@@ -45,14 +45,14 @@ if sites are drawn.
 
 ## Acceptance
 
-- [ ] Pure function test: circular map of a tiny plasmid contains braille
+- [x] Pure function test: circular map of a tiny plasmid contains braille
       (or documented ASCII fallback) and the name/bp
-- [ ] Wrap feature label uses wrap midpoint, not the naive average
-- [ ] Edit + undo restores sequence and features (deep clone: mutating the
+- [x] Wrap feature label uses wrap midpoint, not the naive average
+- [x] Edit + undo restores sequence and features (deep clone: mutating the
       restored record does not change the stack entry)
-- [ ] Re-origin refused on linear
-- [ ] `cargo test -p splicecraft-tui -p splicecraft-bio`
-- [ ] No Python
+- [x] Re-origin refused on linear
+- [x] `cargo test -p splicecraft-tui -p splicecraft-bio`
+- [x] No Python
 
 ## Forbidden
 
@@ -63,3 +63,22 @@ if sites are drawn.
 ## Handoff
 
 Stage 06 adds collections, keep (`Alt+K`), feature library, collision policy.
+Do not start it in the same session that closed this stage.
+
+Implementation notes:
+
+- `render_map` / `render_sequence` are pure `Record → Vec<String>`. Ratatui
+  only paints those lines. Origin sits at 12 o'clock, clockwise. Labels use
+  `wrap_midpoint` ([INV-05]). ASCII density ramp is the documented fallback.
+- Sequence panel is top strand + **column-aligned** complement (not `rc` of
+  the window), wrap-aware feature lane, CDS AA at codon midpoint.
+- Flip: `splicecraft_bio::reverse_complement_record` (`[s,e) → [n-e, n-s)`,
+  strand `+1 ↔ -1`, wrap stays wrap). Rotate: `splicecraft_core::rotate_record`
+  (linear is a no-op). TUI `SetOriginHere` refuses linear.
+- Undo depth 50, `Record::clone()` snapshots ([INV-10]). Edits go through
+  `rebuild_record_with_edit` ([INV-09]).
+- 3s-debounced crash-recovery `.gb` via `write_crash_recovery` after
+  `authorize_writes("splicecraft-tui")`. Tests never authorise; default
+  `try_autosave` is a no-op.
+- Sticky-cut visualization skipped (ticket in STATUS). RE overlay is all
+  labeled 6+ sites until stage 07.

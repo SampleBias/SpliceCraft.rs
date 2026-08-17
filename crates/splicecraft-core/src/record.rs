@@ -105,6 +105,33 @@ impl Feature {
             strand: self.strand,
         }]
     }
+
+    /// Re-encode `parts` onto this feature. Two parts that meet the origin
+    /// become wrap (`end < start`); a single part collapses to start/end.
+    pub fn encode_from_parts(&mut self, mut parts: Vec<FeaturePart>, total: usize) {
+        parts.sort_by_key(|p| p.start);
+        if parts.len() == 1 {
+            self.start = parts[0].start;
+            self.end = parts[0].end;
+            self.parts.clear();
+            return;
+        }
+        let head = parts.iter().find(|p| p.start == 0);
+        let tail = parts.iter().find(|p| p.end == total);
+        if let (Some(head), Some(tail)) = (head, tail)
+            && head.end < tail.start
+        {
+            self.start = tail.start;
+            self.end = head.end;
+            self.parts.clear();
+            return;
+        }
+        self.parts = parts;
+        if let (Some(first), Some(last)) = (self.parts.first(), self.parts.last()) {
+            self.start = first.start;
+            self.end = last.end;
+        }
+    }
 }
 
 /// An annotated DNA (or RNA) molecule.

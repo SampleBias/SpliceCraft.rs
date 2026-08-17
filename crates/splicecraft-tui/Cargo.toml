@@ -16,5 +16,6 @@ splicecraft-bio.workspace = true
 splicecraft-clone.workspace = true
 splicecraft-core.workspace = true
 splicecraft-gels.workspace = true
+splicecraft-io.workspace = true
 splicecraft-persist.workspace = true
 thiserror.workspace = true

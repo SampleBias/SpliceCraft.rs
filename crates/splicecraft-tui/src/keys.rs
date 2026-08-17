@@ -51,7 +51,19 @@ pub const KEY_TABLE: &[KeyEntry] = &[
     },
     KeyEntry {
         keys: "v / r / l",
-        description: "Map view / RE overlay / labels (stage 05)",
+        description: "Map view / RE overlay / labels",
+    },
+    KeyEntry {
+        keys: "Ctrl+Z / Y",
+        description: "Undo / redo",
+    },
+    KeyEntry {
+        keys: "Alt+Shift+R",
+        description: "Flip (reverse complement)",
+    },
+    KeyEntry {
+        keys: "Alt+Shift+O",
+        description: "Set origin here (circular)",
     },
 ];
 
@@ -65,7 +77,7 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     match state.overlay {
         Overlay::Help => help_key(key),
         Overlay::Palette => palette_key(key),
-        Overlay::None => main_key(key),
+        Overlay::None => main_key(state, key),
     }
 }
 
@@ -96,7 +108,7 @@ fn palette_key(key: KeyEvent) -> Option<Action> {
     }
 }
 
-fn main_key(key: KeyEvent) -> Option<Action> {
+fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_ctrl(key, 'k') {
         return Some(Action::OpenPalette);
     }
@@ -106,6 +118,19 @@ fn main_key(key: KeyEvent) -> Option<Action> {
             stage: 6,
         });
     }
+    if has_ctrl(key, 'z') {
+        return Some(Action::Undo);
+    }
+    if has_ctrl(key, 'y') {
+        return Some(Action::Redo);
+    }
+    if has_alt_shift(key, 'r') {
+        return Some(Action::FlipRecord);
+    }
+    if has_alt_shift(key, 'o') {
+        return Some(Action::SetOriginHere);
+    }
+    let seq = state.focus == Pane::Sequence;
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
@@ -114,6 +139,19 @@ fn main_key(key: KeyEvent) -> Option<Action> {
         KeyCode::F(3) => Some(Action::FocusPane(Pane::Features)),
         KeyCode::F(4) => Some(Action::FocusPane(Pane::Sequence)),
         KeyCode::F(5) => Some(Action::FocusAll),
+        KeyCode::Enter => Some(Action::EnterPickFeature),
+        KeyCode::Backspace | KeyCode::Delete => Some(Action::DeleteBack),
+        KeyCode::Left if seq => Some(Action::MoveCursor(-1)),
+        KeyCode::Right if seq => Some(Action::MoveCursor(1)),
+        KeyCode::Left => Some(Action::RotateView(-1)),
+        KeyCode::Right => Some(Action::RotateView(1)),
+        KeyCode::Home => Some(Action::ResetView),
+        KeyCode::Char(c) if seq && key.modifiers.is_empty() && is_iupac_base(c) => {
+            Some(Action::InsertBase(c))
+        }
+        KeyCode::Char('v') if key.modifiers.is_empty() => Some(Action::ToggleMapView),
+        KeyCode::Char('r') if key.modifiers.is_empty() => Some(Action::ToggleRestr),
+        KeyCode::Char('l') if key.modifiers.is_empty() => Some(Action::ToggleLabels),
         KeyCode::Char('o') if key.modifiers.is_empty() => Some(Action::Stub {
             name: "Open file",
             stage: 6,
@@ -129,4 +167,31 @@ fn main_key(key: KeyEvent) -> Option<Action> {
 fn has_ctrl(key: KeyEvent, ch: char) -> bool {
     key.modifiers.contains(KeyModifiers::CONTROL)
         && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
+}
+
+fn has_alt_shift(key: KeyEvent, ch: char) -> bool {
+    key.modifiers.contains(KeyModifiers::ALT)
+        && key.modifiers.contains(KeyModifiers::SHIFT)
+        && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
+}
+
+fn is_iupac_base(c: char) -> bool {
+    matches!(
+        c.to_ascii_uppercase(),
+        'A' | 'C'
+            | 'G'
+            | 'T'
+            | 'U'
+            | 'R'
+            | 'Y'
+            | 'M'
+            | 'K'
+            | 'S'
+            | 'W'
+            | 'B'
+            | 'D'
+            | 'H'
+            | 'V'
+            | 'N'
+    )
 }

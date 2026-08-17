@@ -1,6 +1,6 @@
 //! Record rebuild after insert/replace. Sacred [INV-09].
 
-use crate::record::{Feature, FeaturePart, Record};
+use crate::record::{FeaturePart, Record};
 
 /// How a sequence edit consumes the `[s, e)` window.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,7 +109,7 @@ pub fn rebuild_record_with_edit(
         }
 
         let mut rebuilt = feat.clone();
-        encode_parts(&mut rebuilt, new_parts, new_len);
+        rebuilt.encode_from_parts(new_parts, new_len);
         out.features.push(rebuilt);
     }
 
@@ -165,36 +165,11 @@ fn add_delta(x: usize, delta: i64) -> usize {
     if v < 0 { 0 } else { v as usize }
 }
 
-fn encode_parts(feat: &mut Feature, mut parts: Vec<FeaturePart>, new_len: usize) {
-    parts.sort_by_key(|p| p.start);
-    if parts.len() == 1 {
-        feat.start = parts[0].start;
-        feat.end = parts[0].end;
-        feat.parts.clear();
-        return;
-    }
-    let head = parts.iter().find(|p| p.start == 0);
-    let tail = parts.iter().find(|p| p.end == new_len);
-    if let (Some(head), Some(tail)) = (head, tail)
-        && head.end < tail.start
-    {
-        // Canonical wrap encoding — do not flatten to outer bounds.
-        feat.start = tail.start;
-        feat.end = head.end;
-        feat.parts.clear();
-        return;
-    }
-    feat.parts = parts;
-    if let (Some(first), Some(last)) = (feat.parts.first(), feat.parts.last()) {
-        feat.start = first.start;
-        feat.end = last.end;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::circular::feat_len;
+    use crate::record::Feature;
 
     fn wrap_record() -> Record {
         let mut rec = Record::new("pWrap", "N".repeat(100), true);
