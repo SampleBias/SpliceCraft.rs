@@ -21,10 +21,27 @@ pub fn palette_commands() -> &'static [Command] {
         Command {
             title: "Open file",
             keywords: "open gb genbank fasta load",
-            action: Action::Stub {
-                name: "Open file",
-                stage: 6,
-            },
+            action: Action::OpenPathPrompt,
+        },
+        Command {
+            title: "Keep current plasmid",
+            keywords: "keep altk library collection",
+            action: Action::KeepRecord,
+        },
+        Command {
+            title: "Bulk import folder",
+            keywords: "import folder gb fasta",
+            action: Action::BulkImportPrompt,
+        },
+        Command {
+            title: "Bulk export collection",
+            keywords: "export folder genbank",
+            action: Action::BulkExportPrompt,
+        },
+        Command {
+            title: "Save selected feature",
+            keywords: "feature library snippet",
+            action: Action::SaveSelectedFeature,
         },
         Command {
             title: "Help",

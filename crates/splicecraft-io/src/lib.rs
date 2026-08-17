@@ -9,6 +9,7 @@ pub use splicecraft_core as core;
 pub use splicecraft_persist as persist;
 pub use splicecraft_util as util;
 
+mod bulk;
 mod detect;
 mod error;
 mod fasta;
@@ -17,6 +18,10 @@ mod gff;
 mod locus;
 mod net;
 
+pub use bulk::{
+    BULK_IMPORT_MAX_FILES, BulkExportFormat, BulkFailure, BulkImportReport, bulk_export_folder,
+    bulk_import_folder, record_to_library_entry,
+};
 pub use detect::{SeqFormat, detect_format};
 pub use error::IoError;
 pub use fasta::{

@@ -1,7 +1,8 @@
 //! Ratatui workbench: map, sequence editor, help, palette.
 //!
-//! Stage 05. Event → [`Action`] → [`AppState::reduce`] → draw.
-//! Crash-recovery autosave goes through the persist chokepoint only.
+//! Stage 06. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Library writes go through `safe_save_json`. Crash-recovery autosave
+//! uses the persist chokepoint only.
 
 #![forbid(unsafe_code)]
 
@@ -20,7 +21,7 @@ mod keys;
 mod render;
 mod state;
 
-pub use action::{Action, FocusMode, Overlay, Pane};
+pub use action::{Action, CollisionChoice, FocusMode, Overlay, Pane, PathKind};
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
 pub use editor::{UNDO_LIMIT, UndoStack};
@@ -35,8 +36,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (map + sequence editor).
-pub const IMPLEMENTATION_STAGE: u8 = 5;
+/// Stage this crate currently satisfies (library + map + sequence).
+pub const IMPLEMENTATION_STAGE: u8 = 6;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -49,8 +50,12 @@ pub fn crate_name() -> &'static str {
 /// Run the interactive TUI until Quit.
 pub fn run() -> std::io::Result<()> {
     persist::authorize_writes("splicecraft-tui");
+    let mut state = AppState::new();
+    if let Ok(layout) = persist::DataLayout::resolve() {
+        state.attach_layout(layout);
+    }
     let mut terminal = ratatui::init();
-    let result = run_app(&mut terminal, &mut AppState::new());
+    let result = run_app(&mut terminal, &mut state);
     ratatui::restore();
     result
 }
@@ -183,7 +188,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 05") || text.contains("stage 5"),
+            text.contains("stage 06") || text.contains("stage 6"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -272,6 +277,9 @@ mod tests {
         pal.reduce(Action::OpenPalette);
         let _ = draw_text(40, 12, &pal);
         let _ = draw_text(160, 40, &pal);
+        let mut coll = AppState::new();
+        coll.overlay = Overlay::Collision;
+        let _ = draw_text(40, 12, &coll);
     }
 
     #[test]
@@ -297,12 +305,11 @@ mod tests {
     }
 
     #[test]
-    fn stub_open_toasts_without_persist() {
+    fn ctrl_o_opens_path_prompt() {
         let mut state = AppState::new();
         assert!(apply_key(&mut state, ctrl('o')));
-        let toast = state.toast.expect("toast");
-        assert!(toast.contains("Open file"), "{toast}");
-        assert!(toast.contains("stage 06"), "{toast}");
+        assert_eq!(state.overlay, Overlay::Path);
+        assert_eq!(state.path_kind, PathKind::OpenFile);
     }
 
     #[test]
@@ -465,5 +472,64 @@ mod tests {
             bio::rc(&top_bases),
             "must not reverse the window"
         );
+    }
+
+    fn alt(ch: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(ch), KeyModifiers::ALT)
+    }
+
+    #[test]
+    fn keep_without_layout_stays_in_memory() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        assert!(apply_key(&mut state, alt('k')));
+        assert!(
+            state.library.plasmids.iter().any(|e| e.name == "pDemo"),
+            "{:?}",
+            state.library.plasmids
+        );
+        let toast = state.toast.unwrap_or_default();
+        assert!(
+            toast.contains("memory") || toast.contains("Kept"),
+            "{toast}"
+        );
+    }
+
+    #[test]
+    fn keep_reload_from_disk_sees_entry() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        persist::authorize_writes_for_sandbox(tmp.path()).expect("sandbox");
+        let layout = persist::DataLayout::from_xdg_home(tmp.path()).expect("layout");
+        let mut state = AppState::new();
+        state.attach_layout(layout.clone());
+        state.reduce(Action::LoadDemo);
+        assert!(state.reduce(Action::KeepRecord));
+        let again = persist::LibraryStore::load(&layout);
+        persist::revoke_thread_writes();
+        assert!(
+            again.plasmids.iter().any(|e| e.name == "pDemo"),
+            "{:?}",
+            again.plasmids
+        );
+    }
+
+    #[test]
+    fn collision_copy_keeps_original_via_modal() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        state.reduce(Action::KeepRecord);
+        state.reduce(Action::KeepRecord);
+        assert_eq!(state.overlay, Overlay::Collision);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("collision"), "{text}");
+        assert!(state.reduce(Action::CollisionPick(CollisionChoice::Copy)));
+        let names: Vec<_> = state
+            .library
+            .plasmids
+            .iter()
+            .map(|e| e.name.as_str())
+            .collect();
+        assert!(names.contains(&"pDemo"), "{names:?}");
+        assert!(names.iter().any(|n| n.contains("COPY")), "{names:?}");
     }
 }

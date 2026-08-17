@@ -19,3 +19,6 @@ splicecraft-gels.workspace = true
 splicecraft-io.workspace = true
 splicecraft-persist.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

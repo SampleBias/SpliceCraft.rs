@@ -1,6 +1,6 @@
 # Stage 06 — Library
 
-**Status:** not started
+**Status:** done
 **Depends on:** 02, 03, 05
 **Primary crates:** `splicecraft-persist`, `splicecraft-tui`
 
@@ -37,11 +37,11 @@ dialogs, bulk import/export.
 
 ## Acceptance
 
-- [ ] Sandboxed test: keep → reload process (or reload from disk) sees the entry
-- [ ] Collision copy does not drop the original
-- [ ] Natural sort test
-- [ ] Bulk import isolates per-file failures
-- [ ] `cargo test --workspace`
+- [x] Sandboxed test: keep → reload process (or reload from disk) sees the entry
+- [x] Collision copy does not drop the original
+- [x] Natural sort test
+- [x] Bulk import isolates per-file failures
+- [x] `cargo test --workspace`
 
 ## Forbidden
 
@@ -51,4 +51,20 @@ dialogs, bulk import/export.
 
 ## Handoff
 
-Stage 07 enzymes + primers.
+Stage 07 enzymes + primers. Do not start it in the same session that closed
+this stage.
+
+Implementation notes:
+
+- `LibraryStore` owns `collections.json` + `library.json` (active list
+  mirrors the current collection). Writes go through `safe_save_json`.
+- `Alt+K` keep asks on name collision (`s` skip / `c` copy / `o` overwrite).
+  Copy uses ` NAME COPY` / ` COPY 2` and never drops the original.
+- Feature snippets (`features.json`) have color, strand (incl. 0), and
+  sequence. `source` is refused. Same collision modal.
+- Bulk import walks `.gb`/`.gbk`/`.fasta`; `.dna` is counted and skipped.
+  Per-file failures do not abort the batch. Name clashes in a folder are
+  skipped (not overwritten). Export sanitises stems and is
+  case-insensitive (`pUC19` vs `puc19`).
+- Ctrl+O is a path prompt (no GUI file picker). Tests attach
+  `DataLayout` under a tempfile sandbox.

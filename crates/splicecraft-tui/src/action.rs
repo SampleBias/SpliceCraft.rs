@@ -51,6 +51,28 @@ pub enum Action {
     FlipRecord,
     /// Re-cut origin at the cursor (circular only).
     SetOriginHere,
+    /// Alt+K — keep the loaded record in the active collection.
+    KeepRecord,
+    /// Answer the name-collision modal.
+    CollisionPick(splicecraft_persist::CollisionChoice),
+    /// Save the selected record feature into the feature library.
+    SaveSelectedFeature,
+    /// Move the library highlight. Negative is up.
+    LibraryMove(i32),
+    /// Load the highlighted library entry into the editor.
+    LibraryOpen,
+    /// Prompt for a file path (Ctrl+O).
+    OpenPathPrompt,
+    /// Prompt for a folder to bulk-import.
+    BulkImportPrompt,
+    /// Prompt for a folder to bulk-export the active collection.
+    BulkExportPrompt,
+    /// Type into the path prompt.
+    PathInput(char),
+    /// Delete the last path-prompt character.
+    PathBackspace,
+    /// Submit the path prompt.
+    PathSubmit,
     /// Tool that is chrome-only until a later stage.
     Stub {
         /// Palette / menu title (no sequence content).
@@ -82,7 +104,25 @@ pub enum Overlay {
     Help,
     /// Ctrl+K command palette.
     Palette,
+    /// Skip / copy / overwrite (never implied).
+    Collision,
+    /// Path / folder prompt.
+    Path,
 }
+
+/// What the path prompt will do on submit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PathKind {
+    /// Load one `.gb` / `.fasta` into memory.
+    OpenFile,
+    /// Import a folder of plasmids.
+    BulkImport,
+    /// Export the active collection.
+    BulkExport,
+}
+
+/// Re-export so keys/state stay on one collision vocabulary.
+pub use splicecraft_persist::CollisionChoice;
 
 /// Split vs single-pane layout (upstream F1–F5).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -9,7 +9,7 @@ check a box early.
 - [x] 03 File I/O
 - [x] 04 Ratatui shell
 - [x] 05 Map + sequence editor
-- [ ] 06 Library
+- [x] 06 Library
 - [ ] 07 Enzymes + primers
 - [ ] 08 Cloning workbench
 - [ ] 09 Mutato + codon + synthesis
@@ -21,7 +21,7 @@ check a box early.
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 06 (`docs/stages/06-library.md`).
+**Next:** stage 07 (`docs/stages/07-enzymes-primers.md`).
 
 Stage 05 notes: sticky-cut visualization (upstream/downstream tint on a
 clicked Type IIS site) is deferred. Restriction overlay draws labeled

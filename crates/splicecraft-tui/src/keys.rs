@@ -2,7 +2,7 @@
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use crate::action::{Action, Overlay, Pane};
+use crate::action::{Action, CollisionChoice, Overlay, Pane};
 use crate::state::AppState;
 
 /// One row of the `?` overlay (and the status-bar cheat sheet).
@@ -43,7 +43,11 @@ pub const KEY_TABLE: &[KeyEntry] = &[
     },
     KeyEntry {
         keys: "Ctrl+O",
-        description: "Open file (stage 06)",
+        description: "Open file path",
+    },
+    KeyEntry {
+        keys: "Alt+K",
+        description: "Keep into collection",
     },
     KeyEntry {
         keys: "f",
@@ -77,6 +81,8 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     match state.overlay {
         Overlay::Help => help_key(key),
         Overlay::Palette => palette_key(key),
+        Overlay::Collision => collision_key(key),
+        Overlay::Path => path_prompt_key(key),
         Overlay::None => main_key(state, key),
     }
 }
@@ -108,15 +114,37 @@ fn palette_key(key: KeyEvent) -> Option<Action> {
     }
 }
 
+fn collision_key(key: KeyEvent) -> Option<Action> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => Some(Action::CollisionPick(CollisionChoice::Cancel)),
+        KeyCode::Char('s') => Some(Action::CollisionPick(CollisionChoice::Skip)),
+        KeyCode::Char('c') => Some(Action::CollisionPick(CollisionChoice::Copy)),
+        KeyCode::Char('o') => Some(Action::CollisionPick(CollisionChoice::Overwrite)),
+        _ => None,
+    }
+}
+
+fn path_prompt_key(key: KeyEvent) -> Option<Action> {
+    if has_ctrl(key, 'k') {
+        return Some(Action::CloseOverlay);
+    }
+    match key.code {
+        KeyCode::Esc => Some(Action::CloseOverlay),
+        KeyCode::Enter => Some(Action::PathSubmit),
+        KeyCode::Backspace => Some(Action::PathBackspace),
+        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+            Some(Action::PathInput(c))
+        }
+        _ => None,
+    }
+}
+
 fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_ctrl(key, 'k') {
         return Some(Action::OpenPalette);
     }
     if has_ctrl(key, 'o') {
-        return Some(Action::Stub {
-            name: "Open file",
-            stage: 6,
-        });
+        return Some(Action::OpenPathPrompt);
     }
     if has_ctrl(key, 'z') {
         return Some(Action::Undo);
@@ -130,7 +158,11 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_alt_shift(key, 'o') {
         return Some(Action::SetOriginHere);
     }
+    if has_alt(key, 'k') {
+        return Some(Action::KeepRecord);
+    }
     let seq = state.focus == Pane::Sequence;
+    let lib = state.focus == Pane::Library;
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
@@ -139,7 +171,10 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::F(3) => Some(Action::FocusPane(Pane::Features)),
         KeyCode::F(4) => Some(Action::FocusPane(Pane::Sequence)),
         KeyCode::F(5) => Some(Action::FocusAll),
+        KeyCode::Enter if lib => Some(Action::LibraryOpen),
         KeyCode::Enter => Some(Action::EnterPickFeature),
+        KeyCode::Up if lib => Some(Action::LibraryMove(-1)),
+        KeyCode::Down if lib => Some(Action::LibraryMove(1)),
         KeyCode::Backspace | KeyCode::Delete => Some(Action::DeleteBack),
         KeyCode::Left if seq => Some(Action::MoveCursor(-1)),
         KeyCode::Right if seq => Some(Action::MoveCursor(1)),
@@ -152,10 +187,7 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Char('v') if key.modifiers.is_empty() => Some(Action::ToggleMapView),
         KeyCode::Char('r') if key.modifiers.is_empty() => Some(Action::ToggleRestr),
         KeyCode::Char('l') if key.modifiers.is_empty() => Some(Action::ToggleLabels),
-        KeyCode::Char('o') if key.modifiers.is_empty() => Some(Action::Stub {
-            name: "Open file",
-            stage: 6,
-        }),
+        KeyCode::Char('o') if key.modifiers.is_empty() => Some(Action::OpenPathPrompt),
         KeyCode::Char('f') if key.modifiers.is_empty() => Some(Action::Stub {
             name: "Fetch from NCBI",
             stage: 13,
@@ -166,6 +198,12 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
 
 fn has_ctrl(key: KeyEvent, ch: char) -> bool {
     key.modifiers.contains(KeyModifiers::CONTROL)
+        && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
+}
+
+fn has_alt(key: KeyEvent, ch: char) -> bool {
+    key.modifiers.contains(KeyModifiers::ALT)
+        && !key.modifiers.contains(KeyModifiers::SHIFT)
         && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&ch))
 }
 

@@ -81,6 +81,9 @@ in [`invariants.md`](invariants.md).
 | `_rotate_seq_record` | `splicecraft_core::rotate_record` |
 | `_push_undo` / undo stack | `splicecraft_tui::UndoStack` |
 | `_BrailleCanvas` / map geometry | `splicecraft_tui::render_map` |
+| `_load_library` / `_save_library` | `splicecraft_persist::{load,save}_library` + `LibraryStore` |
+| `_classify_collisions` / `_ensure_unique_copy_name` | `splicecraft_persist::{classify_entry,unique_copy_name}` |
+| `_bulk_import_folder` | `splicecraft_io::bulk_import_folder` |
 
 ## Docs worth fetching per area
 

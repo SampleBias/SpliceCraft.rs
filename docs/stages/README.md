@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**06 — Library** is next.
+**07 — Enzymes + primers** is next.
 
-Stages 00–05 are done.
+Stages 00–06 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 

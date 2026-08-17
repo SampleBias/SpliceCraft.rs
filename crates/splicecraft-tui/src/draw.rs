@@ -6,7 +6,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
-use crate::action::{FocusMode, Overlay, Pane};
+use crate::action::{FocusMode, Overlay, Pane, PathKind};
 use crate::keys::KEY_TABLE;
 use crate::render::{MapOptions, SeqView, render_map, render_sequence};
 use crate::state::AppState;
@@ -49,6 +49,8 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
     match state.overlay {
         Overlay::Help => draw_help(frame, area),
         Overlay::Palette => draw_palette(frame, area, state),
+        Overlay::Collision => draw_collision(frame, area, state),
+        Overlay::Path => draw_path(frame, area, state),
         Overlay::None => {}
     }
 }
@@ -148,7 +150,7 @@ fn draw_pane(frame: &mut Frame<'_>, area: Rect, pane: Pane, state: &AppState, fo
 
 fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> String {
     match pane {
-        Pane::Library => "No collections loaded.\nOpen stays in memory until stage 06.".into(),
+        Pane::Library => library_pane(state),
         Pane::Map => match &state.record {
             None => "Empty canvas — no plasmid loaded.\nCtrl+K · Load demo plasmid".into(),
             Some(rec) => render_map(
@@ -165,31 +167,7 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
             )
             .join("\n"),
         },
-        Pane::Features => match &state.record {
-            None => "No features.".into(),
-            Some(rec) => {
-                let mut lines = Vec::new();
-                for (i, f) in rec.features.iter().enumerate() {
-                    let mark = if state.selected_feat == Some(i) {
-                        ">"
-                    } else {
-                        " "
-                    };
-                    lines.push(format!(
-                        "{mark} {}  {}..{}  {} bp",
-                        f.label,
-                        f.start,
-                        f.end,
-                        f.len_on(rec.len())
-                    ));
-                }
-                if lines.is_empty() {
-                    "No features.".into()
-                } else {
-                    lines.join("\n")
-                }
-            }
-        },
+        Pane::Features => features_pane(state),
         Pane::Sequence => match &state.record {
             None => "Sequence panel — empty.".into(),
             Some(rec) => {
@@ -206,6 +184,47 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
                 .join("\n")
             }
         },
+    }
+}
+
+fn library_pane(state: &AppState) -> String {
+    let mut lines = vec![format!("[{}]", state.library.active)];
+    if state.library.plasmids.is_empty() {
+        lines.push("Empty collection — Alt+K keeps the loaded record.".into());
+    } else {
+        for (i, e) in state.library.plasmids.iter().enumerate() {
+            let mark = if state.selected_lib == i { ">" } else { " " };
+            lines.push(format!("{mark} {}  {} bp", e.name, e.size));
+        }
+    }
+    lines.join("\n")
+}
+
+fn features_pane(state: &AppState) -> String {
+    match &state.record {
+        None => "No features.".into(),
+        Some(rec) => {
+            let mut lines = Vec::new();
+            for (i, f) in rec.features.iter().enumerate() {
+                let mark = if state.selected_feat == Some(i) {
+                    ">"
+                } else {
+                    " "
+                };
+                lines.push(format!(
+                    "{mark} {}  {}..{}  {} bp",
+                    f.label,
+                    f.start,
+                    f.end,
+                    f.len_on(rec.len())
+                ));
+            }
+            if lines.is_empty() {
+                "No features.".into()
+            } else {
+                lines.join("\n")
+            }
+        }
     }
 }
 
@@ -232,7 +251,7 @@ fn draw_status(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
 }
 
 fn draw_help(frame: &mut Frame<'_>, area: Rect) {
-    let box_area = centered(area, 56, 16);
+    let box_area = centered(area, 56, 18);
     frame.render_widget(Clear, box_area);
     let mut lines = vec![
         Line::from(Span::styled(
@@ -286,6 +305,57 @@ fn draw_palette(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" Command palette ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_collision(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 58, 10);
+    frame.render_widget(Clear, box_area);
+    let name = match &state.pending_collision {
+        Some(crate::state::PendingCollision::Keep(e)) => e.name.as_str(),
+        Some(crate::state::PendingCollision::Feature(f)) => f.name.as_str(),
+        None => "(unknown)",
+    };
+    let lines = vec![
+        Line::from(Span::styled(
+            "Name collision — choose explicitly",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(format!("  {name}")),
+        Line::from(""),
+        Line::from("  s  skip (keep original)   c  copy   o  overwrite"),
+        Line::from("  Esc cancel — overwrite is never implied"),
+    ];
+    let block = Block::default()
+        .title(" Collision ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 60, 8);
+    frame.render_widget(Clear, box_area);
+    let title = match state.path_kind {
+        PathKind::OpenFile => "Open file",
+        PathKind::BulkImport => "Bulk import folder",
+        PathKind::BulkExport => "Bulk export folder",
+    };
+    let lines = vec![
+        Line::from(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(format!("  {}", state.path_query)),
+        Line::from(""),
+        Line::from("  Enter submit · Esc cancel"),
+    ];
+    let block = Block::default()
+        .title(" Path ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
