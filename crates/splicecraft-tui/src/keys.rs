@@ -105,6 +105,7 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::Sequencing
         | Overlay::Experiments
         | Overlay::History
+        | Overlay::Search
         | Overlay::Parts => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
@@ -220,8 +221,10 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
             Some(Action::ToolInput(c))
         }
         KeyCode::Char(c)
-            if matches!(state.overlay, Overlay::Experiments | Overlay::History)
-                && !key.modifiers.contains(KeyModifiers::CONTROL) =>
+            if matches!(
+                state.overlay,
+                Overlay::Experiments | Overlay::History | Overlay::Search
+            ) && !key.modifiers.contains(KeyModifiers::CONTROL) =>
         {
             Some(Action::ToolInput(c))
         }

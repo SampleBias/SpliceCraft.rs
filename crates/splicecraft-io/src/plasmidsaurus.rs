@@ -415,6 +415,8 @@ pub struct HttpRequest {
     pub url: String,
     /// Request body (token POST).
     pub body: Vec<u8>,
+    /// Extra headers (`Content-Type`, …). Empty for Plasmidsaurus.
+    pub headers: Vec<(String, String)>,
 }
 
 /// Transport response.
@@ -479,6 +481,7 @@ pub fn plasmidsaurus_oauth_token(
         method: "POST".into(),
         url,
         body,
+        headers: Vec::new(),
     })?;
     match resp.status {
         200 => {}
@@ -522,6 +525,7 @@ pub fn plasmidsaurus_list_items(
         method: "GET".into(),
         url,
         body: token.as_bytes().to_vec(),
+        headers: Vec::new(),
     })?;
     match resp.status {
         200 => {}

@@ -63,6 +63,8 @@ pub enum Action {
     ExperimentSpellcheck,
     /// Open the construction-history viewer.
     OpenHistory,
+    /// Open BLAST / ORF / online search.
+    OpenSearch,
     /// Dry-run recover history from saved `.dna` originals.
     RecoverHistory,
     /// Open the Parts Bin.
@@ -190,6 +192,8 @@ pub enum Overlay {
     Experiments,
     /// Construction-history viewer (read-only warnings).
     History,
+    /// BLAST / ORF / online / HMM-DB / find.
+    Search,
     /// Parts Bin.
     Parts,
 }
@@ -430,6 +434,48 @@ pub enum HistoryTab {
     Tree,
     /// Step detail + warnings.
     Detail,
+}
+
+/// Search overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SearchTab {
+    /// Local BLASTN / BLASTP / HMMscan (ungapped).
+    #[default]
+    Local,
+    /// Six-frame ORF finder.
+    Orf,
+    /// NCBI / EBI (setting-gated).
+    Online,
+    /// HMM-DB catalog.
+    HmmDb,
+    /// Fuzzy plasmid find across collections.
+    Find,
+}
+
+impl SearchTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Local => Self::Orf,
+            Self::Orf => Self::Online,
+            Self::Online => Self::HmmDb,
+            Self::HmmDb => Self::Find,
+            Self::Find => Self::Local,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::Orf => "ORF",
+            Self::Online => "online",
+            Self::HmmDb => "HMM-DB",
+            Self::Find => "find",
+        }
+    }
 }
 
 impl HistoryTab {

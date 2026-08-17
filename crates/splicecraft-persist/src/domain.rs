@@ -176,3 +176,29 @@ pub fn save_experiment_projects(
 pub fn load_experiment_projects(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.experiment_projects_file(), "Experiment projects")
 }
+
+/// Persist settings (`[{key, value}, …]`).
+pub fn save_settings(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.settings_file(), entries, "Settings")
+}
+
+/// Load settings.
+#[must_use]
+pub fn load_settings(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.settings_file(), "Settings")
+}
+
+/// Persist the HMM-DB catalog.
+pub fn save_hmm_db_catalog(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(
+        &layout.hmm_db_catalog_file(),
+        entries,
+        "HMM database catalog",
+    )
+}
+
+/// Load the HMM-DB catalog (envelope or legacy list).
+#[must_use]
+pub fn load_hmm_db_catalog(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.hmm_db_catalog_file(), "HMM database catalog")
+}

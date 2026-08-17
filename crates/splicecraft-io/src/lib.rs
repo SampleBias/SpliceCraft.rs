@@ -19,8 +19,11 @@ mod fasta;
 mod genbank;
 mod gff;
 mod history_recover;
+mod hmm_download;
+mod library_search;
 mod locus;
 mod net;
+mod online;
 mod plasmidsaurus;
 mod zip;
 
@@ -58,10 +61,21 @@ pub use history_recover::{
     HistoryRecoverReport, history_node_count_of_xml, recover_history_from_dna,
     scan_dna_originals_for_history,
 };
+pub use hmm_download::{
+    HMM_DB_DOWNLOAD_MAX_BYTES, HMM_DB_VERSION_MAX_BYTES, HmmDbDownloadReport,
+    hmm_db_perform_download,
+};
+pub use library_search::blast_db_from_library;
 pub use locus::{GB_LOCUS_NAME_MAX, display_name_needs_comment, sanitize_locus_name};
 pub use net::{
     NCBI_ALLOWLIST, assert_ncbi_host, assert_public_ip, fetch_genbank, ip_is_non_public,
     ncbi_efetch_url, sanitize_accession,
+};
+pub use online::{
+    CancellationToken, HMMER_WEB_RESULT_URL, HMMER_WEB_SUBMIT_URL, NCBI_BLAST_URL, ONLINE_MAX_WAIT,
+    ONLINE_POLL_INTERVAL, OnlineBlastHit, OnlineHmmHit, OnlineSearchPolicy, SEARCH_ALLOWLIST,
+    assert_download_url, assert_search_host, assert_search_url, hmmer_web_hmmscan,
+    hmmer_web_parse_json, ncbi_blast_online, ncbi_blast_parse_xml,
 };
 pub use plasmidsaurus::{
     HttpRequest, HttpResponse, HttpTransport, OfflineTransport, PLASMIDSAURUS_API_HOST,

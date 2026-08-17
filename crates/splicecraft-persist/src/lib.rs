@@ -16,10 +16,12 @@ mod enzymes;
 mod error;
 mod event;
 mod experiments;
+mod hmm_db;
 mod library;
 mod load;
 mod paths;
 mod save;
+mod settings;
 
 pub use atomic::{atomic_write_bytes, atomic_write_text, stage_bytes_tempfile};
 pub use auth::{
@@ -34,10 +36,11 @@ pub use crash::{
 pub use domain::{
     load_codon_tables, load_collections, load_custom_enzymes, load_enzyme_active,
     load_enzyme_collections, load_experiment_projects, load_experiments, load_features, load_gels,
-    load_grammars, load_library, load_parts_bin, load_primers, load_protein_motifs,
-    save_codon_tables, save_collections, save_custom_enzymes, save_enzyme_active,
-    save_enzyme_collections, save_experiment_projects, save_experiments, save_features, save_gels,
-    save_grammars, save_library, save_parts_bin, save_primers, save_protein_motifs,
+    load_grammars, load_hmm_db_catalog, load_library, load_parts_bin, load_primers,
+    load_protein_motifs, load_settings, save_codon_tables, save_collections, save_custom_enzymes,
+    save_enzyme_active, save_enzyme_collections, save_experiment_projects, save_experiments,
+    save_features, save_gels, save_grammars, save_hmm_db_catalog, save_library, save_parts_bin,
+    save_primers, save_protein_motifs, save_settings,
 };
 pub use envelope::{
     BACKUP_RETENTION_COUNT, CURRENT_SCHEMA_VERSION, LoadResult, SAFE_LOAD_JSON_MAX_BYTES,
@@ -54,6 +57,11 @@ pub use experiments::{
     migrate_legacy_tag_format, new_experiment_id, normalise_experiment_entry, resolve_plasmid_jump,
     sanitize_experiment_id, save_experiment_image, spellcheck_body,
 };
+pub use hmm_db::{
+    HMM_DB_ID_MAX, HmmDbEntry, NCBIFAM_URL, PFAM_A_URL, PFAM_A_VERSION_URL, builtin_hmm_db_catalog,
+    load_hmm_catalog, normalise_hmm_db_entry, sanitize_hmm_db_id, sanitize_hmm_db_url,
+    save_hmm_catalog,
+};
 pub use library::{
     AlignmentBadge, Collection, CollisionChoice, CollisionClass, DEFAULT_COLLECTION_NAME,
     FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore, classify_entry, classify_name_content,
@@ -65,11 +73,16 @@ pub use paths::{
     CUSTOM_ENZYMES_FILE_NAME, DNA_ORIGINALS_DIR_NAME, DataLayout, ENZYME_ACTIVE_FILE_NAME,
     ENZYME_COLLECTIONS_FILE_NAME, EXPERIMENT_PROJECTS_FILE_NAME, EXPERIMENTS_DIR_NAME,
     EXPERIMENTS_FILE_NAME, FEATURES_FILE_NAME, GELS_FILE_NAME, GRAMMARS_FILE_NAME,
-    LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
-    PROTEIN_MOTIFS_FILE_NAME, PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir,
-    join_leaf, path_has_python_leaf,
+    HMM_DATABASES_DIR_NAME, HMM_DB_CATALOG_FILE_NAME, LIBRARY_FILE_NAME, LOG_DIR_NAME,
+    LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME, PROTEIN_MOTIFS_FILE_NAME,
+    PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
+    path_has_python_leaf,
 };
 pub use save::{SaveOptions, safe_save_json, safe_save_json_with, stage_json_tempfile};
+pub use settings::{
+    SETTING_ALLOW_ONLINE_LOOKUPS, SETTING_ALLOW_ONLINE_SEARCH, allow_online_search,
+    load_settings_map, save_settings_map, set_setting_bool, setting_bool,
+};
 
 /// Stage that implements this crate's real save engine.
 pub const IMPLEMENTATION_STAGE: u8 = 2;
@@ -464,6 +477,37 @@ mod tests {
         assert_eq!(
             layout.gels_file().file_name().and_then(|s| s.to_str()),
             Some(GELS_FILE_NAME)
+        );
+    }
+
+    #[test]
+    fn domain_settings_and_hmm_catalog_are_sandboxed() {
+        let (tmp, layout) = sandbox();
+        assert!(layout.root.starts_with(tmp.path()));
+        save_settings(
+            &layout,
+            &[json!({"key":"allow_online_search","value":false})],
+        )
+        .unwrap();
+        assert_eq!(
+            load_settings(&layout).entries[0]["key"],
+            "allow_online_search"
+        );
+        assert!(!allow_online_search(&layout));
+        save_hmm_db_catalog(
+            &layout,
+            &[json!({"id":"lab-hmm","name":"Lab","url":"https://example.org/x.hmm.gz"})],
+        )
+        .unwrap();
+        let cat = load_hmm_catalog(&layout);
+        assert!(cat.iter().any(|e| e.id == "pfam-a"));
+        assert!(cat.iter().any(|e| e.id == "lab-hmm"));
+        assert_eq!(
+            layout
+                .hmm_db_catalog_file()
+                .file_name()
+                .and_then(|s| s.to_str()),
+            Some(HMM_DB_CATALOG_FILE_NAME)
         );
     }
 

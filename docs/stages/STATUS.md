@@ -16,12 +16,21 @@ check a box early.
 - [x] 10 Simulator + gels
 - [x] 11 Sequencing
 - [x] 12 Experiments + History UI
-- [ ] 13 Search
+- [x] 13 Search
 - [ ] 14 Agent API + CLI
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 13 (`docs/stages/13-search.md`).
+**Next:** stage 14 (`docs/stages/14-agent-api-cli.md`).
+
+Stage 13 notes: six-frame ORF finder reports wrap + `length_aa` (never
+`(end - start)` on a full lap). Local BLASTN/BLASTP/HMMscan is the
+ungapped seed-extend engine (HMMER is not in the default MIT build;
+short queries use the same fallback). Online NCBI/EBI is mockable,
+HTTPS + allowlist, and errors when `allow_online_search` is off.
+Cancel stops the poll loop and deletes the BLAST RID. HMM-DB catalog
+re-injects `pfam-a` / `ncbifam`; downloads are chokepoint-gated and
+never fetch Pfam in default CI.
 
 Stage 12 notes: lab notebook persists `experiments.json` /
 `experiment_projects.json` through `safe_save_json`. Image attaches are

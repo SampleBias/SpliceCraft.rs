@@ -101,11 +101,8 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "BLAST",
-            keywords: "blastn hmmscan",
-            action: Action::Stub {
-                name: "BLAST",
-                stage: 13,
-            },
+            keywords: "blastn hmmscan orf search pfam",
+            action: Action::OpenSearch,
         },
         Command {
             title: "Primer design",
@@ -183,7 +180,7 @@ pub fn fuzzy_match(query: &str, command: &Command) -> bool {
         return true;
     }
     let hay = format!("{} {}", command.title, command.keywords).to_ascii_lowercase();
-    hay.contains(&q) || is_subsequence(&q, &hay)
+    fuzzy_text_match(query, &hay)
 }
 
 /// Filter the catalog in declaration order.
@@ -194,6 +191,17 @@ pub fn filter_commands(query: &str) -> Vec<Command> {
         .copied()
         .filter(|c| fuzzy_match(query, c))
         .collect()
+}
+
+/// Case-insensitive contains or subsequence (palette + plasmid find).
+#[must_use]
+pub fn fuzzy_text_match(query: &str, hay: &str) -> bool {
+    let q = query.trim().to_ascii_lowercase();
+    if q.is_empty() {
+        return true;
+    }
+    let h = hay.to_ascii_lowercase();
+    h.contains(&q) || is_subsequence(&q, &h)
 }
 
 fn is_subsequence(query: &str, hay: &str) -> bool {

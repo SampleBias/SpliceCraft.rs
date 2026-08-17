@@ -39,7 +39,7 @@ Do not commit fetched files.
 | `splicecraft_gels.py` | `splicecraft-gels` | 10 |
 | `splicecraft_experiments.py` | TUI + persist (notebook) | 12 |
 | `splicecraft_history.py` | `splicecraft-clone` model + TUI History | 08, 12 |
-| `splicecraft_search.py` | search module (stage 13); keep out of persist | 13 |
+| `splicecraft_search.py` | `splicecraft-io` online + HMM-DB download; `splicecraft-bio` local BLAST | 13 |
 | `splicecraft_agent.py` | `splicecraft-agent` | 14 |
 | `splicecraft_cli.py` | `splicecraft-cli` | 14 |
 | `splicecraft_babs.py` | TUI BABS (Ollama localhost) | 15 |
@@ -122,6 +122,14 @@ in [`invariants.md`](invariants.md).
 | `_save_experiment_image` | `splicecraft_persist::save_experiment_image` |
 | `_history_node_warnings` | `splicecraft_clone::history_node_warnings` |
 | `_h_recover_history_from_dna` | `splicecraft_io::recover_history_from_dna` |
+| `_find_orfs` | `splicecraft_bio::find_orfs` |
+| `_blast_search` / `_blast_search_pure` | `splicecraft_bio::blast_search` |
+| `_hmmscan_run` (ungapped fallback) | `splicecraft_bio::hmmscan_ungapped` |
+| `_ncbi_blast_online` | `splicecraft_io::ncbi_blast_online` |
+| `_hmmer_web_hmmscan` | `splicecraft_io::hmmer_web_hmmscan` |
+| `_hmm_db_perform_download` | `splicecraft_io::hmm_db_perform_download` |
+| `_load/_save_hmm_db_catalog` | `splicecraft_persist::{load,save}_hmm_catalog` |
+| `_get_setting` / `allow_online_search` | `splicecraft_persist::{allow_online_search,set_setting_bool}` |
 
 ## Docs worth fetching per area
 

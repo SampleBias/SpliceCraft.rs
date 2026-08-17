@@ -1,6 +1,6 @@
 # Stage 13 — Search
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01, 06, 03
 **Primary crates:** `splicecraft-bio`, `splicecraft-io`, `splicecraft-tui`
 
@@ -43,11 +43,26 @@ ORF wrap [INV-08].
 
 ## Acceptance
 
-- [ ] ORF wrap fixture lists wrap + exact AA length
-- [ ] Full-lap ORF does not use a bogus start/end pair as length
-- [ ] Online client tests use a mock; cancel stops polling
-- [ ] Default tests do not hit the network
-- [ ] Setting off → online search errors
+- [x] ORF wrap fixture lists wrap + exact AA length
+- [x] Full-lap ORF does not use a bogus start/end pair as length
+- [x] Online client tests use a mock; cancel stops polling
+- [x] Default tests do not hit the network
+- [x] Setting off → online search errors
+
+## Notes
+
+- ORF: `splicecraft_bio::find_orfs` — six-frame, ATG default, GTG/TTG
+  opt-in, wrap `end < start`, full-lap flagged via `exceeds_one_lap`.
+- Local search: ungapped BLAST 1.x seed/extend (`blast_search`). HMMscan
+  in default builds is the same protein path (`hmmscan_ungapped`); no
+  crates.io HMMER / no Pfam download in CI.
+- Online: `splicecraft_io::{ncbi_blast_online,hmmer_web_hmmscan}` with
+  injected `HttpTransport` + `CancellationToken`. Hosts
+  `blast.ncbi.nlm.nih.gov` / `www.ebi.ac.uk`. Setting key
+  `allow_online_search` (default false).
+- Catalog: `hmm_db_catalog.json` through `safe_save_json`; builtins
+  re-injected. Download writes `hmm_databases/<id>/` after
+  `refuse_unauthorized_write`.
 
 ## Forbidden
 

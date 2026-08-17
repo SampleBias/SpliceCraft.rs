@@ -1,6 +1,9 @@
 //! Workbench state. Library writes go through the persist chokepoint.
 
-use splicecraft_bio::{CustomEnzyme, extract_feature, reverse_complement_record};
+use splicecraft_bio::{
+    BlastProgram, CustomEnzyme, Orf, extract_feature, find_orfs, record_fingerprint,
+    results_are_stale, reverse_complement_record,
+};
 use splicecraft_clone::{
     GibsonFragment, GrammarStore, HistoryCheckNode, HistoryNode, PartRecord, PartsBinStore,
     assemble_parts, classify_part_from_plasmid, design_gb_primers, design_gb_scrub,
@@ -17,9 +20,9 @@ use splicecraft_gels::{
 };
 use splicecraft_persist::{
     AlignmentBadge, CollisionChoice, CollisionClass, DataLayout, EnzymeStore, ExperimentEntry,
-    ExperimentStore, FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore,
-    experiment_jump_table, new_experiment_id, normalise_experiment_entry, resolve_plasmid_jump,
-    save_experiment_image, spellcheck_body,
+    ExperimentStore, FeatureSnippet, HmmDbEntry, KeepOutcome, LibraryEntry, LibraryStore,
+    allow_online_search, experiment_jump_table, load_hmm_catalog, new_experiment_id,
+    normalise_experiment_entry, resolve_plasmid_jump, save_experiment_image, spellcheck_body,
 };
 use splicecraft_primer::{
     PrimerRecord, PrimerStatus, PrimerStore, design_cloning_primers, design_detection_primers,
@@ -30,9 +33,9 @@ use splicecraft_primer::{
 
 use crate::action::{
     Action, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab, MutatoTab, Overlay,
-    Pane, PathKind, SequencingTab, SimulatorTab, SynthTab,
+    Pane, PathKind, SearchTab, SequencingTab, SimulatorTab, SynthTab,
 };
-use crate::commands::{Command, filter_commands};
+use crate::commands::{Command, filter_commands, fuzzy_text_match};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
 
 /// In-memory workbench. Disk writes require authorisation + a layout.
@@ -196,6 +199,26 @@ pub struct AppState {
     pub hist_lines: Vec<String>,
     /// Warnings for the loaded molecule. Never used to edit DNA.
     pub hist_warnings: Vec<String>,
+    /// Search overlay tab.
+    pub search_tab: SearchTab,
+    /// BLAST / find query box (never logged).
+    pub search_query: String,
+    /// Last search summary (counts / errors; no DNA).
+    pub search_summary: Option<String>,
+    /// Result rows (no sequence content).
+    pub search_lines: Vec<String>,
+    /// Highlighted result row.
+    pub search_selected: usize,
+    /// Local / online program.
+    pub search_program: BlastProgram,
+    /// `allow_online_search` (off until ticked).
+    pub allow_online_search: bool,
+    /// Fingerprint of the record a search was started against.
+    pub search_submitted: Option<splicecraft_bio::RecordFingerprint>,
+    /// HMM-DB catalog (builtins re-injected).
+    pub hmm_catalog: Vec<HmmDbEntry>,
+    /// Cancel token for an in-flight online poll.
+    pub search_cancel: splicecraft_io::CancellationToken,
 }
 
 /// Collision modal payload.
@@ -297,6 +320,16 @@ impl AppState {
             hist_summary: None,
             hist_lines: Vec::new(),
             hist_warnings: Vec::new(),
+            search_tab: SearchTab::Local,
+            search_query: String::new(),
+            search_summary: None,
+            search_lines: Vec::new(),
+            search_selected: 0,
+            search_program: BlastProgram::Blastn,
+            allow_online_search: false,
+            search_submitted: None,
+            hmm_catalog: splicecraft_persist::builtin_hmm_db_catalog().to_vec(),
+            search_cancel: splicecraft_io::CancellationToken::new(),
         }
     }
 
@@ -311,6 +344,8 @@ impl AppState {
         self.motifs = MotifStore::load(&layout);
         self.gels = GelStore::load(&layout);
         self.experiments = ExperimentStore::load(&layout);
+        self.allow_online_search = allow_online_search(&layout);
+        self.hmm_catalog = load_hmm_catalog(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
         self.clamp_enzyme_selection();
@@ -329,6 +364,7 @@ impl AppState {
                 }
             }
             Action::CloseOverlay => {
+                self.search_cancel.cancel();
                 self.overlay = Overlay::None;
                 self.reset_palette();
                 self.path_query.clear();
@@ -465,6 +501,16 @@ impl AppState {
                 self.toast = None;
                 self.refresh_history();
             }
+            Action::OpenSearch => {
+                self.overlay = Overlay::Search;
+                self.search_summary = None;
+                self.toast = None;
+                self.search_cancel = splicecraft_io::CancellationToken::new();
+                if let Some(layout) = &self.layout {
+                    self.allow_online_search = allow_online_search(layout);
+                    self.hmm_catalog = load_hmm_catalog(layout);
+                }
+            }
             Action::RecoverHistory => self.run_history_recover(true),
             Action::ExperimentJump => self.jump_experiment_ref(),
             Action::ExperimentSpellcheck => self.spellcheck_experiment(),
@@ -501,6 +547,9 @@ impl AppState {
                 } else if self.overlay == Overlay::History {
                     self.hist_tab = self.hist_tab.next();
                     self.refresh_history_tab();
+                } else if self.overlay == Overlay::Search {
+                    self.search_tab = self.search_tab.next();
+                    self.search_summary = None;
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -514,6 +563,7 @@ impl AppState {
                 Overlay::Sequencing => self.run_sequencing(),
                 Overlay::Experiments => self.run_experiments(),
                 Overlay::History => self.run_history(),
+                Overlay::Search => self.run_search(),
                 Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
@@ -529,6 +579,7 @@ impl AppState {
                         | Overlay::Sequencing
                         | Overlay::Experiments
                         | Overlay::History
+                        | Overlay::Search
                 ) && !c.is_control()
                 {
                     if self.overlay == Overlay::Mutato {
@@ -546,6 +597,8 @@ impl AppState {
                         }
                     } else if self.overlay == Overlay::History {
                         self.tool_query.push(c);
+                    } else if self.overlay == Overlay::Search {
+                        self.search_query.push(c);
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
@@ -568,6 +621,7 @@ impl AppState {
                         | Overlay::Sequencing
                         | Overlay::Experiments
                         | Overlay::History
+                        | Overlay::Search
                 ) {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.pop();
@@ -586,6 +640,8 @@ impl AppState {
                         }
                     } else if self.overlay == Overlay::History {
                         self.tool_query.pop();
+                    } else if self.overlay == Overlay::Search {
+                        self.search_query.pop();
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => {
@@ -675,6 +731,23 @@ impl AppState {
                     if n > 0 {
                         self.exp_selected =
                             (self.exp_selected as i32 + delta).rem_euclid(n as i32) as usize;
+                    }
+                } else if self.overlay == Overlay::Search {
+                    if self.search_tab == SearchTab::Local {
+                        self.search_program = match (self.search_program, delta.signum()) {
+                            (BlastProgram::Blastn, 1) => BlastProgram::Blastp,
+                            (BlastProgram::Blastp, 1) => BlastProgram::Hmmscan,
+                            (BlastProgram::Hmmscan, 1) => BlastProgram::Blastn,
+                            (BlastProgram::Blastn, _) => BlastProgram::Hmmscan,
+                            (BlastProgram::Blastp, _) => BlastProgram::Blastn,
+                            (BlastProgram::Hmmscan, _) => BlastProgram::Blastp,
+                        };
+                    } else {
+                        let n = self.search_lines.len();
+                        if n > 0 {
+                            self.search_selected =
+                                (self.search_selected as i32 + delta).rem_euclid(n as i32) as usize;
+                        }
                     }
                 }
             }
@@ -2815,6 +2888,198 @@ impl AppState {
         self.seq_summary = Some(format!("{} file(s)\n{}", rows.len(), lines.join("\n")));
         self.toast = Some(format!("Report: {} file(s)", rows.len()));
     }
+
+    fn run_search(&mut self) {
+        match self.search_tab {
+            SearchTab::Local => self.run_local_blast(),
+            SearchTab::Orf => self.run_orf_finder(),
+            SearchTab::Online => self.run_online_search(),
+            SearchTab::HmmDb => self.run_hmm_db_list(),
+            SearchTab::Find => self.run_find_plasmid(),
+        }
+    }
+
+    fn run_local_blast(&mut self) {
+        let query = self.search_query.clone();
+        if query.trim().is_empty() {
+            self.search_summary = Some("Paste a query (DNA or protein).".into());
+            return;
+        }
+        if let Some(rec) = &self.record {
+            self.search_submitted = Some(record_fingerprint(&rec.name, &rec.sequence));
+        }
+        let (program, cleaned) = splicecraft_bio::detect_query_program(&query, self.search_program);
+        let db = splicecraft_io::blast_db_from_library(&self.library, program, false);
+        let hits = if program == BlastProgram::Hmmscan {
+            splicecraft_bio::hmmscan_ungapped(&cleaned, &db, 25)
+        } else {
+            splicecraft_bio::blast_search(&cleaned, &db, 25)
+        };
+        if let Some(rec) = &self.record
+            && let Some(fp) = &self.search_submitted
+            && results_are_stale(fp, &rec.name, &rec.sequence)
+        {
+            self.search_lines.clear();
+            self.search_summary = Some("Stale — canvas moved; results dropped.".into());
+            self.toast = Some("Search results discarded (record changed)".into());
+            return;
+        }
+        self.search_lines = hits
+            .iter()
+            .map(|h| {
+                format!(
+                    "{}  {}  {:+}  {:.1}%  {}..{}",
+                    h.subject_name, h.kind, h.strand, h.identity_pct, h.s_start, h.s_end
+                )
+            })
+            .collect();
+        self.search_selected = 0;
+        self.search_summary = Some(format!(
+            "{}  {} hit(s)  (ungapped{}; query {} {})",
+            program.as_str(),
+            hits.len(),
+            if cleaned.len() < splicecraft_bio::PYHMMER_MIN_QUERY_BLASTN {
+                "; short-query fallback"
+            } else {
+                ""
+            },
+            cleaned.len(),
+            if program == BlastProgram::Blastn {
+                "bp"
+            } else {
+                "aa"
+            }
+        ));
+        self.toast = Some(format!("{}: {} hit(s)", program.as_str(), hits.len()));
+    }
+
+    fn run_orf_finder(&mut self) {
+        let Some(rec) = &self.record else {
+            self.search_summary = Some("Load a plasmid first.".into());
+            return;
+        };
+        self.search_submitted = Some(record_fingerprint(&rec.name, &rec.sequence));
+        let include_alt = self.search_query.to_ascii_lowercase().contains("alt");
+        let orfs = find_orfs(&rec.sequence, rec.circular, 30, include_alt);
+        if let Some(fp) = &self.search_submitted
+            && results_are_stale(fp, &rec.name, &rec.sequence)
+        {
+            self.search_lines.clear();
+            self.search_summary = Some("Stale — canvas moved; results dropped.".into());
+            return;
+        }
+        self.search_lines = orfs.iter().map(format_orf_row).collect();
+        self.search_selected = 0;
+        let wraps = orfs.iter().filter(|o| o.end < o.start).count();
+        let laps = orfs.iter().filter(|o| o.exceeds_one_lap).count();
+        self.search_summary = Some(format!(
+            "{} ORF(s)  {wraps} wrap  {laps} full-lap  (length_aa, not start/end)",
+            orfs.len()
+        ));
+        self.toast = Some(format!("{} ORF(s)", orfs.len()));
+    }
+
+    fn run_online_search(&mut self) {
+        if !self.allow_online_search {
+            self.search_lines.clear();
+            self.search_summary = Some(
+                "Online search is off. Tick allow_online_search — sequences are never uploaded silently."
+                    .into(),
+            );
+            self.toast = Some("online search disabled".into());
+            return;
+        }
+        let cancel = self.search_cancel.clone();
+        if cancel.is_cancelled() {
+            self.search_summary = Some("Cancelled.".into());
+            return;
+        }
+        let policy = splicecraft_io::OnlineSearchPolicy {
+            enabled: true,
+            transport: &splicecraft_io::OfflineTransport,
+            cancel: &cancel,
+            poll_interval: splicecraft_io::ONLINE_POLL_INTERVAL,
+            max_wait: splicecraft_io::ONLINE_MAX_WAIT,
+        };
+        let err = if self.search_program == BlastProgram::Hmmscan {
+            splicecraft_io::hmmer_web_hmmscan(&self.search_query, 5, &policy).err()
+        } else {
+            splicecraft_io::ncbi_blast_online(
+                &self.search_query,
+                self.search_program.as_str(),
+                None,
+                5,
+                &policy,
+            )
+            .err()
+        };
+        self.search_summary = Some(match err {
+            Some(e) => e.to_string(),
+            None => "online search returned no hits".into(),
+        });
+    }
+
+    fn run_hmm_db_list(&mut self) {
+        if let Some(layout) = &self.layout {
+            self.hmm_catalog = load_hmm_catalog(layout);
+        } else {
+            self.hmm_catalog = splicecraft_persist::builtin_hmm_db_catalog().to_vec();
+        }
+        self.search_lines = self
+            .hmm_catalog
+            .iter()
+            .map(|e| {
+                format!(
+                    "{}  {}  {}",
+                    e.id,
+                    e.name,
+                    if e.builtin { "builtin" } else { "custom" }
+                )
+            })
+            .collect();
+        self.search_summary = Some(format!(
+            "{} database(s) — download is chokepoint-gated; default CI never fetches Pfam",
+            self.hmm_catalog.len()
+        ));
+    }
+
+    fn run_find_plasmid(&mut self) {
+        let q = self.search_query.clone();
+        let mut hits = Vec::new();
+        for col in &self.library.collections {
+            for p in &col.plasmids {
+                let hay = format!("{} {} {}", p.name, p.id, col.name);
+                if fuzzy_text_match(&q, &hay) {
+                    hits.push(format!("{}  {}  {} bp", p.name, col.name, p.size));
+                }
+            }
+        }
+        if hits.is_empty() {
+            for p in &self.library.plasmids {
+                let hay = format!("{} {}", p.name, p.id);
+                if fuzzy_text_match(&q, &hay) {
+                    hits.push(format!("{}  {} bp", p.name, p.size));
+                }
+            }
+        }
+        self.search_lines = hits;
+        self.search_selected = 0;
+        self.search_summary = Some(format!("{} plasmid(s)", self.search_lines.len()));
+    }
+}
+
+fn format_orf_row(o: &Orf) -> String {
+    let flag = if o.exceeds_one_lap {
+        "full-lap"
+    } else if o.end < o.start {
+        "wrap"
+    } else {
+        "linear"
+    };
+    format!(
+        "{flag}  {:+}  {} aa  {} bp  {}..{}",
+        o.strand, o.length_aa, o.nt_len, o.start, o.end
+    )
 }
 
 fn collision_toast(class: CollisionClass, name: &str) -> String {

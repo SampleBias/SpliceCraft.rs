@@ -1,4 +1,4 @@
-//! IUPAC, reverse-complement, restriction scanning, digest, and translation.
+//! IUPAC, reverse-complement, restriction scanning, digest, translation, ORFs, BLAST.
 //!
 //! Sacred invariants 1–6 and 8–9 (scan / rc / wrap). See `docs/invariants.md`.
 
@@ -7,14 +7,22 @@
 pub use splicecraft_core as core;
 pub use splicecraft_util as util;
 
+pub mod blast;
 pub mod digest;
 pub mod enzymes;
 pub mod iupac;
+pub mod orfs;
 pub mod orient;
 pub mod scan;
 pub mod search;
 pub mod translate;
 
+pub use blast::{
+    BLASTN_K, BLASTP_K, BlastDb, BlastHit, BlastProgram, BlastSubject, HMMSCAN_MIN_QUERY_LEN,
+    PYHMMER_MIN_QUERY_BLASTN, PYHMMER_MIN_QUERY_BLASTP, blast_search, build_blastn_db,
+    build_blastp_db, build_hmmscan_db, detect_query_program, hmmscan_ungapped,
+    protein_subjects_from_cds, protein_subjects_from_orfs,
+};
 pub use digest::{EnzymeCut, digest_with_enzymes, enzyme_cuts, fragments_from_cuts};
 pub use enzymes::{
     CustomEnzyme, EnzymeSpec, NebEnzyme, STAGE01_ENZYMES, all_enzymes, enzyme, enzyme_color,
@@ -23,6 +31,9 @@ pub use enzymes::{
 pub use iupac::{
     BioError, forbidden_hit_set, iupac_compatible, iupac_pattern, pattern_cache_clear,
     pattern_cache_contains, rc,
+};
+pub use orfs::{
+    ORF_DEFAULT_MIN_AA, Orf, RecordFingerprint, find_orfs, record_fingerprint, results_are_stale,
 };
 pub use orient::{extract_feature, reverse_complement_record};
 pub use scan::{

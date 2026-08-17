@@ -1,7 +1,7 @@
 //! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
-//! Simulator, Sequencing, Experiments, History.
+//! Simulator, Sequencing, Experiments, History, Search.
 //!
-//! Stage 12. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 13. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -26,7 +26,7 @@ mod state;
 
 pub use action::{
     Action, CollisionChoice, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab,
-    MutatoTab, Overlay, Pane, PathKind, SequencingTab, SimulatorTab, SynthTab,
+    MutatoTab, Overlay, Pane, PathKind, SearchTab, SequencingTab, SimulatorTab, SynthTab,
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
@@ -42,8 +42,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (Experiments + History).
-pub const IMPLEMENTATION_STAGE: u8 = 12;
+/// Stage this crate currently satisfies (Search / BLAST / ORFs).
+pub const IMPLEMENTATION_STAGE: u8 = 13;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -194,7 +194,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 12"),
+            text.contains("stage 13"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -866,5 +866,70 @@ mod tests {
             .find(|c| c.title == "Recover history from .dna")
             .expect("recover");
         assert_eq!(recover.action, Action::RecoverHistory);
+    }
+
+    #[test]
+    fn search_overlay_orfs_wrap_and_online_stays_off() {
+        let mut state = AppState::new();
+        let cmd = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "BLAST")
+            .expect("BLAST");
+        assert_eq!(cmd.action, Action::OpenSearch);
+        assert!(state.reduce(Action::OpenSearch));
+        assert_eq!(state.overlay, Overlay::Search);
+        assert_eq!(state.search_tab, SearchTab::Local);
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.search_tab, SearchTab::Orf);
+
+        let seq = format!("{}{}{}{}", "AAA".repeat(29), "TAA", "CCC".repeat(5), "ATG");
+        let rec = core::Record::new("pWrapOrf", &seq, true);
+        state.record = Some(rec);
+        assert!(state.reduce(Action::ToolEnter));
+        let summary = state.search_summary.clone().unwrap_or_default();
+        assert!(summary.contains("wrap") || state.search_lines.iter().any(|l| l.contains("wrap")));
+        assert!(
+            state
+                .search_lines
+                .iter()
+                .any(|l| l.contains("30 aa") && l.contains("wrap")),
+            "{:?} {summary}",
+            state.search_lines
+        );
+        let text = draw_text(80, 24, &state);
+        assert!(
+            text.to_ascii_lowercase().contains("search") || text.contains("BLAST"),
+            "{text}"
+        );
+        assert!(text.contains("30 aa") || text.contains("wrap"), "{text}");
+
+        state.search_tab = SearchTab::Online;
+        state.allow_online_search = false;
+        assert!(state.reduce(Action::ToolEnter));
+        let online = state.search_summary.clone().unwrap_or_default();
+        assert!(
+            online.to_ascii_lowercase().contains("off")
+                || online.to_ascii_lowercase().contains("disabled"),
+            "{online}"
+        );
+
+        state.search_tab = SearchTab::Find;
+        state.search_query = "pUC".into();
+        state.library.plasmids.push(persist::LibraryEntry {
+            id: "pUC19".into(),
+            name: "pUC19".into(),
+            size: 2686,
+            gb_text: String::new(),
+            source: String::new(),
+            alignments: Vec::new(),
+            history_xml: String::new(),
+        });
+        assert!(state.reduce(Action::ToolEnter));
+        assert!(
+            state.search_lines.iter().any(|l| l.contains("pUC19")),
+            "{:?}",
+            state.search_lines
+        );
     }
 }

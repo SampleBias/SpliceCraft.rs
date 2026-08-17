@@ -61,6 +61,7 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Sequencing => draw_sequencing(frame, area, state),
         Overlay::Experiments => draw_experiments(frame, area, state),
         Overlay::History => draw_history(frame, area, state),
+        Overlay::Search => draw_search(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
@@ -840,6 +841,64 @@ fn draw_history(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" History ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_search(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 74, 20);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Search — {}", state.search_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab local/ORF/online/HMM-DB/find · Enter run · Esc close"),
+        Line::from(format!(
+            "  program {}  ·  online {}  ·  {}",
+            state.search_program.as_str(),
+            if state.allow_online_search {
+                "armed"
+            } else {
+                "off"
+            },
+            if state.search_query.is_empty() {
+                match state.search_tab {
+                    crate::action::SearchTab::Local => "(query DNA/protein)",
+                    crate::action::SearchTab::Orf => "(Enter scans the loaded record)",
+                    crate::action::SearchTab::Online => "(refused unless setting is ticked)",
+                    crate::action::SearchTab::HmmDb => "(catalog — no Pfam download)",
+                    crate::action::SearchTab::Find => "(plasmid name)",
+                }
+            } else {
+                &state.search_query
+            }
+        )),
+        Line::from(""),
+    ];
+    if let Some(summary) = &state.search_summary {
+        for row in summary.lines().take(3) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    for (i, row) in state.search_lines.iter().enumerate().take(10) {
+        let mark = if i == state.search_selected { ">" } else { " " };
+        lines.push(Line::from(format!(" {mark} {row}")));
+    }
+    if state.search_lines.is_empty() && state.search_summary.is_none() {
+        lines.push(Line::from(
+            "  Local BLAST is ungapped (HMMER is not in the default build).",
+        ));
+        lines.push(Line::from(
+            "  ORF length is length_aa / nt_len — never (end − start) on a wrap.",
+        ));
+    }
+    let block = Block::default()
+        .title(" BLAST ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(

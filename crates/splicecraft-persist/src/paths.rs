@@ -41,8 +41,12 @@ pub const EXPERIMENT_PROJECTS_FILE_NAME: &str = "experiment_projects.json";
 pub const EXPERIMENTS_DIR_NAME: &str = "experiments";
 /// Saved `.dna` originals for history recovery.
 pub const DNA_ORIGINALS_DIR_NAME: &str = "dna_originals";
-/// App preferences (dict-shaped; still saved through the JSON chokepoint later).
+/// App preferences (`[{key, value}, …]` through the JSON chokepoint).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
+/// HMM-DB catalog (builtins re-injected on load).
+pub const HMM_DB_CATALOG_FILE_NAME: &str = "hmm_db_catalog.json";
+/// Per-id HMM downloads (`hmm_databases/<id>/`).
+pub const HMM_DATABASES_DIR_NAME: &str = "hmm_databases";
 /// Debounced `.gb` crash-recovery snapshots.
 pub const CRASH_RECOVERY_DIR_NAME: &str = "crash_recovery";
 /// Shrink-guard spill directory.
@@ -177,6 +181,24 @@ impl DataLayout {
     #[must_use]
     pub fn settings_file(&self) -> PathBuf {
         self.root.join(SETTINGS_FILE_NAME)
+    }
+
+    /// HMM-DB catalog JSON.
+    #[must_use]
+    pub fn hmm_db_catalog_file(&self) -> PathBuf {
+        self.root.join(HMM_DB_CATALOG_FILE_NAME)
+    }
+
+    /// HMM download root (`hmm_databases/`).
+    #[must_use]
+    pub fn hmm_databases_dir(&self) -> PathBuf {
+        self.root.join(HMM_DATABASES_DIR_NAME)
+    }
+
+    /// One downloaded HMM database directory.
+    #[must_use]
+    pub fn hmm_db_dir(&self, entry_id: &str) -> PathBuf {
+        self.hmm_databases_dir().join(entry_id)
     }
 
     /// Crash-recovery directory (`*.gb`).
