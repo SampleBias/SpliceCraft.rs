@@ -18,6 +18,7 @@ mod event;
 mod experiments;
 mod hmm_db;
 mod library;
+mod lifecycle;
 mod load;
 mod paths;
 mod save;
@@ -67,21 +68,29 @@ pub use library::{
     FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore, classify_entry, classify_name_content,
     feature_library, sort_entries_natural, unique_copy_name, unique_export_stem, upsert_feature,
 };
+pub use lifecycle::{
+    MASTER_DELETE_SENTINEL, MIGRATE_ARCHIVE_SUBDIR, MIGRATE_FORMAT_VERSION, MIGRATE_MARKER_NAME,
+    MasterDeleteReport, MigrateLimits, MigrateReport, export_migrate_archive,
+    export_migrate_archive_with, import_migrate_archive, import_migrate_archive_with,
+    is_safe_zip_member_name as migrate_zip_member_is_safe, master_delete_dir_targets,
+    master_delete_file_targets, perform_master_delete,
+};
 pub use load::safe_load_json;
 pub use paths::{
-    CODON_TABLES_FILE_NAME, COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME,
-    CUSTOM_ENZYMES_FILE_NAME, DNA_ORIGINALS_DIR_NAME, DataLayout, ENZYME_ACTIVE_FILE_NAME,
-    ENZYME_COLLECTIONS_FILE_NAME, EXPERIMENT_PROJECTS_FILE_NAME, EXPERIMENTS_DIR_NAME,
-    EXPERIMENTS_FILE_NAME, FEATURES_FILE_NAME, GELS_FILE_NAME, GRAMMARS_FILE_NAME,
-    HMM_DATABASES_DIR_NAME, HMM_DB_CATALOG_FILE_NAME, LIBRARY_FILE_NAME, LOG_DIR_NAME,
-    LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME, PROTEIN_MOTIFS_FILE_NAME,
+    AGENT_TOKEN_FILE_NAME, CODON_TABLES_FILE_NAME, COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME,
+    CUSTOM_ENZYMES_FILE_NAME, CUSTOM_LABWARE_FILE_NAME, DNA_ORIGINALS_DIR_NAME, DataLayout,
+    ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME, EXPERIMENT_PROJECTS_FILE_NAME,
+    EXPERIMENTS_DIR_NAME, EXPERIMENTS_FILE_NAME, FEATURES_FILE_NAME, GELS_FILE_NAME,
+    GRAMMARS_FILE_NAME, HMM_DATABASES_DIR_NAME, HMM_DB_CATALOG_FILE_NAME, LIBRARY_FILE_NAME,
+    LOCK_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, MIGRATED_MARKER_NAME, PARTS_BIN_FILE_NAME,
+    PRIMERS_FILE_NAME, PROTEIN_MOTIFS_FILE_NAME, PROTOCOL_COLLECTIONS_FILE_NAME,
     PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
     path_has_python_leaf,
 };
 pub use save::{SaveOptions, safe_save_json, safe_save_json_with, stage_json_tempfile};
 pub use settings::{
-    SETTING_ALLOW_ONLINE_LOOKUPS, SETTING_ALLOW_ONLINE_SEARCH, allow_online_search,
-    load_settings_map, save_settings_map, set_setting_bool, setting_bool,
+    SETTING_ALLOW_ONLINE_LOOKUPS, SETTING_ALLOW_ONLINE_SEARCH, allow_online_lookups,
+    allow_online_search, load_settings_map, save_settings_map, set_setting_bool, setting_bool,
 };
 
 /// Stage that implements this crate's real save engine.

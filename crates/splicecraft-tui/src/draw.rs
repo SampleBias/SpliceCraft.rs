@@ -63,6 +63,10 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::History => draw_history(frame, area, state),
         Overlay::Search => draw_search(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
+        Overlay::Settings => draw_settings(frame, area, state),
+        Overlay::Babs => draw_babs(frame, area, state),
+        Overlay::Autolab => draw_autolab(frame, area, state),
+        Overlay::MasterDelete => draw_master_delete(frame, area, state),
         Overlay::None => {}
     }
 }
@@ -364,6 +368,9 @@ fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
         PathKind::BulkImport => "Bulk import folder",
         PathKind::BulkExport => "Bulk export folder",
         PathKind::BulkAlign => "Bulk-align folder",
+        PathKind::MapExport => "Export plasmid map (svg/png path)",
+        PathKind::MigrateExport => "Export migrate archive (.zip)",
+        PathKind::MigrateImport => "Import migrate archive (.zip)",
     };
     let lines = vec![
         Line::from(Span::styled(
@@ -939,6 +946,150 @@ fn draw_parts(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
         .title(" Parts ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_settings(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 62, 12);
+    frame.render_widget(Clear, box_area);
+    let mark = |i: usize| {
+        if state.settings_selected == i {
+            ">"
+        } else {
+            " "
+        }
+    };
+    let on = |b: bool| if b { "ON" } else { "off" };
+    let lines = vec![
+        Line::from(Span::styled(
+            "Settings",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  ↑↓ select · Enter toggle · Esc close"),
+        Line::from("  Agent cannot enable online search (stage 14)."),
+        Line::from(""),
+        Line::from(format!(
+            " {} allow_online_search     [{}]",
+            mark(0),
+            on(state.allow_online_search)
+        )),
+        Line::from(format!(
+            " {} allow_online_lookups    [{}]",
+            mark(1),
+            on(state.allow_online_lookups)
+        )),
+    ];
+    let block = Block::default()
+        .title(" Settings ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(Paragraph::new(lines).block(block), box_area);
+}
+
+fn draw_babs(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 68, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("BABS — {}", state.babs_model),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Local Ollama only (127.0.0.1). /help /clear /model · Enter send · Esc"),
+        Line::from(""),
+    ];
+    for row in state.babs_lines.iter().rev().take(8).rev() {
+        lines.push(Line::from(row.as_str()));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(format!("  > {}", state.babs_query)));
+    let block = Block::default()
+        .title(" BABS ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_autolab(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 68, 16);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            "AUTOLAB — OT-2 compiler",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Enter compile fixture · Tab arm motion (still no robot) · Esc"),
+        Line::from(format!(
+            "  motion armed: {}",
+            if state.autolab_motion_armed {
+                "yes (confirm required to run)"
+            } else {
+                "no"
+            }
+        )),
+        Line::from(""),
+    ];
+    if let Some(s) = &state.autolab_summary {
+        lines.push(Line::from(s.as_str()));
+    }
+    if let Some(p) = &state.autolab_protocol {
+        for row in p.lines().take(6) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    let block = Block::default()
+        .title(" AUTOLAB ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_master_delete(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 64, 14);
+    frame.render_widget(Clear, box_area);
+    let remain = state.master_delete_cooldown_remaining();
+    let no = if !state.master_delete_yes {
+        "[No]"
+    } else {
+        " No "
+    };
+    let yes = if state.master_delete_yes {
+        "[Yes]"
+    } else {
+        " Yes "
+    };
+    let lines = vec![
+        Line::from(Span::styled(
+            "Master Delete — wipe SpliceCraft.rs data",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  This does not touch the Python ~/.local/share/splicecraft/ dir."),
+        Line::from("  Default focus is No. There is no keyboard shortcut to open this."),
+        Line::from(""),
+        Line::from(format!(
+            "  step {}/3   {no}  {yes}",
+            state.master_delete_step + 1
+        )),
+        Line::from(format!("  type DELETE: {}", state.master_delete_typed)),
+        Line::from(format!(
+            "  cooldown: {}",
+            if remain.is_zero() {
+                "ready".into()
+            } else {
+                format!("{:.1}s", remain.as_secs_f32())
+            }
+        )),
+        Line::from("  ←→ choose · Enter · n / Esc keep data"),
+    ];
+    let block = Block::default()
+        .title(" Master Delete ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Red));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 

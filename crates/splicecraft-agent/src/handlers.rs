@@ -388,6 +388,41 @@ pub fn register_builtin() -> Registry {
     );
     reg(
         &mut r,
+        "export-migrate-archive",
+        EndpointMethod::Post,
+        true,
+        "Write a checksummed migrate zip to a sanitised user path.",
+        "Body: {path, include_hmm?: bool, force?}. Not a data-dir JSON write.",
+        json!({
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {"type": "string"},
+                "include_hmm": {"type": "boolean"},
+                "force": {"type": "boolean"}
+            }
+        }),
+        export_migrate_archive,
+    );
+    reg(
+        &mut r,
+        "import-migrate-archive",
+        EndpointMethod::Post,
+        true,
+        "Restore a migrate zip into the Rust data dir (chokepoint gated).",
+        "Body: {path, force?}. Refuses traversal members and newer format_version.",
+        json!({
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+                "path": {"type": "string"},
+                "force": {"type": "boolean"}
+            }
+        }),
+        import_migrate_archive,
+    );
+    reg(
+        &mut r,
         "list-experiments",
         EndpointMethod::Get,
         false,
@@ -1295,6 +1330,74 @@ fn export_genbank(session: &mut AgentSession, payload: &Value) -> AgentResponse 
         "ok": true,
         "path": scrub_path(&path.display().to_string()),
     }))
+}
+
+fn export_migrate_archive(session: &mut AgentSession, payload: &Value) -> AgentResponse {
+    if let Err(e) = reject_dangerous(payload, &[]) {
+        return e;
+    }
+    let Some(raw) = payload.get("path").and_then(Value::as_str) else {
+        return AgentResponse::err(400, "missing 'path'");
+    };
+    let path = match sanitize_agent_path(raw) {
+        Ok(p) => p,
+        Err(e) => return AgentResponse::err(400, e),
+    };
+    if let Err(e) = check_write_path(&path) {
+        return AgentResponse::err(403, e);
+    }
+    let include_hmm = payload
+        .get("include_hmm")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    match persist::export_migrate_archive(&session.layout, &path, include_hmm) {
+        Ok(r) => {
+            persist::log_event(
+                "agent.export-migrate",
+                &[("n_files", &r.n_files.to_string())],
+            );
+            AgentResponse::ok(json!({
+                "ok": true,
+                "path": scrub_path(&path.display().to_string()),
+                "n_files": r.n_files,
+                "bytes": r.bytes,
+            }))
+        }
+        Err(e) => AgentResponse::err(500, scrub_path(&e.to_string())),
+    }
+}
+
+fn import_migrate_archive(session: &mut AgentSession, payload: &Value) -> AgentResponse {
+    if let Err(e) = reject_dangerous(payload, &[]) {
+        return e;
+    }
+    if let Err(e) = require_persist_writes() {
+        return e;
+    }
+    let Some(raw) = payload.get("path").and_then(Value::as_str) else {
+        return AgentResponse::err(400, "missing 'path'");
+    };
+    let path = match sanitize_agent_path(raw) {
+        Ok(p) => p,
+        Err(e) => return AgentResponse::err(400, e),
+    };
+    if let Err(e) = check_read_path(&path) {
+        return AgentResponse::err(403, e);
+    }
+    match persist::import_migrate_archive(&session.layout, &path) {
+        Ok(r) => {
+            persist::log_event(
+                "agent.import-migrate",
+                &[("n_files", &r.n_files.to_string())],
+            );
+            AgentResponse::ok(json!({
+                "ok": true,
+                "n_files": r.n_files,
+                "bytes": r.bytes,
+            }))
+        }
+        Err(e) => AgentResponse::err(500, scrub_path(&e.to_string())),
+    }
 }
 
 fn list_experiments(session: &mut AgentSession, payload: &Value) -> AgentResponse {

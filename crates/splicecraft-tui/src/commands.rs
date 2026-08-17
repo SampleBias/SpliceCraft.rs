@@ -88,11 +88,38 @@ pub fn palette_commands() -> &'static [Command] {
         },
         Command {
             title: "Settings",
-            keywords: "prefs online",
-            action: Action::Stub {
-                name: "Settings",
-                stage: 15,
-            },
+            keywords: "prefs online lookups",
+            action: Action::OpenSettings,
+        },
+        Command {
+            title: "Export plasmid map",
+            keywords: "svg png publication figure mapimage",
+            action: Action::ExportMapPrompt,
+        },
+        Command {
+            title: "Export migrate archive",
+            keywords: "backup zip migrate export",
+            action: Action::ExportMigratePrompt,
+        },
+        Command {
+            title: "Import migrate archive",
+            keywords: "restore zip migrate import",
+            action: Action::ImportMigratePrompt,
+        },
+        Command {
+            title: "BABS",
+            keywords: "ollama chat llm local",
+            action: Action::OpenBabs,
+        },
+        Command {
+            title: "AUTOLAB",
+            keywords: "ot2 opentrons protocol deck",
+            action: Action::OpenAutolab,
+        },
+        Command {
+            title: "Master Delete (wipe all data)",
+            keywords: "wipe factory reset destroy",
+            action: Action::OpenMasterDelete,
         },
         Command {
             title: "Enzyme collections",

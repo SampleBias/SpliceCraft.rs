@@ -11,7 +11,9 @@ readme.workspace = true
 
 [dependencies]
 crossterm.workspace = true
+image.workspace = true
 ratatui.workspace = true
+serde_json.workspace = true
 splicecraft-bio.workspace = true
 splicecraft-clone.workspace = true
 splicecraft-codon.workspace = true

@@ -55,3 +55,8 @@ All of [`docs/invariants.md`](../invariants.md).
 
 Post-1.0 work (perf budgets, extra grammars) is ordinary issues — not a
 new bootstrap stage.
+
+Known gap from stage 15: splice-site scoring + cassette assembler
+(`splicecraft_splice.py` / `splicecraft_cassette.py`) are not in this
+tree. Document them in `docs/parity.md` rather than treating them as
+silent omissions.

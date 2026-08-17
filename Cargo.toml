@@ -74,3 +74,5 @@ tokio = { version = "1", features = [
 ] }
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
 lzma-rs = "0.3"
+sha2 = "0.10"
+image = { version = "0.25", default-features = false, features = ["png"] }

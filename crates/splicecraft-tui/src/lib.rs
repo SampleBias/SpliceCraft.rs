@@ -1,9 +1,9 @@
 //! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
-//! Simulator, Sequencing, Experiments, History, Search.
+//! Simulator, Sequencing, Experiments, History, Search, satellites.
 //!
-//! Stage 13. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 15. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
-//! uses the persist chokepoint only.
+//! uses the persist chokepoint only. Map PNG/SVG writes use atomic user paths.
 
 #![forbid(unsafe_code)]
 
@@ -17,10 +17,13 @@ pub use splicecraft_persist as persist;
 pub use splicecraft_primer as primer;
 
 mod action;
+mod autolab;
+mod babs;
 mod commands;
 mod draw;
 mod editor;
 mod keys;
+mod mapimage;
 mod render;
 mod state;
 
@@ -28,22 +31,32 @@ pub use action::{
     Action, CollisionChoice, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab,
     MutatoTab, Overlay, Pane, PathKind, SearchTab, SequencingTab, SimulatorTab, SynthTab,
 };
+pub use autolab::{Ot2Compile, Ot2Plan, compile_protocol, confirm_motion, fixture_deck};
+pub use babs::{
+    BabsCommand, BabsError, DEFAULT_OLLAMA_HOST, assert_ollama_loopback, ollama_base,
+    ollama_base_from, ollama_chat, ollama_list_models, parse_command, strip_think, trim_history,
+};
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
 pub use editor::{UNDO_LIMIT, UndoStack};
 pub use keys::{KEY_TABLE, KeyEntry, action_from_key};
+pub use mapimage::{
+    MAP_IMAGE_MAX_SIZE, MAP_IMAGE_MIN_SIZE, MapExportReport, MapImageOpts, clamp_size,
+    export_plasmid_map, export_plasmid_maps, render_map_bytes, render_plasmid_map_png,
+    render_plasmid_map_svg, svg_is_well_formed,
+};
 pub use render::{
     MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_sequence,
 };
-pub use state::{AppState, demo_record};
+pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN, demo_record};
 
 use std::time::Duration;
 
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (Search / BLAST / ORFs).
-pub const IMPLEMENTATION_STAGE: u8 = 13;
+/// Stage this crate currently satisfies (satellites: map export, BABS, OT-2).
+pub const IMPLEMENTATION_STAGE: u8 = 15;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -194,7 +207,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 13"),
+            text.contains("stage 15"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -931,5 +944,80 @@ mod tests {
             "{:?}",
             state.search_lines
         );
+    }
+
+    #[test]
+    fn settings_overlay_toggles_online_in_memory() {
+        let mut state = AppState::new();
+        let cmd = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Settings")
+            .expect("Settings");
+        assert_eq!(cmd.action, Action::OpenSettings);
+        assert!(state.reduce(Action::OpenSettings));
+        assert_eq!(state.overlay, Overlay::Settings);
+        assert!(!state.allow_online_search);
+        assert!(state.reduce(Action::ToolEnter));
+        assert!(state.allow_online_search);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("settings"), "{text}");
+        assert!(text.contains("allow_online_search"), "{text}");
+    }
+
+    #[test]
+    fn master_delete_is_palette_only_and_defaults_to_no() {
+        let titles: Vec<_> = palette_commands().iter().map(|c| c.title).collect();
+        assert!(
+            titles.iter().any(|t| t.contains("Master Delete")),
+            "{titles:?}"
+        );
+        assert!(
+            !KEY_TABLE
+                .iter()
+                .any(|e| e.description.to_ascii_lowercase().contains("master delete")),
+            "Master Delete must not have a keybinding"
+        );
+        let mut state = AppState::new();
+        assert!(state.reduce(Action::OpenMasterDelete));
+        assert_eq!(state.overlay, Overlay::MasterDelete);
+        assert!(!state.master_delete_yes);
+        assert!(state.reduce(Action::ToolEnter));
+        assert_eq!(state.overlay, Overlay::None);
+        let text = {
+            let mut s = AppState::new();
+            s.reduce(Action::OpenMasterDelete);
+            draw_text(80, 24, &s)
+        };
+        assert!(
+            text.to_ascii_lowercase().contains("master delete"),
+            "{text}"
+        );
+        assert!(text.contains("[No]"), "{text}");
+    }
+
+    #[test]
+    fn autolab_overlay_compiles_fixture() {
+        let mut state = AppState::new();
+        assert!(state.reduce(Action::OpenAutolab));
+        assert_eq!(state.overlay, Overlay::Autolab);
+        assert!(state.reduce(Action::ToolEnter));
+        let proto = state.autolab_protocol.clone().unwrap_or_default();
+        assert!(
+            proto.contains("from opentrons import protocol_api"),
+            "{proto}"
+        );
+        assert!(confirm_motion(false).is_err());
+    }
+
+    #[test]
+    fn babs_overlay_and_public_url_refused() {
+        let mut state = AppState::new();
+        assert!(state.reduce(Action::OpenBabs));
+        assert_eq!(state.overlay, Overlay::Babs);
+        assert!(assert_ollama_loopback("https://example.com").is_err());
+        assert!(assert_ollama_loopback("http://8.8.8.8:11434").is_err());
+        let text = draw_text(80, 24, &state);
+        assert!(text.contains("BABS") || text.contains("Ollama"), "{text}");
     }
 }

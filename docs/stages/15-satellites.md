@@ -1,6 +1,6 @@
 # Stage 15 — Satellite features
 
-**Status:** not started
+**Status:** done
 **Depends on:** 05, 06, 14 (API hooks where upstream has them)
 **Primary crates:** `splicecraft-tui`, `splicecraft-persist`, `splicecraft-io`
 
@@ -69,14 +69,14 @@ loopback exception must not weaken SSRF for public fetches.
 
 ## Acceptance
 
-- [ ] SVG export contains plasmid name and is well-formed XML
-- [ ] PNG write is atomic to a **user-chosen path** (not the data dir
+- [x] SVG export contains plasmid name and is well-formed XML
+- [x] PNG write is atomic to a **user-chosen path** (not the data dir
       chokepoint)
-- [ ] Ollama client tests mock `127.0.0.1`; refuse a public URL
-- [ ] Master Delete test only runs in a sandbox and leaves the real home
+- [x] Ollama client tests mock `127.0.0.1`; refuse a public URL
+- [x] Master Delete test only runs in a sandbox and leaves the real home
       dir untouched
-- [ ] Migrate zip round-trip in tempdirs
-- [ ] OT-2 compiler produces JSON/protocol text from a fixture deck
+- [x] Migrate zip round-trip in tempdirs
+- [x] OT-2 compiler produces JSON/protocol text from a fixture deck
       (no live robot in CI)
 
 ## Forbidden
@@ -88,3 +88,7 @@ loopback exception must not weaken SSRF for public fetches.
 ## Handoff
 
 Stage 16 parity gate vs upstream `docs/features.md`.
+
+Tracked gap (do not block 15): splice-site scoring + cassette assembler
+(`splicecraft_splice.py` / `_cassette.py`) were not ported. List them
+in `docs/parity.md` during stage 16.

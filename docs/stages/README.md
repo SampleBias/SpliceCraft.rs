@@ -4,9 +4,9 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**15 — Satellites** is next.
+**16 — Parity gate** is next.
 
-Stages 00–14 are done.
+Stages 00–15 are done.
 
 Ledger: [`STATUS.md`](STATUS.md).
 

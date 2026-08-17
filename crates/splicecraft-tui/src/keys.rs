@@ -106,7 +106,11 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::Experiments
         | Overlay::History
         | Overlay::Search
-        | Overlay::Parts => tool_key(state, key),
+        | Overlay::Parts
+        | Overlay::Settings
+        | Overlay::Babs
+        | Overlay::Autolab => tool_key(state, key),
+        Overlay::MasterDelete => master_delete_key(key),
         Overlay::None => main_key(state, key),
     }
 }
@@ -223,9 +227,25 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Char(c)
             if matches!(
                 state.overlay,
-                Overlay::Experiments | Overlay::History | Overlay::Search
+                Overlay::Experiments | Overlay::History | Overlay::Search | Overlay::Babs
             ) && !key.modifiers.contains(KeyModifiers::CONTROL) =>
         {
+            Some(Action::ToolInput(c))
+        }
+        _ => None,
+    }
+}
+
+fn master_delete_key(key: KeyEvent) -> Option<Action> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Char('q') => {
+            Some(Action::CloseOverlay)
+        }
+        KeyCode::Left => Some(Action::ToolMove(-1)),
+        KeyCode::Right => Some(Action::ToolMove(1)),
+        KeyCode::Enter => Some(Action::ToolEnter),
+        KeyCode::Backspace => Some(Action::ToolBackspace),
+        KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
             Some(Action::ToolInput(c))
         }
         _ => None,

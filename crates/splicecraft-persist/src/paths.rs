@@ -53,6 +53,16 @@ pub const CRASH_RECOVERY_DIR_NAME: &str = "crash_recovery";
 pub const LOST_ENTRIES_DIR_NAME: &str = "lost_entries";
 /// Rotating diagnostic logs.
 pub const LOG_DIR_NAME: &str = "logs";
+/// Agent bearer token (operational; wiped by Master Delete).
+pub const AGENT_TOKEN_FILE_NAME: &str = "agent_token";
+/// Process lockfile — Master Delete preserves this.
+pub const LOCK_FILE_NAME: &str = "splicecraft.lock";
+/// Legacy-migration marker.
+pub const MIGRATED_MARKER_NAME: &str = ".migrated";
+/// Saved OT-2 protocol designs.
+pub const PROTOCOL_COLLECTIONS_FILE_NAME: &str = "protocol_collections.json";
+/// Custom Opentrons labware definitions.
+pub const CUSTOM_LABWARE_FILE_NAME: &str = "custom_labware.json";
 
 /// Layout of files under a resolved data dir.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -217,6 +227,79 @@ impl DataLayout {
     #[must_use]
     pub fn log_dir(&self) -> PathBuf {
         self.root.join(LOG_DIR_NAME)
+    }
+
+    /// Agent token file.
+    #[must_use]
+    pub fn agent_token_file(&self) -> PathBuf {
+        self.root.join(AGENT_TOKEN_FILE_NAME)
+    }
+
+    /// Process lockfile (preserved across Master Delete).
+    #[must_use]
+    pub fn lock_file(&self) -> PathBuf {
+        self.root.join(LOCK_FILE_NAME)
+    }
+
+    /// `.migrated` marker.
+    #[must_use]
+    pub fn migrated_marker(&self) -> PathBuf {
+        self.root.join(MIGRATED_MARKER_NAME)
+    }
+
+    /// OT-2 protocol collections JSON.
+    #[must_use]
+    pub fn protocol_collections_file(&self) -> PathBuf {
+        self.root.join(PROTOCOL_COLLECTIONS_FILE_NAME)
+    }
+
+    /// Custom OT-2 labware JSON.
+    #[must_use]
+    pub fn custom_labware_file(&self) -> PathBuf {
+        self.root.join(CUSTOM_LABWARE_FILE_NAME)
+    }
+
+    /// Every user-data JSON this layout knows about (may not exist on disk).
+    #[must_use]
+    pub fn user_data_files(&self) -> Vec<PathBuf> {
+        vec![
+            self.library_file(),
+            self.collections_file(),
+            self.parts_bin_file(),
+            self.primers_file(),
+            self.features_file(),
+            self.enzyme_collections_file(),
+            self.custom_enzymes_file(),
+            self.enzyme_active_file(),
+            self.grammars_file(),
+            self.codon_tables_file(),
+            self.protein_motifs_file(),
+            self.gels_file(),
+            self.experiments_file(),
+            self.experiment_projects_file(),
+            self.settings_file(),
+            self.hmm_db_catalog_file(),
+            self.protocol_collections_file(),
+            self.custom_labware_file(),
+        ]
+    }
+
+    /// User-data directories (HMM downloads are omitted from migrate by default).
+    #[must_use]
+    pub fn user_data_dirs(&self) -> Vec<PathBuf> {
+        vec![
+            self.crash_recovery_dir(),
+            self.dna_originals_dir(),
+            self.experiments_dir(),
+            self.hmm_databases_dir(),
+            self.lost_entries_dir(),
+        ]
+    }
+
+    /// Operational files wiped by Master Delete (not user plasmids).
+    #[must_use]
+    pub fn operational_files(&self) -> Vec<PathBuf> {
+        vec![self.agent_token_file(), self.migrated_marker()]
     }
 }
 

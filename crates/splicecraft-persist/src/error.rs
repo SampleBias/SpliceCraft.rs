@@ -67,4 +67,13 @@ pub enum PersistError {
     /// JSON (de)serialise failure during a save.
     #[error(transparent)]
     Json(#[from] serde_json::Error),
+    /// Master Delete was called without the GUI/test sentinel.
+    #[error("master-delete sentinel mismatch — refusing before any disk operation")]
+    SentinelMismatch,
+    /// Migrate archive is malformed, unsafe, or too new.
+    #[error("migrate archive: {0}")]
+    Migrate(String),
+    /// Master Delete refused for a reason other than the sentinel.
+    #[error("master delete: {0}")]
+    MasterDelete(String),
 }

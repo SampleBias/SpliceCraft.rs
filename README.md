@@ -6,11 +6,12 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–14 done (workspace, sacred biology, persist, file I/O,
+**Status:** stages 00–15 done (workspace, sacred biology, persist, file I/O,
 Ratatui chrome, map + sequence editor, plasmid library, enzymes + primers,
 cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing,
-Experiments + History, Search, localhost agent API + CLI). Later agents
-implement stages 15–16 until parity.
+Experiments + History, Search, localhost agent API + CLI, satellites:
+map export, BABS, OT-2, migrate, Master Delete). Stage 16 is the parity
+gate. Splice/cassette scoring is a tracked gap.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start

@@ -18,10 +18,21 @@ check a box early.
 - [x] 12 Experiments + History UI
 - [x] 13 Search
 - [x] 14 Agent API + CLI
-- [ ] 15 Satellite features
+- [x] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 15 (`docs/stages/15-satellites.md`).
+**Next:** stage 16 (`docs/stages/16-parity-gate.md`).
+
+Stage 15 notes: publication map SVG/PNG uses one geometry pass (size
+300–6000, atomic write to a user-chosen path — not `safe_save_json`).
+BABS talks to Ollama on loopback only; public URLs are refused before
+any transport. OT-2 compiler emits Protocol API v2 text + JSON from a
+fixture deck; motion always requires `confirm`. Migrate zip is
+checksum-verified (`splicecraft-migrate.json` + `data/`). Master Delete
+needs the module sentinel, write authorisation, and a triple TUI
+confirm (default No, type DELETE, 3 s cooldown); the agent still has
+no wipe endpoint. Splice-site scoring / cassette assembler remains a
+tracked gap for stage 16.
 
 Stage 14 notes: axum serves `127.0.0.1` only (default port 6701).
 `/healthz` and `/tools` are unauthenticated and bare (no `data`

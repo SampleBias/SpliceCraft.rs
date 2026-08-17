@@ -135,6 +135,11 @@ in [`invariants.md`](invariants.md).
 | `_check_agent_write_path` | `splicecraft_agent::check_write_path` |
 | `_check_agent_read_path_ancestors` | `splicecraft_agent::check_read_path` |
 | `cmd_call` | `splicecraft_cli::execute_call` |
+| `export_plasmid_map` / `render_plasmid_map_svg` | `splicecraft_tui::{export_plasmid_map,render_plasmid_map_svg}` |
+| `ollama_base` | `splicecraft_tui::ollama_base` |
+| `_ot2_compile_protocol` | `splicecraft_tui::compile_protocol` |
+| `_export_migrate_archive` / `_import_migrate_archive` | `splicecraft_persist::{export,import}_migrate_archive` |
+| `_perform_master_delete` | `splicecraft_persist::perform_master_delete` |
 
 ## Docs worth fetching per area
 

@@ -65,6 +65,28 @@ pub enum Action {
     OpenHistory,
     /// Open BLAST / ORF / online search.
     OpenSearch,
+    /// Open the settings overlay (online toggles).
+    OpenSettings,
+    /// Open BABS (local Ollama).
+    OpenBabs,
+    /// Open AUTOLAB (OT-2 compiler).
+    OpenAutolab,
+    /// Open Master Delete (palette only; no keybinding).
+    OpenMasterDelete,
+    /// Prompt for a map-image export path.
+    ExportMapPrompt,
+    /// Prompt for a migrate-zip export path.
+    ExportMigratePrompt,
+    /// Prompt for a migrate-zip import path.
+    ImportMigratePrompt,
+    /// Flip `allow_online_search` (human only).
+    ToggleOnlineSearch,
+    /// Flip `allow_online_lookups` (human only).
+    ToggleOnlineLookups,
+    /// Compile the fixture OT-2 deck (no motion).
+    AutolabCompile,
+    /// Arm the OT-2 motion confirm (still does not move hardware).
+    AutolabArmMotion,
     /// Dry-run recover history from saved `.dna` originals.
     RecoverHistory,
     /// Open the Parts Bin.
@@ -196,6 +218,14 @@ pub enum Overlay {
     Search,
     /// Parts Bin.
     Parts,
+    /// Online / lookup settings.
+    Settings,
+    /// Local Ollama chat.
+    Babs,
+    /// OT-2 protocol compiler.
+    Autolab,
+    /// Triple-gated data wipe.
+    MasterDelete,
 }
 
 /// Which designer the primer overlay will run.
@@ -535,6 +565,12 @@ pub enum PathKind {
     BulkExport,
     /// Bulk-align a folder of reads against the loaded plasmid.
     BulkAlign,
+    /// Export a publication map (SVG/PNG) to a user path.
+    MapExport,
+    /// Write a migrate zip to a user path.
+    MigrateExport,
+    /// Restore a migrate zip into the sandboxed data dir.
+    MigrateImport,
 }
 
 /// Re-export so keys/state stay on one collision vocabulary.

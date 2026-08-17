@@ -21,8 +21,10 @@ use splicecraft_gels::{
 use splicecraft_persist::{
     AlignmentBadge, CollisionChoice, CollisionClass, DataLayout, EnzymeStore, ExperimentEntry,
     ExperimentStore, FeatureSnippet, HmmDbEntry, KeepOutcome, LibraryEntry, LibraryStore,
-    allow_online_search, experiment_jump_table, load_hmm_catalog, new_experiment_id,
-    normalise_experiment_entry, resolve_plasmid_jump, save_experiment_image, spellcheck_body,
+    MASTER_DELETE_SENTINEL, SETTING_ALLOW_ONLINE_LOOKUPS, SETTING_ALLOW_ONLINE_SEARCH,
+    allow_online_lookups, allow_online_search, experiment_jump_table, load_hmm_catalog,
+    new_experiment_id, normalise_experiment_entry, resolve_plasmid_jump, save_experiment_image,
+    set_setting_bool, spellcheck_body,
 };
 use splicecraft_primer::{
     PrimerRecord, PrimerStatus, PrimerStore, design_cloning_primers, design_detection_primers,
@@ -31,12 +33,20 @@ use splicecraft_primer::{
     rederive_primer_binding, scrub_design,
 };
 
+use std::time::{Duration, Instant};
+
 use crate::action::{
     Action, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab, MutatoTab, Overlay,
     Pane, PathKind, SearchTab, SequencingTab, SimulatorTab, SynthTab,
 };
+use crate::autolab::{compile_protocol, confirm_motion, fixture_deck};
+use crate::babs::{BabsCommand, parse_command};
 use crate::commands::{Command, filter_commands, fuzzy_text_match};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
+use crate::mapimage::{MapImageOpts, export_plasmid_map};
+
+/// Master Delete final-confirm cooldown (upstream `_MASTER_DELETE_CONFIRM_COOLDOWN_S`).
+pub const MASTER_DELETE_CONFIRM_COOLDOWN: Duration = Duration::from_secs(3);
 
 /// In-memory workbench. Disk writes require authorisation + a layout.
 #[derive(Clone, Debug)]
@@ -213,6 +223,30 @@ pub struct AppState {
     pub search_program: BlastProgram,
     /// `allow_online_search` (off until ticked).
     pub allow_online_search: bool,
+    /// `allow_online_lookups` (off until ticked).
+    pub allow_online_lookups: bool,
+    /// Highlighted settings row.
+    pub settings_selected: usize,
+    /// BABS input box.
+    pub babs_query: String,
+    /// Transcript lines (no plasmid sequence).
+    pub babs_lines: Vec<String>,
+    /// Selected Ollama model name.
+    pub babs_model: String,
+    /// Last AUTOLAB summary.
+    pub autolab_summary: Option<String>,
+    /// Last compiled protocol text.
+    pub autolab_protocol: Option<String>,
+    /// Human armed the motion confirm (still no live robot).
+    pub autolab_motion_armed: bool,
+    /// Master Delete step 0..=2.
+    pub master_delete_step: u8,
+    /// Focus on Yes (default is No).
+    pub master_delete_yes: bool,
+    /// Typed confirm token.
+    pub master_delete_typed: String,
+    /// When step 2 started.
+    pub master_delete_cooldown_start: Option<Instant>,
     /// Fingerprint of the record a search was started against.
     pub search_submitted: Option<splicecraft_bio::RecordFingerprint>,
     /// HMM-DB catalog (builtins re-injected).
@@ -327,6 +361,18 @@ impl AppState {
             search_selected: 0,
             search_program: BlastProgram::Blastn,
             allow_online_search: false,
+            allow_online_lookups: false,
+            settings_selected: 0,
+            babs_query: String::new(),
+            babs_lines: Vec::new(),
+            babs_model: "llama".into(),
+            autolab_summary: None,
+            autolab_protocol: None,
+            autolab_motion_armed: false,
+            master_delete_step: 0,
+            master_delete_yes: false,
+            master_delete_typed: String::new(),
+            master_delete_cooldown_start: None,
             search_submitted: None,
             hmm_catalog: splicecraft_persist::builtin_hmm_db_catalog().to_vec(),
             search_cancel: splicecraft_io::CancellationToken::new(),
@@ -345,6 +391,7 @@ impl AppState {
         self.gels = GelStore::load(&layout);
         self.experiments = ExperimentStore::load(&layout);
         self.allow_online_search = allow_online_search(&layout);
+        self.allow_online_lookups = allow_online_lookups(&layout);
         self.hmm_catalog = load_hmm_catalog(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
@@ -370,6 +417,7 @@ impl AppState {
                 self.path_query.clear();
                 self.tool_query.clear();
                 self.pending_collision = None;
+                self.reset_master_delete();
             }
             Action::OpenPalette => {
                 self.toast = None;
@@ -511,6 +559,54 @@ impl AppState {
                     self.hmm_catalog = load_hmm_catalog(layout);
                 }
             }
+            Action::OpenSettings => {
+                self.overlay = Overlay::Settings;
+                self.settings_selected = 0;
+                self.toast = None;
+                if let Some(layout) = &self.layout {
+                    self.allow_online_search = allow_online_search(layout);
+                    self.allow_online_lookups = allow_online_lookups(layout);
+                }
+            }
+            Action::OpenBabs => {
+                self.overlay = Overlay::Babs;
+                self.toast = None;
+                if self.babs_lines.is_empty() {
+                    self.babs_lines
+                        .push("Local Ollama only. Sequences are never sent off-loopback.".into());
+                }
+            }
+            Action::OpenAutolab => {
+                self.overlay = Overlay::Autolab;
+                self.toast = None;
+            }
+            Action::OpenMasterDelete => {
+                self.overlay = Overlay::MasterDelete;
+                self.reset_master_delete();
+                self.toast = None;
+            }
+            Action::ExportMapPrompt => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::MapExport;
+                self.path_query.clear();
+            }
+            Action::ExportMigratePrompt => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::MigrateExport;
+                self.path_query.clear();
+            }
+            Action::ImportMigratePrompt => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::MigrateImport;
+                self.path_query.clear();
+            }
+            Action::ToggleOnlineSearch => self.toggle_online_search(),
+            Action::ToggleOnlineLookups => self.toggle_online_lookups(),
+            Action::AutolabCompile => self.run_autolab_compile(),
+            Action::AutolabArmMotion => {
+                self.autolab_motion_armed = true;
+                self.toast = Some("Motion armed — still requires confirm; no robot in CI".into());
+            }
             Action::RecoverHistory => self.run_history_recover(true),
             Action::ExperimentJump => self.jump_experiment_ref(),
             Action::ExperimentSpellcheck => self.spellcheck_experiment(),
@@ -550,6 +646,13 @@ impl AppState {
                 } else if self.overlay == Overlay::Search {
                     self.search_tab = self.search_tab.next();
                     self.search_summary = None;
+                } else if self.overlay == Overlay::Autolab {
+                    self.autolab_motion_armed = !self.autolab_motion_armed;
+                    self.toast = Some(if self.autolab_motion_armed {
+                        "Motion armed — confirm still required; no live robot".into()
+                    } else {
+                        "Motion disarmed".into()
+                    });
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -565,6 +668,10 @@ impl AppState {
                 Overlay::History => self.run_history(),
                 Overlay::Search => self.run_search(),
                 Overlay::Parts => self.classify_into_parts_bin(),
+                Overlay::Settings => self.toggle_selected_setting(),
+                Overlay::Babs => self.run_babs(),
+                Overlay::Autolab => self.run_autolab_compile(),
+                Overlay::MasterDelete => self.advance_master_delete(),
                 _ => {}
             },
             Action::PrimerDesignSave => self.save_designed_primers(),
@@ -580,6 +687,8 @@ impl AppState {
                         | Overlay::Experiments
                         | Overlay::History
                         | Overlay::Search
+                        | Overlay::Babs
+                        | Overlay::MasterDelete
                 ) && !c.is_control()
                 {
                     if self.overlay == Overlay::Mutato {
@@ -599,6 +708,12 @@ impl AppState {
                         self.tool_query.push(c);
                     } else if self.overlay == Overlay::Search {
                         self.search_query.push(c);
+                    } else if self.overlay == Overlay::Babs {
+                        self.babs_query.push(c);
+                    } else if self.overlay == Overlay::MasterDelete {
+                        if self.master_delete_step == 1 {
+                            self.master_delete_typed.push(c);
+                        }
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
@@ -622,6 +737,8 @@ impl AppState {
                         | Overlay::Experiments
                         | Overlay::History
                         | Overlay::Search
+                        | Overlay::Babs
+                        | Overlay::MasterDelete
                 ) {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.pop();
@@ -642,6 +759,10 @@ impl AppState {
                         self.tool_query.pop();
                     } else if self.overlay == Overlay::Search {
                         self.search_query.pop();
+                    } else if self.overlay == Overlay::Babs {
+                        self.babs_query.pop();
+                    } else if self.overlay == Overlay::MasterDelete {
+                        self.master_delete_typed.pop();
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => {
@@ -749,6 +870,11 @@ impl AppState {
                                 (self.search_selected as i32 + delta).rem_euclid(n as i32) as usize;
                         }
                     }
+                } else if self.overlay == Overlay::Settings {
+                    self.settings_selected =
+                        (self.settings_selected as i32 + delta).rem_euclid(2) as usize;
+                } else if self.overlay == Overlay::MasterDelete {
+                    self.master_delete_yes = delta > 0;
                 }
             }
             Action::PrimerLibCycleStatus => {
@@ -1478,6 +1604,9 @@ impl AppState {
                 self.overlay = Overlay::Sequencing;
                 self.run_sequencing();
             }
+            PathKind::MapExport => self.export_map_to(&path),
+            PathKind::MigrateExport => self.export_migrate_to(&path),
+            PathKind::MigrateImport => self.import_migrate_from(&path),
         }
     }
 
@@ -1524,6 +1653,228 @@ impl AppState {
             Err(e) => {
                 self.toast = Some(format!("Export failed: {e}"));
             }
+        }
+    }
+
+    fn export_map_to(&mut self, path: &std::path::Path) {
+        let Some(rec) = &self.record else {
+            self.toast = Some("No plasmid loaded".into());
+            return;
+        };
+        let fmt = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("svg")
+            .to_ascii_lowercase();
+        let fmt = if fmt == "png" { "png" } else { "svg" };
+        match export_plasmid_map(rec, path, fmt, &MapImageOpts::default()) {
+            Ok(r) => {
+                self.toast = Some(format!("Map exported ({} bytes, {})", r.bytes, r.fmt));
+            }
+            Err(e) => self.toast = Some(format!("Map export failed: {e}")),
+        }
+    }
+
+    fn export_migrate_to(&mut self, path: &std::path::Path) {
+        let Some(layout) = &self.layout else {
+            self.toast = Some("No data dir attached".into());
+            return;
+        };
+        match splicecraft_persist::export_migrate_archive(layout, path, false) {
+            Ok(r) => {
+                self.toast = Some(format!(
+                    "Migrate zip: {} files, {} bytes",
+                    r.n_files, r.bytes
+                ));
+            }
+            Err(e) => self.toast = Some(format!("Migrate export failed: {e}")),
+        }
+    }
+
+    fn import_migrate_from(&mut self, path: &std::path::Path) {
+        let Some(layout) = &self.layout else {
+            self.toast = Some("No data dir attached".into());
+            return;
+        };
+        match splicecraft_persist::import_migrate_archive(layout, path) {
+            Ok(r) => {
+                self.attach_layout(layout.clone());
+                self.toast = Some(format!("Migrate import: {} files restored", r.n_files));
+            }
+            Err(e) => self.toast = Some(format!("Migrate import failed: {e}")),
+        }
+    }
+
+    fn toggle_online_search(&mut self) {
+        self.allow_online_search = !self.allow_online_search;
+        self.persist_setting_bool(SETTING_ALLOW_ONLINE_SEARCH, self.allow_online_search);
+        self.toast = Some(format!(
+            "allow_online_search {}",
+            if self.allow_online_search {
+                "ON"
+            } else {
+                "off"
+            }
+        ));
+    }
+
+    fn toggle_online_lookups(&mut self) {
+        self.allow_online_lookups = !self.allow_online_lookups;
+        self.persist_setting_bool(SETTING_ALLOW_ONLINE_LOOKUPS, self.allow_online_lookups);
+        self.toast = Some(format!(
+            "allow_online_lookups {}",
+            if self.allow_online_lookups {
+                "ON"
+            } else {
+                "off"
+            }
+        ));
+    }
+
+    fn persist_setting_bool(&mut self, key: &str, value: bool) {
+        let Some(layout) = &self.layout else {
+            return;
+        };
+        if !splicecraft_persist::writes_authorized() {
+            return;
+        }
+        if let Err(e) = set_setting_bool(layout, key, value) {
+            self.toast = Some(format!("Settings save failed: {e}"));
+        }
+    }
+
+    fn toggle_selected_setting(&mut self) {
+        if self.settings_selected == 0 {
+            self.toggle_online_search();
+        } else {
+            self.toggle_online_lookups();
+        }
+    }
+
+    fn run_babs(&mut self) {
+        let line = self.babs_query.trim().to_owned();
+        self.babs_query.clear();
+        if line.is_empty() {
+            return;
+        }
+        if let Some(cmd) = parse_command(&line) {
+            match cmd {
+                BabsCommand::Help => self
+                    .babs_lines
+                    .push("/help /clear /export /model <name> — loopback Ollama only".into()),
+                BabsCommand::Clear => self.babs_lines.clear(),
+                BabsCommand::Export => {
+                    self.babs_lines.push(format!(
+                        "transcript {} lines (not persisted)",
+                        self.babs_lines.len()
+                    ));
+                }
+                BabsCommand::Model(name) => {
+                    self.babs_model = name;
+                    self.babs_lines.push(format!("model → {}", self.babs_model));
+                }
+            }
+            return;
+        }
+        match crate::babs::ollama_chat(
+            &splicecraft_io::OfflineTransport,
+            &crate::babs::ollama_base(),
+            &self.babs_model,
+            &[("user", line.as_str())],
+        ) {
+            Ok(reply) => self.babs_lines.push(reply),
+            Err(e) => self.babs_lines.push(format!("(offline) {e}")),
+        }
+    }
+
+    fn run_autolab_compile(&mut self) {
+        match compile_protocol(&fixture_deck()) {
+            Ok(c) => {
+                self.autolab_protocol = Some(c.protocol_text.clone());
+                self.autolab_summary = Some(format!(
+                    "compiled {} ({} bytes JSON)",
+                    c.json["name"],
+                    c.json.to_string().len()
+                ));
+                if self.autolab_motion_armed {
+                    match confirm_motion(true) {
+                        Ok(()) => {
+                            self.toast =
+                                Some("Motion confirm noted — no live robot in this build".into());
+                        }
+                        Err(e) => self.toast = Some(e.to_string()),
+                    }
+                }
+            }
+            Err(e) => self.autolab_summary = Some(e.to_string()),
+        }
+    }
+
+    fn reset_master_delete(&mut self) {
+        self.master_delete_step = 0;
+        self.master_delete_yes = false;
+        self.master_delete_typed.clear();
+        self.master_delete_cooldown_start = None;
+    }
+
+    /// Remaining cooldown on the final Master Delete confirm.
+    #[must_use]
+    pub fn master_delete_cooldown_remaining(&self) -> Duration {
+        let Some(start) = self.master_delete_cooldown_start else {
+            return MASTER_DELETE_CONFIRM_COOLDOWN;
+        };
+        MASTER_DELETE_CONFIRM_COOLDOWN.saturating_sub(start.elapsed())
+    }
+
+    fn advance_master_delete(&mut self) {
+        match self.master_delete_step {
+            0 => {
+                if !self.master_delete_yes {
+                    self.overlay = Overlay::None;
+                    self.reset_master_delete();
+                    self.toast = Some("Master Delete cancelled — data kept".into());
+                } else {
+                    self.master_delete_step = 1;
+                    self.master_delete_typed.clear();
+                }
+            }
+            1 => {
+                if self.master_delete_typed == "DELETE" {
+                    self.master_delete_step = 2;
+                    self.master_delete_cooldown_start = Some(Instant::now());
+                } else {
+                    self.toast = Some("Type DELETE to continue".into());
+                }
+            }
+            _ => {
+                if !self.master_delete_cooldown_remaining().is_zero() {
+                    self.toast = Some("Wait for the cooldown".into());
+                    return;
+                }
+                self.execute_master_delete();
+            }
+        }
+    }
+
+    fn execute_master_delete(&mut self) {
+        let Some(layout) = self.layout.clone() else {
+            self.toast = Some("No data dir attached".into());
+            return;
+        };
+        match splicecraft_persist::perform_master_delete(&layout, MASTER_DELETE_SENTINEL) {
+            Ok(r) => {
+                self.library = LibraryStore::new();
+                self.record = None;
+                self.source_label = "(no record)".into();
+                self.dirty = false;
+                self.overlay = Overlay::None;
+                self.reset_master_delete();
+                self.toast = Some(format!(
+                    "Master Delete: {} files, {} dirs removed",
+                    r.files_removed, r.dirs_removed
+                ));
+            }
+            Err(e) => self.toast = Some(format!("Master Delete refused: {e}")),
         }
     }
 

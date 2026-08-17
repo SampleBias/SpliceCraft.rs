@@ -78,6 +78,16 @@ pub fn allow_online_search(layout: &DataLayout) -> bool {
     )
 }
 
+/// `allow_online_lookups` — name-only lookups; off unless ticked.
+#[must_use]
+pub fn allow_online_lookups(layout: &DataLayout) -> bool {
+    setting_bool(
+        &load_settings_map(layout),
+        SETTING_ALLOW_ONLINE_LOOKUPS,
+        false,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
