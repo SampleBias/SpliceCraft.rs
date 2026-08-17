@@ -147,3 +147,32 @@ pub fn save_gels(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistEr
 pub fn load_gels(layout: &DataLayout) -> LoadResult {
     safe_load_json(&layout.gels_file(), "Gels")
 }
+
+/// Persist lab-notebook entries.
+pub fn save_experiments(layout: &DataLayout, entries: &[Value]) -> Result<(), PersistError> {
+    safe_save_json(&layout.experiments_file(), entries, "Experiments")
+}
+
+/// Load lab-notebook entries.
+#[must_use]
+pub fn load_experiments(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.experiments_file(), "Experiments")
+}
+
+/// Persist named experiment projects.
+pub fn save_experiment_projects(
+    layout: &DataLayout,
+    entries: &[Value],
+) -> Result<(), PersistError> {
+    safe_save_json(
+        &layout.experiment_projects_file(),
+        entries,
+        "Experiment projects",
+    )
+}
+
+/// Load named experiment projects.
+#[must_use]
+pub fn load_experiment_projects(layout: &DataLayout) -> LoadResult {
+    safe_load_json(&layout.experiment_projects_file(), "Experiment projects")
+}

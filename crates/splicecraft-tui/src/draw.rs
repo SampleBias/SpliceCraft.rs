@@ -59,6 +59,8 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Synthesis => draw_synthesis(frame, area, state),
         Overlay::Simulator => draw_simulator(frame, area, state),
         Overlay::Sequencing => draw_sequencing(frame, area, state),
+        Overlay::Experiments => draw_experiments(frame, area, state),
+        Overlay::History => draw_history(frame, area, state),
         Overlay::Parts => draw_parts(frame, area, state),
         Overlay::None => {}
     }
@@ -721,6 +723,123 @@ fn draw_sequencing(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     }
     let block = Block::default()
         .title(" Sequencing ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_experiments(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 72, 20);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("Experiments — {}", state.exp_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(
+            "  Tab list/compose/attach · Enter save/open · Ctrl+G jump · F7 spellcheck · Esc",
+        ),
+        Line::from(format!("  project: {}", state.experiments.active)),
+        Line::from(""),
+    ];
+    match state.exp_tab {
+        crate::action::ExperimentsTab::List => {
+            if state.experiments.entries.is_empty() {
+                lines.push(Line::from("  (empty notebook — Enter to compose)"));
+            } else {
+                for (i, e) in state.experiments.entries.iter().enumerate().take(10) {
+                    let mark = if i == state.exp_selected { ">" } else { " " };
+                    lines.push(Line::from(format!(" {mark} {}  {}", e.id, e.title)));
+                }
+            }
+        }
+        crate::action::ExperimentsTab::Compose => {
+            let title = if state.exp_title.is_empty() {
+                "(title from first line)"
+            } else {
+                &state.exp_title
+            };
+            lines.push(Line::from(format!("  title: {title}")));
+            if state.exp_body.is_empty() {
+                lines.push(Line::from("  (type markdown: @plasmid !action &gel)"));
+            } else {
+                for row in state
+                    .exp_body
+                    .lines()
+                    .rev()
+                    .take(8)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                {
+                    lines.push(Line::from(format!("  {row}")));
+                }
+            }
+        }
+        crate::action::ExperimentsTab::Attach => {
+            lines.push(Line::from(format!(
+                "  path: {}",
+                if state.tool_query.is_empty() {
+                    "(image path)"
+                } else {
+                    &state.tool_query
+                }
+            )));
+            lines.push(Line::from("  Enter writes via the persist chokepoint."));
+        }
+    }
+    if let Some(summary) = &state.exp_summary {
+        lines.push(Line::from(""));
+        for row in summary.lines().take(6) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    let block = Block::default()
+        .title(" Experiments ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    frame.render_widget(
+        Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
+        box_area,
+    );
+}
+
+fn draw_history(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let box_area = centered(area, 74, 20);
+    frame.render_widget(Clear, box_area);
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!("History — {}", state.hist_tab.label()),
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  Tab protocol/tree/detail · Enter recover (type apply to write) · Esc close"),
+        Line::from(""),
+    ];
+    if !state.hist_warnings.is_empty() {
+        lines.push(Line::from(Span::styled(
+            format!(
+                "  ⚠ {} recorded detail(s) the sequence doesn't support",
+                state.hist_warnings.len()
+            ),
+            Style::default().fg(Color::Yellow),
+        )));
+        for w in state.hist_warnings.iter().take(3) {
+            lines.push(Line::from(format!("  {w}")));
+        }
+    }
+    for row in state.hist_lines.iter().take(10) {
+        lines.push(Line::from(format!("  {row}")));
+    }
+    if let Some(summary) = &state.hist_summary {
+        for row in summary.lines().take(4) {
+            lines.push(Line::from(row.to_owned()));
+        }
+    }
+    let block = Block::default()
+        .title(" History ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     frame.render_widget(

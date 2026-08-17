@@ -50,6 +50,7 @@ pub fn record_to_library_entry(record: &Record) -> Result<LibraryEntry, IoError>
         gb_text,
         source: String::new(),
         alignments: Vec::new(),
+        history_xml: String::new(),
     })
 }
 

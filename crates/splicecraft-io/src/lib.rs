@@ -18,6 +18,7 @@ mod error;
 mod fasta;
 mod genbank;
 mod gff;
+mod history_recover;
 mod locus;
 mod net;
 mod plasmidsaurus;
@@ -52,6 +53,11 @@ pub use genbank::{
     load_genbank, record_to_gb_text,
 };
 pub use gff::{export_gff3_to_path, record_to_gff3};
+pub use history_recover::{
+    HISTORY_RECOVER_MAX_INDEX_BYTES, HISTORY_RECOVER_MAX_SIDECARS, HistoryRecoverHit,
+    HistoryRecoverReport, history_node_count_of_xml, recover_history_from_dna,
+    scan_dna_originals_for_history,
+};
 pub use locus::{GB_LOCUS_NAME_MAX, display_name_needs_comment, sanitize_locus_name};
 pub use net::{
     NCBI_ALLOWLIST, assert_ncbi_host, assert_public_ip, fetch_genbank, ip_is_non_public,
@@ -524,6 +530,62 @@ mod tests {
         let fa = load_fasta(&fa_path).unwrap();
         assert_eq!(fa.sequence, src.sequence);
         assert!(!fa.circular, "pWrap header has no circular/plasmid hint");
+    }
+
+    #[test]
+    fn recover_history_matches_exact_sequence_identity() {
+        use splicecraft_persist::{LibraryStore, authorize_writes_for_sandbox};
+        use std::fs;
+
+        let tmp = tempfile::tempdir().expect("tempdir");
+        authorize_writes_for_sandbox(tmp.path()).expect("sandbox");
+        let layout = persist::DataLayout::from_xdg_home(tmp.path()).expect("layout");
+        assert!(layout.root.starts_with(tmp.path()));
+
+        let seq = "ATGCATGCATGC".repeat(10);
+        let rec = Record::new("pRich", &seq, true);
+        let thin = "<HistoryTree><Node name=\"thin.dna\"/></HistoryTree>";
+        let rich = "<HistoryTree><Node name=\"prod.dna\" operation=\"goldenGateAssembly\">\
+            <Node name=\"a.dna\"/><Node name=\"b.dna\"/></Node></HistoryTree>";
+        assert!(history_node_count_of_xml(rich) > history_node_count_of_xml(thin));
+
+        let dna = write_dna_bytes(&rec, Some(rich)).unwrap();
+        let dir = layout.dna_originals_dir();
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("filed_as_other.dna"), dna).unwrap();
+
+        let mut store = LibraryStore::new();
+        let mut entry = record_to_library_entry(&rec).unwrap();
+        entry.name = "renamed_after_build".into();
+        entry.id = "renamed_after_build".into();
+        entry.history_xml = thin.into();
+        store.keep(entry, None);
+        let gb_before = store.plasmids[0].gb_text.clone();
+
+        let dry = recover_history_from_dna(&layout, &mut store, true).unwrap();
+        assert!(dry.dry_run);
+        assert_eq!(dry.updated.len(), 1);
+        assert_eq!(dry.updated[0].name, "renamed_after_build");
+        assert_eq!(dry.updated[0].nodes_before, 1);
+        assert_eq!(dry.updated[0].nodes_after, 3);
+        assert_eq!(store.plasmids[0].history_xml, thin);
+        assert_eq!(store.plasmids[0].gb_text, gb_before);
+
+        let applied = recover_history_from_dna(&layout, &mut store, false).unwrap();
+        assert!(!applied.dry_run);
+        assert_eq!(store.plasmids[0].history_xml, rich);
+        assert_eq!(store.plasmids[0].name, "renamed_after_build");
+        assert_eq!(store.plasmids[0].gb_text, gb_before);
+        let seq_after = gb_text_to_record(&store.plasmids[0].gb_text)
+            .unwrap()
+            .sequence;
+        assert_eq!(seq_after, seq);
+
+        let again = recover_history_from_dna(&layout, &mut store, false).unwrap();
+        assert!(
+            again.updated.is_empty(),
+            "must not thin an existing lineage"
+        );
     }
 
     fn persist_temp() -> tempfile::TempDir {

@@ -103,6 +103,8 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::Synthesis
         | Overlay::Simulator
         | Overlay::Sequencing
+        | Overlay::Experiments
+        | Overlay::History
         | Overlay::Parts => tool_key(state, key),
         Overlay::None => main_key(state, key),
     }
@@ -171,6 +173,15 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Up => Some(Action::ToolMove(-1)),
         KeyCode::Down => Some(Action::ToolMove(1)),
         KeyCode::Backspace => Some(Action::ToolBackspace),
+        KeyCode::F(7) if state.overlay == Overlay::Experiments => {
+            Some(Action::ExperimentSpellcheck)
+        }
+        KeyCode::Char('g')
+            if state.overlay == Overlay::Experiments
+                && key.modifiers.contains(KeyModifiers::CONTROL) =>
+        {
+            Some(Action::ExperimentJump)
+        }
         KeyCode::Char('s')
             if state.overlay == Overlay::PrimerDesign && key.modifiers.is_empty() =>
         {
@@ -205,6 +216,12 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
                 && c != 'a'
                 && c != 'g'
                 && c != 'j' =>
+        {
+            Some(Action::ToolInput(c))
+        }
+        KeyCode::Char(c)
+            if matches!(state.overlay, Overlay::Experiments | Overlay::History)
+                && !key.modifiers.contains(KeyModifiers::CONTROL) =>
         {
             Some(Action::ToolInput(c))
         }

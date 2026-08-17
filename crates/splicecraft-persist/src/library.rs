@@ -36,6 +36,9 @@ pub struct LibraryEntry {
     /// Compact sequencing badges (no aligned strings — those stay in the TUI session).
     #[serde(default)]
     pub alignments: Vec<AlignmentBadge>,
+    /// CommercialSaaS / construction history XML. Counts only in logs; never DNA.
+    #[serde(default)]
+    pub history_xml: String,
 }
 
 /// Library-column sequencing status. Counts only; no DNA payload.
@@ -510,6 +513,7 @@ mod tests {
             gb_text: gb.into(),
             source: String::new(),
             alignments: Vec::new(),
+            history_xml: String::new(),
         }
     }
 

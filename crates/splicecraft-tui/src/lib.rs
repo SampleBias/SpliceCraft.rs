@@ -1,6 +1,7 @@
-//! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato, Simulator, Sequencing.
+//! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
+//! Simulator, Sequencing, Experiments, History.
 //!
-//! Stage 11. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 12. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only.
 
@@ -24,8 +25,8 @@ mod render;
 mod state;
 
 pub use action::{
-    Action, CollisionChoice, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane,
-    PathKind, SequencingTab, SimulatorTab, SynthTab,
+    Action, CollisionChoice, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab,
+    MutatoTab, Overlay, Pane, PathKind, SequencingTab, SimulatorTab, SynthTab,
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
@@ -41,8 +42,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (Sequencing).
-pub const IMPLEMENTATION_STAGE: u8 = 11;
+/// Stage this crate currently satisfies (Experiments + History).
+pub const IMPLEMENTATION_STAGE: u8 = 12;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -193,7 +194,7 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 11"),
+            text.contains("stage 12"),
             "status bar missing stage, got:\n{text}"
         );
     }
@@ -582,6 +583,9 @@ mod tests {
         assert!(titles.contains(&"Synthesis"), "{titles:?}");
         assert!(titles.contains(&"Simulator"), "{titles:?}");
         assert!(titles.contains(&"Sequencing"), "{titles:?}");
+        assert!(titles.contains(&"Experiments"), "{titles:?}");
+        assert!(titles.contains(&"History"), "{titles:?}");
+        assert!(titles.contains(&"Recover history from .dna"), "{titles:?}");
         let cmd = state
             .visible_commands()
             .into_iter()
@@ -773,5 +777,94 @@ mod tests {
             blob.contains('X'),
             "linear overlay missing mismatch:\n{blob}"
         );
+    }
+
+    #[test]
+    fn experiments_overlay_is_live() {
+        let mut state = AppState::new();
+        let cmd = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Experiments")
+            .expect("experiments");
+        assert_eq!(cmd.action, Action::OpenExperiments);
+        assert!(state.reduce(Action::OpenExperiments));
+        assert_eq!(state.overlay, Overlay::Experiments);
+        assert_eq!(state.exp_tab, ExperimentsTab::List);
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("experiment"), "{text}");
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.exp_tab, ExperimentsTab::Compose);
+        state.exp_body = "Today: @pUC19 then !digest and &runA".into();
+        assert!(state.reduce(Action::ToolEnter));
+        assert_eq!(state.experiments.entries.len(), 1);
+        assert_eq!(
+            state.experiments.entries[0].attached_plasmid_ids,
+            vec!["pUC19"]
+        );
+        state.library.plasmids.push(persist::LibraryEntry {
+            id: "pUC19".into(),
+            name: "pUC19".into(),
+            size: 4,
+            gb_text: String::new(),
+            source: String::new(),
+            alignments: Vec::new(),
+            history_xml: String::new(),
+        });
+        assert!(state.reduce(Action::ExperimentJump));
+        assert!(
+            state.toast.as_deref().unwrap_or("").contains("pUC19"),
+            "{:?}",
+            state.toast
+        );
+    }
+
+    #[test]
+    fn history_overlay_warns_without_mutating_sequence() {
+        let mut state = AppState::new();
+        let cmd = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "History")
+            .expect("history");
+        assert_eq!(cmd.action, Action::OpenHistory);
+        let seq = "ATGCATGCATGC";
+        let mut rec = core::Record::new("pLie", seq, false);
+        rec.id = "pLie".into();
+        state.record = Some(rec);
+        state.library.plasmids.push(persist::LibraryEntry {
+            id: "pLie".into(),
+            name: "pLie".into(),
+            size: seq.len(),
+            gb_text: String::new(),
+            source: String::new(),
+            alignments: Vec::new(),
+            history_xml: "<HistoryTree><Node name=\"pLie.dna\" seqLen=\"12\" circular=\"0\" operation=\"insertFragment\"><RegeneratedSite name=\"EcoRI\" pos=\"12\"/></Node></HistoryTree>".into(),
+        });
+        assert!(state.reduce(Action::OpenHistory));
+        assert_eq!(state.overlay, Overlay::History);
+        assert!(
+            state
+                .hist_warnings
+                .iter()
+                .any(|w| w.contains("EcoRI") && w.contains("does not occur")),
+            "{:?}",
+            state.hist_warnings
+        );
+        assert_eq!(
+            state.record.as_ref().map(|r| r.sequence.as_str()),
+            Some(seq)
+        );
+        let text = draw_text(80, 24, &state);
+        assert!(text.to_ascii_lowercase().contains("history"), "{text}");
+        assert!(text.contains("EcoRI"), "{text}");
+        assert!(state.reduce(Action::ToolTab));
+        assert_eq!(state.hist_tab, HistoryTab::Tree);
+        let recover = state
+            .visible_commands()
+            .into_iter()
+            .find(|c| c.title == "Recover history from .dna")
+            .expect("recover");
+        assert_eq!(recover.action, Action::RecoverHistory);
     }
 }

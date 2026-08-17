@@ -6,10 +6,10 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–11 done (workspace, sacred biology, persist, file I/O,
+**Status:** stages 00–12 done (workspace, sacred biology, persist, file I/O,
 Ratatui chrome, map + sequence editor, plasmid library, enzymes + primers,
-cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing).
-Later agents implement stages 12–16 until parity.
+cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing,
+Experiments + History). Later agents implement stages 13–16 until parity.
 See [`docs/stages/README.md`](docs/stages/README.md).
 
 ## Quick start

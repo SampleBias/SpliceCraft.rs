@@ -15,13 +15,20 @@ check a box early.
 - [x] 09 Mutato + codon + synthesis
 - [x] 10 Simulator + gels
 - [x] 11 Sequencing
-- [ ] 12 Experiments + History UI
+- [x] 12 Experiments + History UI
 - [ ] 13 Search
 - [ ] 14 Agent API + CLI
 - [ ] 15 Satellite features
 - [ ] 16 Parity gate
 
-**Next:** stage 12 (`docs/stages/12-experiments-history.md`).
+**Next:** stage 13 (`docs/stages/13-search.md`).
+
+Stage 12 notes: lab notebook persists `experiments.json` /
+`experiment_projects.json` through `safe_save_json`. Image attaches are
+gated by the persist chokepoint. History warnings are read-only (claimed
+EcoRI with no site leaves DNA untouched). `recover-history-from-dna`
+matches by exact sequence identity and never thins an existing lineage.
+Sticky-cut visualization remains deferred from stage 05.
 
 Stage 11 notes: honest identity display (99.6% never becomes 100%). Zip
 members with `../` are refused. Plasmidsaurus zip/API ingest tags

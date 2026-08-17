@@ -15,6 +15,7 @@ mod envelope;
 mod enzymes;
 mod error;
 mod event;
+mod experiments;
 mod library;
 mod load;
 mod paths;
@@ -32,10 +33,11 @@ pub use crash::{
 };
 pub use domain::{
     load_codon_tables, load_collections, load_custom_enzymes, load_enzyme_active,
-    load_enzyme_collections, load_features, load_gels, load_grammars, load_library, load_parts_bin,
-    load_primers, load_protein_motifs, save_codon_tables, save_collections, save_custom_enzymes,
-    save_enzyme_active, save_enzyme_collections, save_features, save_gels, save_grammars,
-    save_library, save_parts_bin, save_primers, save_protein_motifs,
+    load_enzyme_collections, load_experiment_projects, load_experiments, load_features, load_gels,
+    load_grammars, load_library, load_parts_bin, load_primers, load_protein_motifs,
+    save_codon_tables, save_collections, save_custom_enzymes, save_enzyme_active,
+    save_enzyme_collections, save_experiment_projects, save_experiments, save_features, save_gels,
+    save_grammars, save_library, save_parts_bin, save_primers, save_protein_motifs,
 };
 pub use envelope::{
     BACKUP_RETENTION_COUNT, CURRENT_SCHEMA_VERSION, LoadResult, SAFE_LOAD_JSON_MAX_BYTES,
@@ -44,6 +46,14 @@ pub use envelope::{
 pub use enzymes::{CustomEnzymeRecord, EnzymeCollection, EnzymeStore};
 pub use error::PersistError;
 pub use event::{format_event, log_event};
+pub use experiments::{
+    DEFAULT_PROJECT_NAME, EXPERIMENT_BODY_MAX_BYTES, EXPERIMENT_DIR_MAX_BYTES,
+    EXPERIMENT_IMAGE_MAX_BYTES, ExperimentEntry, ExperimentJumpTable, ExperimentProject,
+    ExperimentStore, experiment_attach_dir, experiment_jump_table, extract_action_refs,
+    extract_experiment_gel_refs, extract_plasmid_refs, halfblock_preview,
+    migrate_legacy_tag_format, new_experiment_id, normalise_experiment_entry, resolve_plasmid_jump,
+    sanitize_experiment_id, save_experiment_image, spellcheck_body,
+};
 pub use library::{
     AlignmentBadge, Collection, CollisionChoice, CollisionClass, DEFAULT_COLLECTION_NAME,
     FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore, classify_entry, classify_name_content,
@@ -52,11 +62,12 @@ pub use library::{
 pub use load::safe_load_json;
 pub use paths::{
     CODON_TABLES_FILE_NAME, COLLECTIONS_FILE_NAME, CRASH_RECOVERY_DIR_NAME,
-    CUSTOM_ENZYMES_FILE_NAME, DataLayout, ENZYME_ACTIVE_FILE_NAME, ENZYME_COLLECTIONS_FILE_NAME,
-    FEATURES_FILE_NAME, GELS_FILE_NAME, GRAMMARS_FILE_NAME, LIBRARY_FILE_NAME, LOG_DIR_NAME,
-    LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME, PROTEIN_MOTIFS_FILE_NAME,
-    PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir, join_leaf,
-    path_has_python_leaf,
+    CUSTOM_ENZYMES_FILE_NAME, DNA_ORIGINALS_DIR_NAME, DataLayout, ENZYME_ACTIVE_FILE_NAME,
+    ENZYME_COLLECTIONS_FILE_NAME, EXPERIMENT_PROJECTS_FILE_NAME, EXPERIMENTS_DIR_NAME,
+    EXPERIMENTS_FILE_NAME, FEATURES_FILE_NAME, GELS_FILE_NAME, GRAMMARS_FILE_NAME,
+    LIBRARY_FILE_NAME, LOG_DIR_NAME, LOST_ENTRIES_DIR_NAME, PARTS_BIN_FILE_NAME, PRIMERS_FILE_NAME,
+    PROTEIN_MOTIFS_FILE_NAME, PYTHON_XDG_DATA_DIR_LEAF, SETTINGS_FILE_NAME, check_leaf, data_dir,
+    join_leaf, path_has_python_leaf,
 };
 pub use save::{SaveOptions, safe_save_json, safe_save_json_with, stage_json_tempfile};
 
@@ -453,6 +464,35 @@ mod tests {
         assert_eq!(
             layout.gels_file().file_name().and_then(|s| s.to_str()),
             Some(GELS_FILE_NAME)
+        );
+    }
+
+    #[test]
+    fn domain_experiments_save_is_sandboxed() {
+        let (tmp, layout) = sandbox();
+        assert!(layout.root.starts_with(tmp.path()));
+        save_experiments(&layout, &[json!({"id":"exp-abc12345","title":"round 1"})]).unwrap();
+        let loaded = load_experiments(&layout);
+        assert_eq!(loaded.entries[0]["id"], "exp-abc12345");
+        save_experiment_projects(&layout, &[json!({"name":"Main Project","experiments":[]})])
+            .unwrap();
+        assert_eq!(
+            load_experiment_projects(&layout).entries[0]["name"],
+            "Main Project"
+        );
+        assert_eq!(
+            layout
+                .experiments_file()
+                .file_name()
+                .and_then(|s| s.to_str()),
+            Some(EXPERIMENTS_FILE_NAME)
+        );
+        assert_eq!(
+            layout
+                .experiment_projects_file()
+                .file_name()
+                .and_then(|s| s.to_str()),
+            Some(EXPERIMENT_PROJECTS_FILE_NAME)
         );
     }
 

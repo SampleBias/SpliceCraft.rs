@@ -46,7 +46,14 @@ pub use grammar::{
     GB_L0_ENZYME_NAME, GB_L0_ENZYME_SITE, GB_PAD, GB_SPACER, Grammar, GrammarPosition,
     GrammarStore, builtin_grammars, gb_l0, moclo_plant,
 };
-pub use history::HistoryNode;
+pub use history::{
+    HISTORY_CHECK_MAX_BP, HISTORY_CHECK_MAX_ITEMS, HISTORY_WARN_MAX, HistoryBindingSite,
+    HistoryCheckNode, HistoryInputSummary, HistoryNode, HistoryPrimerDetail, HistoryProtocolStep,
+    RegeneratedSiteClaim, history_clean_name, history_detail_lines, history_human_dt,
+    history_node_count_of_xml, history_node_warnings, history_op_label, history_protocol_lines,
+    history_protocol_steps, history_size_label, history_tree_label, history_tree_lines,
+    parse_history_xml,
+};
 pub use operon::{OperonPrimer, OperonSoE, design_operon_soe_primers};
 pub use parts::{ClassifiedPart, PartRecord, PartsBinStore, classify_part_from_plasmid};
 pub use product::{carry_parent_features, product_record, stamp_history};

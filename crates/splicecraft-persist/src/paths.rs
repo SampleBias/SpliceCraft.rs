@@ -33,6 +33,14 @@ pub const CODON_TABLES_FILE_NAME: &str = "codon_tables.json";
 pub const PROTEIN_MOTIFS_FILE_NAME: &str = "protein_motifs.json";
 /// Saved agarose-gel snapshots (`&gel` ids for stage 12).
 pub const GELS_FILE_NAME: &str = "gels.json";
+/// Lab-notebook entries.
+pub const EXPERIMENTS_FILE_NAME: &str = "experiments.json";
+/// Named experiment projects.
+pub const EXPERIMENT_PROJECTS_FILE_NAME: &str = "experiment_projects.json";
+/// Per-entry image blobs (`experiments/<id>/`).
+pub const EXPERIMENTS_DIR_NAME: &str = "experiments";
+/// Saved `.dna` originals for history recovery.
+pub const DNA_ORIGINALS_DIR_NAME: &str = "dna_originals";
 /// App preferences (dict-shaped; still saved through the JSON chokepoint later).
 pub const SETTINGS_FILE_NAME: &str = "settings.json";
 /// Debounced `.gb` crash-recovery snapshots.
@@ -139,6 +147,30 @@ impl DataLayout {
     #[must_use]
     pub fn gels_file(&self) -> PathBuf {
         self.root.join(GELS_FILE_NAME)
+    }
+
+    /// Lab-notebook JSON.
+    #[must_use]
+    pub fn experiments_file(&self) -> PathBuf {
+        self.root.join(EXPERIMENTS_FILE_NAME)
+    }
+
+    /// Experiment-projects JSON.
+    #[must_use]
+    pub fn experiment_projects_file(&self) -> PathBuf {
+        self.root.join(EXPERIMENT_PROJECTS_FILE_NAME)
+    }
+
+    /// Per-entry attachment root.
+    #[must_use]
+    pub fn experiments_dir(&self) -> PathBuf {
+        self.root.join(EXPERIMENTS_DIR_NAME)
+    }
+
+    /// Saved `.dna` originals.
+    #[must_use]
+    pub fn dna_originals_dir(&self) -> PathBuf {
+        self.root.join(DNA_ORIGINALS_DIR_NAME)
     }
 
     /// Settings JSON.

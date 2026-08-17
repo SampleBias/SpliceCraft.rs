@@ -1,6 +1,6 @@
 # Stage 12 — Experiments + History UI
 
-**Status:** not started
+**Status:** done
 **Depends on:** 06, 08, 10
 **Primary crates:** `splicecraft-tui`, `splicecraft-persist`, `splicecraft-clone`
 
@@ -41,12 +41,32 @@ sequence truth.
 
 ## Acceptance
 
-- [ ] Parse `@plasmid` / `!action` / `&gel` from a fixture body
-- [ ] Jump table resolves a known plasmid id
-- [ ] History warning test: node claims EcoRI, sequence has none → warn,
+- [x] Parse `@plasmid` / `!action` / `&gel` from a fixture body
+- [x] Jump table resolves a known plasmid id
+- [x] History warning test: node claims EcoRI, sequence has none → warn,
       sequence unchanged
-- [ ] Attachment write uses persist chokepoint
-- [ ] Workspace tests pass
+- [x] Attachment write uses persist chokepoint
+- [x] Workspace tests pass
+
+## Notes
+
+- Notebook: `experiments.json` + `experiment_projects.json` through
+  `safe_save_json`. Default project is `Main Project`. Attach dir is
+  `$DATA/experiments/<id>/`; writes go through `refuse_unauthorized_write`
+  then `atomic_write_bytes` (10 MB/image, 100 MB/entry).
+- Cross-refs: `@` / `!` / `&` with the same lookbehind + `;`/`=` reject as
+  gels. Legacy `@plasmid:` / `@actions:` migrate on save. Ctrl+G jumps the
+  first plasmid id; F7 spellchecks (URLs, backticks, refs, DNA-like tokens
+  masked).
+- History warnings are strictly read-only. Regenerated-site `pos == 0` is
+  an assembly marker and is skipped. Absent EcoRI (`GAATTC`) on
+  `ATGCATGCATGC` warns and leaves the sequence untouched.
+- `recover_history_from_dna` matches library `gb_text` to `.dna` originals
+  by exact sequence identity, writes **only** `history_xml` when the
+  sidecar has strictly more `<Node>` elements, and defaults to dry-run.
+  Caps: 20_000 sidecars, 512 MB index.
+- TUI: Experiments (list / compose / attach) and History (protocol / tree /
+  detail). Palette also has Recover history from `.dna`.
 
 ## Forbidden
 

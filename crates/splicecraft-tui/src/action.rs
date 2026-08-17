@@ -55,6 +55,16 @@ pub enum Action {
     OpenSequencing,
     /// Jump the sequence cursor to the first alignment variant.
     SequencingJump,
+    /// Open the lab notebook.
+    OpenExperiments,
+    /// Jump the first `@` / `!` / `&` cross-ref (Ctrl+G analog).
+    ExperimentJump,
+    /// Spellcheck the compose body (F7).
+    ExperimentSpellcheck,
+    /// Open the construction-history viewer.
+    OpenHistory,
+    /// Dry-run recover history from saved `.dna` originals.
+    RecoverHistory,
     /// Open the Parts Bin.
     OpenParts,
     /// Save the last constructor product into the library.
@@ -176,6 +186,10 @@ pub enum Overlay {
     Simulator,
     /// Sequencing verification (zip / align / Sanger / report).
     Sequencing,
+    /// Markdown lab notebook.
+    Experiments,
+    /// Construction-history viewer (read-only warnings).
+    History,
     /// Parts Bin.
     Parts,
 }
@@ -368,6 +382,74 @@ impl SequencingTab {
             Self::Align => "align",
             Self::Sanger => "Sanger",
             Self::Report => "report",
+        }
+    }
+}
+
+/// Experiments overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ExperimentsTab {
+    /// Project entry list.
+    #[default]
+    List,
+    /// Markdown compose.
+    Compose,
+    /// Image attachments.
+    Attach,
+}
+
+impl ExperimentsTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::List => Self::Compose,
+            Self::Compose => Self::Attach,
+            Self::Attach => Self::List,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::List => "list",
+            Self::Compose => "compose",
+            Self::Attach => "attach",
+        }
+    }
+}
+
+/// History overlay tab.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum HistoryTab {
+    /// Numbered protocol (left → right).
+    #[default]
+    Protocol,
+    /// Lineage tree.
+    Tree,
+    /// Step detail + warnings.
+    Detail,
+}
+
+impl HistoryTab {
+    /// Next tab.
+    #[must_use]
+    pub fn next(self) -> Self {
+        match self {
+            Self::Protocol => Self::Tree,
+            Self::Tree => Self::Detail,
+            Self::Detail => Self::Protocol,
+        }
+    }
+
+    /// Overlay title.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Protocol => "protocol",
+            Self::Tree => "tree",
+            Self::Detail => "detail",
         }
     }
 }

@@ -118,6 +118,10 @@ in [`invariants.md`](invariants.md).
 | `_plasmidsaurus_*` zip / API | `splicecraft_io::{parse_plasmidsaurus_zip,plasmidsaurus_list_items,…}` |
 | AB1 / Phred | `splicecraft_io::load_ab1` |
 | `.dna` TLV / history XML | `splicecraft_io::{load_dna_path,write_dna_bytes,extract_history_xml}` |
+| `_extract_plasmid_refs` / `_extract_action_refs` / `_extract_gel_refs` | `splicecraft_persist::{extract_plasmid_refs,extract_action_refs,extract_experiment_gel_refs}` |
+| `_save_experiment_image` | `splicecraft_persist::save_experiment_image` |
+| `_history_node_warnings` | `splicecraft_clone::history_node_warnings` |
+| `_h_recover_history_from_dna` | `splicecraft_io::recover_history_from_dna` |
 
 ## Docs worth fetching per area
 

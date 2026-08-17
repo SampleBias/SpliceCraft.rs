@@ -2,11 +2,12 @@
 
 use splicecraft_bio::{CustomEnzyme, extract_feature, reverse_complement_record};
 use splicecraft_clone::{
-    GibsonFragment, GrammarStore, HistoryNode, PartRecord, PartsBinStore, assemble_parts,
-    classify_part_from_plasmid, design_gb_primers, design_gb_scrub, design_homology_arms,
-    design_operon_soe_primers, excise_fragment_pair, gb_l0, l0_part_from_syn_fragment,
-    product_record, simulate_gibson_assembly, simulate_traditional_cloning, stub_entry_vector,
-    traditional_closed,
+    GibsonFragment, GrammarStore, HistoryCheckNode, HistoryNode, PartRecord, PartsBinStore,
+    assemble_parts, classify_part_from_plasmid, design_gb_primers, design_gb_scrub,
+    design_homology_arms, design_operon_soe_primers, excise_fragment_pair, gb_l0,
+    history_detail_lines, history_node_warnings, history_protocol_lines, history_tree_lines,
+    l0_part_from_syn_fragment, parse_history_xml, product_record, simulate_gibson_assembly,
+    simulate_traditional_cloning, stub_entry_vector, traditional_closed,
 };
 use splicecraft_codon::{CodonMode, CodonTableStore, DnaBuffer, MotifStore, ProteinBuffer};
 use splicecraft_core::{Record, rotate_record};
@@ -15,8 +16,10 @@ use splicecraft_gels::{
     append_pcr_gel_lane, render_gel_image, simulate_pcr, snapshot_gel,
 };
 use splicecraft_persist::{
-    AlignmentBadge, CollisionChoice, CollisionClass, DataLayout, EnzymeStore, FeatureSnippet,
-    KeepOutcome, LibraryEntry, LibraryStore,
+    AlignmentBadge, CollisionChoice, CollisionClass, DataLayout, EnzymeStore, ExperimentEntry,
+    ExperimentStore, FeatureSnippet, KeepOutcome, LibraryEntry, LibraryStore,
+    experiment_jump_table, new_experiment_id, normalise_experiment_entry, resolve_plasmid_jump,
+    save_experiment_image, spellcheck_body,
 };
 use splicecraft_primer::{
     PrimerRecord, PrimerStatus, PrimerStore, design_cloning_primers, design_detection_primers,
@@ -26,8 +29,8 @@ use splicecraft_primer::{
 };
 
 use crate::action::{
-    Action, ConstructorTab, DesignKind, FocusMode, MutatoTab, Overlay, Pane, PathKind,
-    SequencingTab, SimulatorTab, SynthTab,
+    Action, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab, MutatoTab, Overlay,
+    Pane, PathKind, SequencingTab, SimulatorTab, SynthTab,
 };
 use crate::commands::{Command, filter_commands};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
@@ -171,6 +174,28 @@ pub struct AppState {
     pub seq_variant_idx: usize,
     /// Zip samples listed.
     pub seq_zip_n: usize,
+    /// Lab notebook.
+    pub experiments: ExperimentStore,
+    /// Experiments overlay tab.
+    pub exp_tab: ExperimentsTab,
+    /// Highlighted notebook row.
+    pub exp_selected: usize,
+    /// Compose title.
+    pub exp_title: String,
+    /// Compose markdown body.
+    pub exp_body: String,
+    /// Id of the entry being edited.
+    pub exp_id: String,
+    /// Last notebook summary (no DNA).
+    pub exp_summary: Option<String>,
+    /// History overlay tab.
+    pub hist_tab: HistoryTab,
+    /// Last history summary / warnings (no DNA).
+    pub hist_summary: Option<String>,
+    /// Protocol / tree / detail lines.
+    pub hist_lines: Vec<String>,
+    /// Warnings for the loaded molecule. Never used to edit DNA.
+    pub hist_warnings: Vec<String>,
 }
 
 /// Collision modal payload.
@@ -261,6 +286,17 @@ impl AppState {
             seq_variants: Vec::new(),
             seq_variant_idx: 0,
             seq_zip_n: 0,
+            experiments: ExperimentStore::new(),
+            exp_tab: ExperimentsTab::List,
+            exp_selected: 0,
+            exp_title: String::new(),
+            exp_body: String::new(),
+            exp_id: String::new(),
+            exp_summary: None,
+            hist_tab: HistoryTab::Protocol,
+            hist_summary: None,
+            hist_lines: Vec::new(),
+            hist_warnings: Vec::new(),
         }
     }
 
@@ -274,6 +310,7 @@ impl AppState {
         self.codon_tables = CodonTableStore::load(&layout);
         self.motifs = MotifStore::load(&layout);
         self.gels = GelStore::load(&layout);
+        self.experiments = ExperimentStore::load(&layout);
         self.layout = Some(layout);
         self.clamp_lib_selection();
         self.clamp_enzyme_selection();
@@ -417,6 +454,20 @@ impl AppState {
                 self.seq_summary = None;
                 self.toast = None;
             }
+            Action::OpenExperiments => {
+                self.overlay = Overlay::Experiments;
+                self.exp_summary = None;
+                self.toast = None;
+                self.clamp_exp_selection();
+            }
+            Action::OpenHistory => {
+                self.overlay = Overlay::History;
+                self.toast = None;
+                self.refresh_history();
+            }
+            Action::RecoverHistory => self.run_history_recover(true),
+            Action::ExperimentJump => self.jump_experiment_ref(),
+            Action::ExperimentSpellcheck => self.spellcheck_experiment(),
             Action::SequencingJump => self.jump_to_variant(),
             Action::ConstructorSave => self.save_constructor_product(),
             Action::SimulatorSave => self.save_simulator(),
@@ -444,6 +495,12 @@ impl AppState {
                 } else if self.overlay == Overlay::Sequencing {
                     self.seq_tab = self.seq_tab.next();
                     self.seq_summary = None;
+                } else if self.overlay == Overlay::Experiments {
+                    self.exp_tab = self.exp_tab.next();
+                    self.exp_summary = None;
+                } else if self.overlay == Overlay::History {
+                    self.hist_tab = self.hist_tab.next();
+                    self.refresh_history_tab();
                 }
             }
             Action::ToolEnter => match self.overlay {
@@ -455,6 +512,8 @@ impl AppState {
                 Overlay::Synthesis => self.run_synthesis(),
                 Overlay::Simulator => self.run_simulator(),
                 Overlay::Sequencing => self.run_sequencing(),
+                Overlay::Experiments => self.run_experiments(),
+                Overlay::History => self.run_history(),
                 Overlay::Parts => self.classify_into_parts_bin(),
                 _ => {}
             },
@@ -468,6 +527,8 @@ impl AppState {
                         | Overlay::Synthesis
                         | Overlay::Simulator
                         | Overlay::Sequencing
+                        | Overlay::Experiments
+                        | Overlay::History
                 ) && !c.is_control()
                 {
                     if self.overlay == Overlay::Mutato {
@@ -476,6 +537,15 @@ impl AppState {
                         self.sim_query.push(c);
                     } else if self.overlay == Overlay::Sequencing {
                         self.seq_query.push(c);
+                    } else if self.overlay == Overlay::Experiments {
+                        match self.exp_tab {
+                            ExperimentsTab::Compose => self.exp_body.push(c),
+                            ExperimentsTab::Attach | ExperimentsTab::List => {
+                                self.tool_query.push(c)
+                            }
+                        }
+                    } else if self.overlay == Overlay::History {
+                        self.tool_query.push(c);
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => self.dna_buf.insert(&c.to_string()),
@@ -496,6 +566,8 @@ impl AppState {
                         | Overlay::Synthesis
                         | Overlay::Simulator
                         | Overlay::Sequencing
+                        | Overlay::Experiments
+                        | Overlay::History
                 ) {
                     if self.overlay == Overlay::Mutato {
                         self.mutato_query.pop();
@@ -503,6 +575,17 @@ impl AppState {
                         self.sim_query.pop();
                     } else if self.overlay == Overlay::Sequencing {
                         self.seq_query.pop();
+                    } else if self.overlay == Overlay::Experiments {
+                        match self.exp_tab {
+                            ExperimentsTab::Compose => {
+                                self.exp_body.pop();
+                            }
+                            ExperimentsTab::Attach | ExperimentsTab::List => {
+                                self.tool_query.pop();
+                            }
+                        }
+                    } else if self.overlay == Overlay::History {
+                        self.tool_query.pop();
                     } else if self.overlay == Overlay::Synthesis {
                         match self.synth_tab {
                             SynthTab::Dna => {
@@ -586,6 +669,12 @@ impl AppState {
                     if n > 0 {
                         self.seq_variant_idx =
                             (self.seq_variant_idx as i32 + delta).rem_euclid(n as i32) as usize;
+                    }
+                } else if self.overlay == Overlay::Experiments {
+                    let n = self.experiments.entries.len();
+                    if n > 0 {
+                        self.exp_selected =
+                            (self.exp_selected as i32 + delta).rem_euclid(n as i32) as usize;
                     }
                 }
             }
@@ -2167,6 +2256,312 @@ impl AppState {
             Ok(()) => {}
             Err(e) => self.toast = Some(format!("Gel save failed: {e}")),
         }
+    }
+
+    fn clamp_exp_selection(&mut self) {
+        let n = self.experiments.entries.len();
+        self.exp_selected = if n == 0 {
+            0
+        } else {
+            self.exp_selected.min(n - 1)
+        };
+    }
+
+    fn persist_experiments(&mut self) {
+        let Some(layout) = &self.layout else {
+            self.toast = Some("Notebook kept in memory — no data dir".into());
+            return;
+        };
+        if !splicecraft_persist::writes_authorized() {
+            self.toast = Some("Notebook kept in memory — writes are not authorised".into());
+            return;
+        }
+        match self.experiments.persist(layout) {
+            Ok(()) => {}
+            Err(e) => self.toast = Some(format!("Experiments save failed: {e}")),
+        }
+    }
+
+    fn run_experiments(&mut self) {
+        match self.exp_tab {
+            ExperimentsTab::List => {
+                if let Some(e) = self.experiments.entries.get(self.exp_selected).cloned() {
+                    self.exp_id = e.id;
+                    self.exp_title = e.title;
+                    self.exp_body = e.body_md;
+                    self.exp_tab = ExperimentsTab::Compose;
+                    self.exp_summary = Some("  Loaded into compose. Enter saves.".into());
+                } else {
+                    self.exp_id.clear();
+                    self.exp_title.clear();
+                    self.exp_body.clear();
+                    self.exp_tab = ExperimentsTab::Compose;
+                    self.exp_summary = Some("  New entry. Type markdown, Enter to save.".into());
+                }
+            }
+            ExperimentsTab::Compose => self.save_experiment_entry(),
+            ExperimentsTab::Attach => self.attach_experiment_image(),
+        }
+    }
+
+    fn save_experiment_entry(&mut self) {
+        let existing: std::collections::HashSet<String> = self
+            .experiments
+            .entries
+            .iter()
+            .map(|e| e.id.clone())
+            .collect();
+        if self.exp_id.is_empty() {
+            self.exp_id = new_experiment_id(&existing);
+        }
+        let mut title = self.exp_title.trim().to_owned();
+        if title.is_empty() {
+            title = self
+                .exp_body
+                .lines()
+                .find(|l| !l.trim().is_empty())
+                .unwrap_or("Untitled")
+                .chars()
+                .take(80)
+                .collect();
+        }
+        let entry = normalise_experiment_entry(
+            ExperimentEntry {
+                id: self.exp_id.clone(),
+                title,
+                body_md: self.exp_body.clone(),
+                ..ExperimentEntry::default()
+            },
+            self.experiments.entries.iter().all(|e| e.id != self.exp_id),
+        );
+        let id = entry.id.clone();
+        self.experiments.upsert(entry);
+        self.persist_experiments();
+        self.exp_summary = Some(format!("  Saved {id}"));
+        self.toast = Some(format!("Saved experiment {id}"));
+    }
+
+    fn attach_experiment_image(&mut self) {
+        if self.exp_id.is_empty() {
+            self.toast = Some("Save an entry before attaching an image".into());
+            return;
+        }
+        let Some(path) = splicecraft_persist::util::sanitize_path(self.tool_query.trim()) else {
+            self.toast = Some("Type an image path".into());
+            return;
+        };
+        let data = match std::fs::read(&path) {
+            Ok(d) => d,
+            Err(e) => {
+                self.toast = Some(format!("Read failed: {e}"));
+                return;
+            }
+        };
+        let Some(layout) = &self.layout else {
+            self.toast = Some("No data dir attached".into());
+            return;
+        };
+        let name = path.file_name().and_then(|s| s.to_str());
+        match save_experiment_image(layout, &self.exp_id, &data, name) {
+            Ok(saved) => {
+                let fname = saved
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("image")
+                    .to_owned();
+                for e in &mut self.experiments.entries {
+                    if e.id == self.exp_id && !e.image_paths.contains(&fname) {
+                        e.image_paths.push(fname.clone());
+                        break;
+                    }
+                }
+                self.persist_experiments();
+                self.exp_summary = Some(format!(
+                    "  attached {fname}\n{}",
+                    splicecraft_persist::halfblock_preview(&data, 24, 6)
+                ));
+                self.toast = Some(format!("Attached {fname}"));
+            }
+            Err(e) => self.toast = Some(format!("Attach failed: {e}")),
+        }
+    }
+
+    fn jump_experiment_ref(&mut self) {
+        let body = if self.exp_body.is_empty() {
+            self.experiments
+                .entries
+                .get(self.exp_selected)
+                .map(|e| e.body_md.as_str())
+                .unwrap_or("")
+        } else {
+            self.exp_body.as_str()
+        };
+        let table = experiment_jump_table(body);
+        if let Some(id) = table.plasmids.first() {
+            if let Some(hit) = resolve_plasmid_jump(
+                id,
+                &self.library.plasmids,
+                |e| e.id.as_str(),
+                |e| e.name.as_str(),
+            ) {
+                let name = hit.name.clone();
+                if let Some(idx) = self.library.plasmids.iter().position(|e| e.name == name) {
+                    self.selected_lib = idx;
+                    self.open_library_entry();
+                }
+                self.toast = Some(format!("Jump @{id} → {name}"));
+                return;
+            }
+            self.toast = Some(format!("No plasmid @{id}"));
+            return;
+        }
+        if let Some(id) = table.actions.first() {
+            self.toast = Some(format!("Action !{id}"));
+            return;
+        }
+        if let Some(id) = table.gels.first() {
+            self.toast = Some(format!("Gel &{id}"));
+            return;
+        }
+        self.toast = Some("No @plasmid / !action / &gel in this entry".into());
+    }
+
+    fn spellcheck_experiment(&mut self) {
+        let misses = spellcheck_body(&self.exp_body);
+        if misses.is_empty() {
+            self.toast = Some("Spellcheck: no unknown words".into());
+            self.exp_summary = Some("  Spellcheck clean.".into());
+        } else {
+            let shown = misses
+                .iter()
+                .take(12)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.toast = Some(format!("Spellcheck: {} unknown", misses.len()));
+            self.exp_summary = Some(format!("  unknown: {shown}"));
+        }
+    }
+
+    fn run_history(&mut self) {
+        let apply = self.tool_query.trim().eq_ignore_ascii_case("apply");
+        self.run_history_recover(!apply);
+    }
+
+    fn run_history_recover(&mut self, dry_run: bool) {
+        let Some(layout) = self.layout.clone() else {
+            self.toast = Some("No data dir — cannot scan dna_originals".into());
+            return;
+        };
+        match crate::io::recover_history_from_dna(&layout, &mut self.library, dry_run) {
+            Ok(report) => {
+                let n = report.updated.len();
+                let mode = if report.dry_run { "dry-run" } else { "applied" };
+                let mut lines = vec![format!("  {mode}: {n} plasmid(s)")];
+                for hit in report.updated.iter().take(8) {
+                    lines.push(format!(
+                        "  {}  {} → {} nodes  ({})",
+                        hit.name, hit.nodes_before, hit.nodes_after, hit.source
+                    ));
+                }
+                if !report.note.is_empty() {
+                    lines.push(format!("  {}", report.note));
+                }
+                self.hist_summary = Some(lines.join("\n"));
+                self.toast = Some(format!("History recover {mode}: {n}"));
+                if !dry_run {
+                    self.refresh_history();
+                }
+            }
+            Err(e) => self.toast = Some(format!("Recover failed: {e}")),
+        }
+    }
+
+    fn refresh_history(&mut self) {
+        let seq = self
+            .record
+            .as_ref()
+            .map(|r| r.sequence.clone())
+            .unwrap_or_default();
+        let xml = self
+            .record
+            .as_ref()
+            .and_then(|rec| {
+                self.library
+                    .plasmids
+                    .iter()
+                    .find(|e| e.name == rec.name || e.id == rec.id)
+                    .map(|e| e.history_xml.clone())
+            })
+            .unwrap_or_default();
+        let node = parse_history_xml(&xml).unwrap_or_else(|| HistoryCheckNode {
+            name: self
+                .record
+                .as_ref()
+                .map(|r| r.name.clone())
+                .unwrap_or_else(|| "(no record)".into()),
+            operation: "createDocument".into(),
+            seq_len: seq.len(),
+            circular: self.record.as_ref().map(|r| r.circular).unwrap_or(true),
+            ..HistoryCheckNode::default()
+        });
+        self.hist_warnings = history_node_warnings(&node, &seq);
+        self.refresh_history_tab_with(&node);
+        if !self.hist_warnings.is_empty() {
+            self.hist_summary = Some(format!(
+                "  ⚠ {} recorded detail(s) the sequence doesn't support",
+                self.hist_warnings.len()
+            ));
+        } else if self.hist_summary.is_none() {
+            self.hist_summary = Some("  History matches this molecule.".into());
+        }
+    }
+
+    fn refresh_history_tab(&mut self) {
+        let seq = self
+            .record
+            .as_ref()
+            .map(|r| r.sequence.clone())
+            .unwrap_or_default();
+        let xml = self
+            .record
+            .as_ref()
+            .and_then(|rec| {
+                self.library
+                    .plasmids
+                    .iter()
+                    .find(|e| e.name == rec.name || e.id == rec.id)
+                    .map(|e| e.history_xml.clone())
+            })
+            .unwrap_or_default();
+        let node = parse_history_xml(&xml).unwrap_or_else(|| HistoryCheckNode {
+            name: self
+                .record
+                .as_ref()
+                .map(|r| r.name.clone())
+                .unwrap_or_else(|| "(no record)".into()),
+            operation: "createDocument".into(),
+            seq_len: seq.len(),
+            circular: self.record.as_ref().map(|r| r.circular).unwrap_or(true),
+            ..HistoryCheckNode::default()
+        });
+        self.refresh_history_tab_with(&node);
+    }
+
+    fn refresh_history_tab_with(&mut self, node: &HistoryCheckNode) {
+        self.hist_lines = match self.hist_tab {
+            HistoryTab::Protocol => history_protocol_lines(node),
+            HistoryTab::Tree => history_tree_lines(node),
+            HistoryTab::Detail => {
+                let mut lines = history_detail_lines(node);
+                if !self.hist_warnings.is_empty() {
+                    lines.push(String::new());
+                    lines.push("warnings (sequence not edited):".into());
+                    lines.extend(self.hist_warnings.iter().cloned());
+                }
+                lines
+            }
+        };
     }
 
     fn run_sequencing(&mut self) {

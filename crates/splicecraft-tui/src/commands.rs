@@ -157,6 +157,21 @@ pub fn palette_commands() -> &'static [Command] {
             keywords: "plasmidsaurus zip align ab1 sanger verify identity",
             action: Action::OpenSequencing,
         },
+        Command {
+            title: "Experiments",
+            keywords: "notebook lab notes markdown project gel",
+            action: Action::OpenExperiments,
+        },
+        Command {
+            title: "History",
+            keywords: "lineage protocol construction tree warnings",
+            action: Action::OpenHistory,
+        },
+        Command {
+            title: "Recover history from .dna",
+            keywords: "recover dna originals lineage sidecar",
+            action: Action::RecoverHistory,
+        },
     ]
 }
 
