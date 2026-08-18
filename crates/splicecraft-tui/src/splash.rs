@@ -7,7 +7,6 @@
 use std::f64::consts::PI;
 
 use ratatui::Frame;
-use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -290,8 +289,7 @@ fn pick_logo(width: usize) -> (&'static str, usize) {
 
 /// True when helix cells are greyscale (gold prompt is the only chroma).
 #[must_use]
-pub fn splash_colors_are_greyscale(area: Rect, lines: &[Line<'_>]) -> bool {
-    let _ = area;
+pub fn splash_colors_are_greyscale(lines: &[Line<'_>]) -> bool {
     for line in lines {
         for span in &line.spans {
             if let Color::Rgb(r, g, b) = span.style.fg.unwrap_or(Color::Reset) {
@@ -384,7 +382,7 @@ mod tests {
             plain.join("\n")
         );
         assert!(
-            splash_colors_are_greyscale(Rect::new(0, 0, 80, 24), &lines),
+            splash_colors_are_greyscale(&lines),
             "helix must stay grey / black / white (gold prompt allowed)"
         );
         assert!(
