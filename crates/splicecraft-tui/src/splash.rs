@@ -24,58 +24,20 @@ const LOGO_FG: Color = Color::White;
 const TAGLINE_FG: Color = Color::Rgb(230, 230, 230);
 const CREDIT_FG: Color = Color::White;
 
-/// Cosmic figlet, 125 cols × 6 rows. Used when the terminal is wide enough.
-const LOGO_COSMIC: &str = concat!(
-    r#" .::::::.::::::::::. :::     :::  .,-::::: .,::::::   .,-::::: :::::::..    :::.    .-:::::':::::::::::::::::::..   .::::::."#,
+/// Shade-block `SpliceCraft.rs`, 130 cols × 5 rows.
+const LOGO: &str = concat!(
+    "░░      ░░░       ░░░  ░░░░░░░░        ░░░      ░░░        ░░░      ░░░       ░░░░      ░░░        ░░        ░░       ░░░░      ░░",
     "\n",
-    r#";;;`    ` `;;;```.;;;;;;     ;;;,;;;'````' ;;;;'''' ,;;;'````' ;;;;``;;;;   ;;`;;   ;;;'''' ;;;;;;;;'''';;;;``;;;; ;;;`    `"#,
+    "▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒▒▒▒▒  ▒▒▒▒▒  ▒▒▒▒  ▒▒  ▒▒▒▒▒▒▒",
     "\n",
-    r#"'[==/[[[[, `]]nnn]]' [[[     [[[[[[         [[cccc  [[[         [[[,/[[['  ,[[ '[[, [[[,,==      [[      [[[,/[[[' '[==/[[[[,"#,
+    "▓▓      ▓▓▓       ▓▓▓  ▓▓▓▓▓▓▓▓▓▓▓  ▓▓▓▓▓  ▓▓▓▓▓▓▓▓      ▓▓▓▓  ▓▓▓▓▓▓▓▓       ▓▓▓  ▓▓▓▓  ▓▓      ▓▓▓▓▓▓▓  ▓▓▓▓▓       ▓▓▓▓      ▓▓",
     "\n",
-    r#"  '''    $  $$$""    $$'     $$$$$$         $$""""  $$$         $$$$$$c   c$$$cc$$$c`$$$"``      $$      $$$$$$c     '''    $"#,
+    "███████  ██  ████████  ███████████  █████  ████  ██  ████████  ████  ██  ███  ███        ██  ███████████  █████  ███  █████████  █",
     "\n",
-    r#" 88b    dP  888o    o88oo,.__888`88bo,__,o, 888oo,__`88bo,__,o, 888b "88bo,888   888,888         88, d8b 888b "88bo,88b    dP"#,
-    "\n",
-    r#"  "YMmMY"   YMMMb   """"YUMMMMMM  "YUMMMMMP"""""YUMMM "YUMMMMMP"MMMM   "W" YMM   ""` "MM,        MMM YMP MMMM   "W"  "YMmMY""#,
+    "██      ███  ████████        ██        ███      ███        ███      ███  ████  ██  ████  ██  ███████████  █████  ████  ███      ██",
     "\n",
 );
-const LOGO_COSMIC_WIDTH: usize = 125;
-
-/// "big" figlet, 63 cols × 8 rows.
-const LOGO_BIG: &str = concat!(
-    r#"  _____       _ _           _____            __ _"#,
-    "\n",
-    r#" / ____|     | (_)         / ____|          / _| |"#,
-    "\n",
-    r#"| (___  _ __ | |_  ___ ___| |     _ __ __ _| |_| |_   _ __ ___"#,
-    "\n",
-    r#" \___ \| '_ \| | |/ __/ _ \ |    | '__/ _` |  _| __| | '__/ __|"#,
-    "\n",
-    r#" ____) | |_) | | | (_|  __/ |____| | | (_| | | | |_ _| |  \__ \"#,
-    "\n",
-    r#"|_____/| .__/|_|_|\___\___|\_____|_|  \__,_|_|  \__(_)_|  |___/"#,
-    "\n",
-    r#"       | |"#,
-    "\n",
-    r#"       |_|"#,
-    "\n",
-);
-const LOGO_BIG_WIDTH: usize = 63;
-
-/// "small" figlet, 52 cols × 5 rows.
-const LOGO_SMALL: &str = concat!(
-    r#" ___      _ _         ___           __ _"#,
-    "\n",
-    r#"/ __|_ __| (_)__ ___ / __|_ _ __ _ / _| |_   _ _ ___"#,
-    "\n",
-    r#"\__ \ '_ \ | / _/ -_) (__| '_/ _` |  _|  _|_| '_(_-<"#,
-    "\n",
-    r#"|___/ .__/_|_\__\___|\___|_| \__,_|_|  \__(_)_| /__/"#,
-    "\n",
-    r#"    |_|"#,
-    "\n",
-);
-const LOGO_SMALL_WIDTH: usize = 52;
+const LOGO_WIDTH: usize = 130;
 
 /// 5-pixel disk (Euclidean radius 2) — chunky ribbon like upstream.
 const DISK: [(i32, i32); 13] = [
@@ -275,12 +237,8 @@ fn draw_logo(tc: &mut CharCanvas, w: usize, h: usize) {
 }
 
 fn pick_logo(width: usize) -> (&'static str, usize) {
-    if width >= LOGO_COSMIC_WIDTH + 4 {
-        (LOGO_COSMIC, LOGO_COSMIC_WIDTH)
-    } else if width >= LOGO_BIG_WIDTH + 4 {
-        (LOGO_BIG, LOGO_BIG_WIDTH)
-    } else if width >= LOGO_SMALL_WIDTH + 4 {
-        (LOGO_SMALL, LOGO_SMALL_WIDTH)
+    if width >= LOGO_WIDTH + 4 {
+        (LOGO, LOGO_WIDTH)
     } else {
         (WELCOME_TITLE, WELCOME_TITLE.len())
     }
@@ -391,11 +349,11 @@ mod tests {
     }
 
     #[test]
-    fn wide_splash_uses_cosmic_letterforms() {
+    fn wide_splash_uses_shade_letterforms() {
         let text = splash_text(140, 32);
         assert!(
-            text.contains("YMmMY") || text.contains("SpliceCraft.rs"),
-            "wide splash should use cosmic figlet or the title:\n{text}"
+            text.contains("░░      ░░░") || text.contains("███████  ██"),
+            "wide splash should use the shade-block banner:\n{text}"
         );
     }
 }
