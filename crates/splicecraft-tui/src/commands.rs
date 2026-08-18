@@ -54,9 +54,14 @@ pub fn palette_commands() -> &'static [Command] {
             action: Action::Quit,
         },
         Command {
-            title: "Load demo plasmid",
-            keywords: "demo memory pdemo",
+            title: "Load demo plasmid (basic)",
+            keywords: "demo memory pdemo tiny",
             action: Action::LoadDemo,
+        },
+        Command {
+            title: "Load demo plasmid (advanced)",
+            keywords: "demo memory pdemoadv rich features",
+            action: Action::LoadDemoAdvanced,
         },
         Command {
             title: "Undo",

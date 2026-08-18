@@ -200,7 +200,7 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Vec<L
         Pane::Library => library_pane(state),
         Pane::Map => match &state.record {
             None => vec![Line::from(Span::styled(
-                "Empty canvas — no plasmid loaded.  Ctrl+K · Load demo plasmid",
+                "Empty canvas — no plasmid loaded.  Ctrl+K · Load demo (basic / advanced)",
                 Style::default().fg(TEXT),
             ))],
             Some(rec) => render_map_styled(

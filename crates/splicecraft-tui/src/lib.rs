@@ -20,6 +20,7 @@ mod action;
 mod autolab;
 mod babs;
 mod commands;
+mod demo;
 mod draw;
 mod editor;
 mod keys;
@@ -40,6 +41,7 @@ pub use babs::{
     ollama_base_from, ollama_chat, ollama_list_models, parse_command, strip_think, trim_history,
 };
 pub use commands::{Command, filter_commands, palette_commands};
+pub use demo::{ADVANCED_DEMO_LEN, demo_record, demo_record_advanced};
 pub use draw::draw_workbench;
 pub use editor::{UNDO_LIMIT, UndoStack};
 pub use keys::{KEY_TABLE, KeyEntry, action_from_key};
@@ -54,7 +56,7 @@ pub use render::{
     render_sequence, render_sequence_styled,
 };
 pub use splash::{compose_splash, draw_splash};
-pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN, demo_record};
+pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN};
 pub use theme::{
     AA_GREEN, DEFAULT_TYPE_COLORS, FEATURE_PALETTE_XTERM, FOOTER_SHORTCUTS, SEQUENCE_ROWS,
     SIDE_PANE_COLS, default_type_color, feature_paint_color, parse_color_input,
@@ -463,6 +465,8 @@ mod tests {
         let labels: Vec<_> = FILE_ITEMS.iter().map(|(l, _)| *l).collect();
         assert!(labels.iter().any(|l| l.contains("Open")));
         assert!(labels.iter().any(|l| l.contains("Fetch")));
+        assert!(labels.iter().any(|l| l.contains("basic")));
+        assert!(labels.iter().any(|l| l.contains("advanced")));
         assert!(labels.contains(&"Quit"));
         let text = draw_text(80, 24, &state);
         assert!(text.contains("Open file"), "{text}");
@@ -726,14 +730,53 @@ mod tests {
             titles.iter().any(|t| t.contains("demo")),
             "expected demo command, got {titles:?}"
         );
+        assert!(
+            titles.iter().any(|t| t.contains("basic")),
+            "expected basic demo, got {titles:?}"
+        );
+        assert!(
+            titles.iter().any(|t| t.contains("advanced")),
+            "expected advanced demo, got {titles:?}"
+        );
         state.palette_selected = titles
             .iter()
-            .position(|t| t.contains("demo"))
-            .expect("demo");
+            .position(|t| t.contains("basic"))
+            .expect("basic demo");
         assert!(state.reduce(Action::PaletteExecute));
         assert!(state.record.is_some());
         assert_eq!(state.source_label, "pDemo (memory)");
         assert_eq!(state.record.as_ref().map(|r| r.len()), Some(120));
+    }
+
+    #[test]
+    fn advanced_demo_is_richer_on_the_workbench() {
+        let mut basic = AppState::new();
+        basic.reduce(Action::LoadDemo);
+        let mut adv = AppState::new();
+        adv.reduce(Action::LoadDemoAdvanced);
+        let b = basic.record.as_ref().expect("basic");
+        let a = adv.record.as_ref().expect("advanced");
+        assert_eq!(a.name, "pDemoAdv");
+        assert_eq!(a.len(), ADVANCED_DEMO_LEN);
+        assert!(a.len() > b.len() * 10);
+        assert!(a.features.len() > b.features.len() + 5);
+        assert!(adv.show_restr, "advanced demo turns on the RE overlay");
+        assert!(!basic.show_restr);
+        let text = draw_text(100, 28, &adv);
+        assert!(
+            text.contains("bla") && text.contains("lacZ"),
+            "sidebar should list the extra genes:\n{text}"
+        );
+        assert!(
+            text.contains("2400") || text.contains(&ADVANCED_DEMO_LEN.to_string()),
+            "map/status should show length:\n{text}"
+        );
+        assert!(
+            !adv.toast.as_deref().unwrap_or("").contains("ATG")
+                && !adv.toast.as_deref().unwrap_or("").contains("GCA"),
+            "toast must not log sequence: {:?}",
+            adv.toast
+        );
     }
 
     #[test]

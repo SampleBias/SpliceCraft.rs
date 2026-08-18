@@ -25,8 +25,10 @@ pub enum Action {
     FocusPane(Pane),
     /// F5 — restore the split layout.
     FocusAll,
-    /// Memory-only demo plasmid. Never persisted.
+    /// Memory-only basic demo plasmid (`pDemo`). Never persisted.
     LoadDemo,
+    /// Memory-only advanced teaching plasmid (`pDemoAdv`). Never persisted.
+    LoadDemoAdvanced,
     /// Circular ↔ linear map (`v`).
     ToggleMapView,
     /// Restriction overlay (`r`).

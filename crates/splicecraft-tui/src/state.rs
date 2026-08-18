@@ -43,6 +43,7 @@ use crate::action::{
 use crate::autolab::{compile_protocol, confirm_motion, fixture_deck};
 use crate::babs::{BabsCommand, parse_command};
 use crate::commands::{Command, filter_commands, fuzzy_text_match};
+use crate::demo::{demo_record, demo_record_advanced};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
 use crate::mapimage::{MapImageOpts, export_plasmid_map};
 use crate::menu::{FILE_ITEMS, MENUS, menu_action};
@@ -483,13 +484,14 @@ impl AppState {
                 self.focus_mode = FocusMode::All;
             }
             Action::LoadDemo => {
-                self.record = Some(demo_record());
-                self.source_label = "pDemo (memory)".into();
-                self.cursor = 0;
-                self.view_origin = 0;
-                self.undo = UndoStack::new();
-                self.dirty = false;
+                self.load_memory_demo(demo_record(), "pDemo (memory)", false);
                 self.toast = Some("Loaded memory-only demo — not saved".into());
+            }
+            Action::LoadDemoAdvanced => {
+                let rec = demo_record_advanced();
+                let n = rec.len();
+                self.load_memory_demo(rec, "pDemoAdv (memory)", true);
+                self.toast = Some(format!("Loaded advanced demo (memory, {n} bp) — not saved"));
             }
             Action::ToggleMapView => {
                 self.map_circular = !self.map_circular;
@@ -1726,6 +1728,20 @@ impl AppState {
             | PathKind::NewPlasmid
             | PathKind::AddFeature => {}
         }
+    }
+
+    fn load_memory_demo(&mut self, rec: Record, label: &str, show_restr: bool) {
+        self.record = Some(rec);
+        self.source_label = label.into();
+        self.cursor = 0;
+        self.view_origin = 0;
+        self.sel = None;
+        self.selected_feat = None;
+        self.undo = UndoStack::new();
+        self.dirty = false;
+        self.show_restr = show_restr;
+        self.menu_focus = false;
+        self.overlay = Overlay::None;
     }
 
     fn execute_file_menu(&mut self) -> bool {
@@ -3746,22 +3762,4 @@ fn collision_toast(class: CollisionClass, name: &str) -> String {
         }
         CollisionClass::New => format!("{name} — unexpected prompt"),
     }
-}
-
-/// Tiny circular filler with a wrap feature + CDS. Sequence stays off logs.
-pub fn demo_record() -> Record {
-    let mut seq = String::from("ATGAAATAG");
-    seq.push_str(&"ATGC".repeat(28));
-    seq.truncate(120);
-    let mut rec = Record::new("pDemo", seq, true);
-    rec.features
-        .push(splicecraft_core::Feature::new("CDS", 0, 9, 1, "orf"));
-    rec.features.push(splicecraft_core::Feature::new(
-        "misc_feature",
-        110,
-        8,
-        1,
-        "wrap_ori",
-    ));
-    rec
 }

@@ -30,6 +30,8 @@ pub const FILE_ITEMS: &[(&str, Action)] = &[
     ("Open file", Action::OpenPathPrompt),
     ("Fetch from NCBI", Action::OpenFetch),
     ("New plasmid", Action::OpenNewPlasmid),
+    ("Demo (basic)", Action::LoadDemo),
+    ("Demo (advanced)", Action::LoadDemoAdvanced),
     ("Keep in library", Action::KeepRecord),
     ("Save", Action::SaveRecord),
     ("Quit", Action::Quit),
