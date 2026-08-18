@@ -1,5 +1,7 @@
 # SpliceCraft.rs
 
+![SpliceCraft.rs opening splash: shade-block title, DNA helix, press any key to begin](docs/splash.jpg)
+
 Terminal-based plasmid map viewer, sequence editor, and cloning / mutagenesis
 workbench. This is an independent **Rust + Ratatui** rewrite of
 [Binomica Labs' SpliceCraft](https://github.com/Binomica-Labs/SpliceCraft)
@@ -45,9 +47,10 @@ cargo run -p splicecraft-cli -- call list-library
 
 ## Screenshot
 
-The image above is the live workbench after **Load demo plasmid (advanced)**
-(`pDemoAdv`, 2,400 bp): library, circular map with feature labels and
-restriction ticks, feature list, and the two-strand sequence panel.
+The first image is the opening splash (`--no-splash` skips it). The second is
+the live workbench after **Load demo plasmid (advanced)** (`pDemoAdv`,
+2,400 bp): library, circular map with feature labels and restriction ticks,
+feature list, and the two-strand sequence panel.
 
 [`docs/screenshot.txt`](docs/screenshot.txt) is a smaller TestBackend
 capture (basic demo) for CI / terminals without a GUI. Regenerate it with
