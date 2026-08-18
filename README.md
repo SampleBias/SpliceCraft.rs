@@ -6,6 +6,8 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
+![SpliceCraft.rs workbench showing the circular map, feature list, and sequence panel for the advanced demo plasmid](docs/workbench.jpg)
+
 **Status:** stages 00–16 done. Feature checklist: [`docs/parity.md`](docs/parity.md).
 Splice/cassette scoring and a few Textual-only extras remain tracked gaps —
 they are listed there, not silently omitted.
@@ -43,10 +45,13 @@ cargo run -p splicecraft-cli -- call list-library
 
 ## Screenshot
 
-[`docs/screenshot.txt`](docs/screenshot.txt) is an 80×18 TestBackend capture
-of the workbench after **Load demo plasmid (basic)** (title `SpliceCraft.rs`,
-theme chrome (stage 17+). Braille maps look right in a real terminal; regenerate
-with `SPLICECRAFT_WRITE_SCREENSHOT=1 cargo test -p splicecraft-tui --lib workbench_about`.
+The image above is the live workbench after **Load demo plasmid (advanced)**
+(`pDemoAdv`, 2,400 bp): library, circular map with feature labels and
+restriction ticks, feature list, and the two-strand sequence panel.
+
+[`docs/screenshot.txt`](docs/screenshot.txt) is a smaller TestBackend
+capture (basic demo) for CI / terminals without a GUI. Regenerate it with
+`SPLICECRAFT_WRITE_SCREENSHOT=1 cargo test -p splicecraft-tui --lib workbench_about`.
 
 ## What this is not
 
