@@ -525,6 +525,58 @@ mod tests {
         );
         assert!(blob.contains("pDemo"), "missing name:\n{blob}");
         assert!(blob.contains("120 bp"), "missing bp:\n{blob}");
+        assert!(blob.contains('▲'), "missing origin marker:\n{blob}");
+        assert!(
+            blob.contains("[ v = linear ]"),
+            "missing linear toggle hint:\n{blob}"
+        );
+    }
+
+    #[test]
+    fn circular_ring_is_dense_annulus() {
+        let rec = demo_record();
+        let lines = render_map(
+            &rec,
+            &MapOptions {
+                width: 48,
+                height: 16,
+                circular: true,
+                show_labels: true,
+                ..MapOptions::default()
+            },
+        );
+        let blob = lines.join("\n");
+        let braille = blob
+            .chars()
+            .filter(|c| ('\u{2800}'..='\u{28FF}').contains(c))
+            .count();
+        assert!(
+            braille > 80,
+            "expected a packed braille ring (>80 cells), got {braille}:\n{blob}"
+        );
+        assert!(
+            blob.contains('┼'),
+            "inner scale ticks should be ┼, got:\n{blob}"
+        );
+        let wide = render_map(
+            &rec,
+            &MapOptions {
+                width: 80,
+                height: 24,
+                circular: true,
+                show_labels: true,
+                ..MapOptions::default()
+            },
+        );
+        let wide_blob = wide.join("\n");
+        let wide_braille = wide_blob
+            .chars()
+            .filter(|c| ('\u{2800}'..='\u{28FF}').contains(c))
+            .count();
+        assert!(
+            wide_braille > 150,
+            "wide map should pack more of the ring, got {wide_braille}:\n{wide_blob}"
+        );
     }
 
     #[test]

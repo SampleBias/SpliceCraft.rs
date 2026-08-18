@@ -93,42 +93,64 @@ pub fn render_map_styled(record: &Record, opt: &MapOptions) -> Vec<Line<'static>
     }
 }
 
+/// Terminal cell aspect: cells are ~2× wider than tall (upstream `_aspect`).
+const MAP_ASPECT: f64 = 2.0;
+/// Feature band in cell-radial units: +strand `1..3`, −strand `-3..-1`.
+const BAND_DR: f64 = 3.0;
+
 fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<Line<'static>> {
     let mut dots = BrailleCanvas::new(w, h);
     let mut text = CharCanvas::new(w, h);
     let n = record.len().max(1);
-    let cx = (w * 2) as f64 / 2.0;
-    let cy = (h * 4) as f64 / 2.0;
-    // Leave room for outer labels; fill most of the pane like upstream.
-    let r_back = (cx.min(cy) * 0.78).max(6.0);
-    let thickness = (r_back * 0.06).clamp(2.0, 4.0);
+    let geom = CircleGeom::new(w, h);
+    let scale = geom.scale();
+    // Keep a packed 2–3 cell band on large maps; on short panes shrink
+    // just enough that the centre hole still fits name / bp / origin.
+    let band = BAND_DR.min(geom.ry * 0.55).max(2.0);
 
-    // Dense annulus: sample by circumference so braille cells fill solid.
-    let samples = ((std::f64::consts::TAU * r_back * 4.0) as usize).clamp(720, 8000);
-    for i in 0..samples {
-        let bp = (i * n) / samples;
-        let color = backbone_color(record, bp);
-        stroke_radial(
-            &mut dots, bp, n, opt.origin, cx, cy, r_back, thickness, color,
-        );
+    // Raster-fill every braille dot in the thick annulus (upstream paints
+    // a 2-cell feature band + backbone; sampling a 1-px stroke looked empty).
+    let px_max = (w * 2) as i32;
+    let py_max = (h * 4) as i32;
+    for py in 0..py_max {
+        for px in 0..px_max {
+            let dx = f64::from(px) / 2.0 - geom.cx;
+            let dy = f64::from(py) / 4.0 - geom.cy;
+            let r_ell = dx.hypot(dy / scale);
+            let dr = r_ell - geom.rx;
+            if dr.abs() > band {
+                continue;
+            }
+            let bp = bp_at_angle(ellipse_angle(dx, dy, scale), n, opt.origin);
+            let color = annulus_color(record, bp, dr >= 0.0);
+            dots.set_pixel_colored(px, py, Some(color));
+        }
     }
 
-    // Inner colored lanes for features (overlap-visible, still thick).
-    let mut ring = 0.0;
+    // Inner ┼ ticks + bp scale (upstream `TICK_DR_MARK = -2`, label at -5).
+    if n >= 1 && w >= 24 && h >= 8 {
+        let tick = nice_tick(n);
+        let mut bp_i = 0usize;
+        let label_ticks = h >= 14;
+        while bp_i < n {
+            let ang = bp_to_angle(bp_i, n, opt.origin);
+            let (mx, my) = geom.xy(ang, -2.0);
+            text.put_colored(mx, my, '┼', Some(Color::White));
+            if label_ticks {
+                let label = format_bp(bp_i);
+                let (lx, ly) = geom.xy(ang, -5.0);
+                let lx = if ang.cos() >= 0.0 {
+                    lx - (label.chars().count() as i32) + 1
+                } else {
+                    lx
+                };
+                text.put_text_colored(lx, ly, &label, Some(TEXT));
+            }
+            bp_i += tick;
+        }
+    }
+
     for feat in record.features.iter().filter(|f| f.kind != "source") {
-        let r = r_back - thickness - 3.0 - ring;
-        ring = (ring + 2.5) % 6.0;
-        if r < 4.0 {
-            continue;
-        }
-        let flen = feat.len_on(n).max(1);
-        let steps = ((flen as f64 / n as f64) * samples as f64).max(8.0) as usize;
-        let color = feature_paint_color(feat);
-        for k in 0..steps {
-            let bp = step_along(feat.start, feat.end, n, k, steps);
-            stroke_radial(&mut dots, bp, n, opt.origin, cx, cy, r, 1.2, color);
-        }
-        // Direction arrow at the 3′ end, sitting on the backbone.
         let tip = if feat.strand < 0 {
             feat.start
         } else if feat.end == 0 {
@@ -136,56 +158,63 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
         } else {
             (feat.end + n - 1) % n
         };
-        let (px, py) = polar(tip, n, opt.origin, cx, cy, r_back);
+        let ang = bp_to_angle(tip, n, opt.origin);
+        let dr = if feat.strand < 0 { -2.0 } else { 2.0 };
+        let (col, row) = geom.xy(ang, dr);
         text.put_colored(
-            px / 2,
-            py / 4,
-            strand_arrow(tip, n, opt.origin, feat.strand),
-            Some(color),
+            col,
+            row,
+            arrow_char(ang, feat.strand),
+            Some(feature_paint_color(feat)),
         );
-        if opt.show_labels && !feat.label.is_empty() {
-            let mid = feature_label_bp(feat, n);
-            let (lx, ly) = polar(mid, n, opt.origin, cx, cy, r_back + thickness + 4.0);
-            text.put_text_colored(lx / 2, ly / 4, &truncate(&feat.label, 10), Some(color));
-        }
     }
-    if opt.show_restr {
-        for hit in labeled_resites(record, opt) {
-            let (px, py) = polar(hit.start, n, opt.origin, cx, cy, r_back + thickness + 1.0);
-            dots.set_pixel_colored(px, py, Some(ENZYME_ACCENT));
-            text.put_text_colored(
-                px / 2,
-                py / 4,
-                &truncate(&feat_decorated_label(&hit.label, hit.cut_count), 7),
-                Some(ENZYME_ACCENT),
-            );
-        }
+
+    place_outer_labels(&mut text, record, opt, n, &geom, band);
+
+    if w >= 40 && h >= 12 {
+        let hint = "[ v = linear ]";
+        text.put_text_colored(
+            (w.saturating_sub(hint.len() + 1)) as i32,
+            0,
+            hint,
+            Some(TEXT),
+        );
     }
-    // Inner tick marks + bp scale (upstream `+` ticks).
-    if n >= 40 && w >= 24 {
-        let ticks = if n >= 1000 { 12 } else { (n / 20).clamp(6, 12) };
-        let r_tick = (r_back - thickness - 3.0).max(3.0);
-        for i in 0..ticks {
-            let bp_i = (i * n) / ticks;
-            let (px, py) = polar(bp_i, n, opt.origin, cx, cy, r_tick);
-            text.put_colored(px / 2, py / 4, '+', Some(Color::White));
-            let label = format_bp(bp_i);
-            let (lx, ly) = polar(bp_i, n, opt.origin, cx, cy, (r_tick - 3.0).max(2.0));
-            text.put_text_colored(lx / 2, ly / 4, &label, Some(TEXT));
-        }
-    }
-    let name = truncate(&record.name, w.saturating_sub(2));
-    let bp = format!("{} bp", record.len());
-    let name_col = ((w.saturating_sub(name.len())) / 2) as i32;
-    let bp_col = ((w.saturating_sub(bp.len())) / 2) as i32;
-    let mid_row = (h / 2) as i32;
+
+    let name_cap = (w / 3).max(1);
+    let name = if record.name.chars().count() > name_cap {
+        let mut s: String = record
+            .name
+            .chars()
+            .take(name_cap.saturating_sub(1))
+            .collect();
+        s.push('…');
+        s
+    } else {
+        record.name.clone()
+    };
+    let size_txt = format!("{} bp", comma_int(record.len()));
+    let orig_txt = format!("▲ {}", comma_int(opt.origin));
+    let cx_i = geom.cx.round() as i32;
+    let cy_i = geom.cy.round() as i32;
     text.put_text_colored(
-        name_col,
-        mid_row.saturating_sub(1),
+        cx_i - (name.chars().count() as i32) / 2,
+        cy_i - 1,
         &name,
         Some(Color::White),
     );
-    text.put_text_colored(bp_col, mid_row, &bp, Some(TEXT));
+    text.put_text_colored(
+        cx_i - (size_txt.chars().count() as i32) / 2,
+        cy_i,
+        &size_txt,
+        Some(TEXT),
+    );
+    text.put_text_colored(
+        cx_i - (orig_txt.chars().count() as i32) / 2,
+        cy_i + 1,
+        &orig_txt,
+        Some(crate::theme::PRIMARY),
+    );
     dots.to_styled_lines(&text, opt.ascii, BRAILLE_FG)
 }
 
@@ -248,23 +277,38 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<L
     dots.to_styled_lines(&text, opt.ascii, BRAILLE_FG)
 }
 
-#[allow(clippy::too_many_arguments)]
-fn stroke_radial(
-    dots: &mut BrailleCanvas,
-    bp: usize,
-    n: usize,
-    origin: usize,
+struct CircleGeom {
     cx: f64,
     cy: f64,
-    r: f64,
-    thickness: f64,
-    color: Color,
-) {
-    let steps = ((thickness * 2.0).ceil() as i32).max(1);
-    for s in 0..=steps {
-        let dr = -thickness + (f64::from(s) * (2.0 * thickness) / f64::from(steps).max(1.0));
-        let (px, py) = polar(bp, n, origin, cx, cy, r + dr);
-        dots.set_pixel_colored(px, py, Some(color));
+    rx: f64,
+    ry: f64,
+    h: usize,
+}
+
+impl CircleGeom {
+    fn new(w: usize, h: usize) -> Self {
+        let cx = (w / 2) as f64;
+        let cy = (h / 2) as f64;
+        let rx_from_w = cx - 16.0;
+        let rx_from_h = (cy - 3.0) * MAP_ASPECT;
+        let rx = rx_from_w.min(rx_from_h).max(8.0);
+        let ry = (rx / MAP_ASPECT).round().max(4.0);
+        Self { cx, cy, rx, ry, h }
+    }
+
+    fn scale(&self) -> f64 {
+        if self.rx == 0.0 {
+            0.5
+        } else {
+            self.ry / self.rx
+        }
+    }
+
+    fn xy(&self, angle: f64, dr: f64) -> (i32, i32) {
+        let scale = self.scale();
+        let x = (self.cx + (self.rx + dr) * angle.cos()).round() as i32;
+        let y = (self.cy + (self.ry + dr * scale) * angle.sin()).round() as i32;
+        (x, y)
     }
 }
 
@@ -278,25 +322,173 @@ fn backbone_color(record: &Record, bp: usize) -> Color {
         .unwrap_or(BRAILLE_FG)
 }
 
-fn strand_arrow(bp: usize, total: usize, origin: usize, strand: i8) -> char {
+fn annulus_color(record: &Record, bp: usize, outer: bool) -> Color {
+    let n = record.len();
+    let mut best_pref: Option<&Feature> = None;
+    let mut best_any: Option<&Feature> = None;
+    for f in &record.features {
+        if f.kind == "source" || !f.contains_bp(bp) {
+            continue;
+        }
+        if best_any.is_none_or(|c| f.len_on(n) < c.len_on(n)) {
+            best_any = Some(f);
+        }
+        let prefer = if outer { f.strand >= 0 } else { f.strand < 0 };
+        if prefer && best_pref.is_none_or(|c| f.len_on(n) < c.len_on(n)) {
+            best_pref = Some(f);
+        }
+    }
+    best_pref
+        .or(best_any)
+        .map(feature_paint_color)
+        .unwrap_or(BRAILLE_FG)
+}
+
+fn ellipse_angle(dx: f64, dy: f64, scale: f64) -> f64 {
+    (dy / scale).atan2(dx)
+}
+
+fn bp_to_angle(bp: usize, total: usize, origin: usize) -> f64 {
     let frac = ((bp + total - origin % total) % total) as f64 / total as f64;
-    let oct = ((frac * 8.0).round() as i32).rem_euclid(8) as usize;
-    // Clockwise (forward) arrows around the circle; reverse flips.
-    const CW: [char; 8] = ['▶', '▼', '▼', '◀', '◀', '▲', '▲', '▶'];
-    const CCW: [char; 8] = ['◀', '▲', '▲', '▶', '▶', '▼', '▼', '◀'];
-    if strand < 0 { CCW[oct] } else { CW[oct] }
+    frac * std::f64::consts::TAU - std::f64::consts::FRAC_PI_2
+}
+
+fn bp_at_angle(ang: f64, total: usize, origin: usize) -> usize {
+    let frac = ((ang + std::f64::consts::FRAC_PI_2) / std::f64::consts::TAU).rem_euclid(1.0);
+    let bp = ((frac * total as f64).floor() as usize).min(total.saturating_sub(1));
+    (bp + origin) % total
+}
+
+fn arrow_char(angle: f64, strand: i8) -> char {
+    let tan = if strand < 0 {
+        angle - std::f64::consts::FRAC_PI_2
+    } else {
+        angle + std::f64::consts::FRAC_PI_2
+    };
+    let t = tan.rem_euclid(std::f64::consts::TAU);
+    let sector = ((t + std::f64::consts::PI / 4.0) / std::f64::consts::FRAC_PI_2).floor() as i32;
+    const CHARS: [char; 4] = ['▶', '▼', '◀', '▲'];
+    CHARS[sector.rem_euclid(4) as usize]
+}
+
+fn nice_tick(total: usize) -> usize {
+    for t in [
+        50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 25000, 50000,
+    ] {
+        if (4..=14).contains(&(total / t)) {
+            return t;
+        }
+    }
+    (total / 8).max(1)
 }
 
 fn format_bp(bp: usize) -> String {
-    if bp >= 1000 {
-        let k = bp as f64 / 1000.0;
-        if bp.is_multiple_of(1000) {
-            format!("{k:.0}k")
-        } else {
-            format!("{k:.1}k")
-        }
+    if bp < 1000 {
+        return bp.to_string();
+    }
+    if bp.is_multiple_of(1000) {
+        format!("{}k", bp / 1000)
+    } else if bp.is_multiple_of(100) {
+        format!("{:.1}k", bp as f64 / 1000.0)
     } else {
-        format!("{bp}")
+        format!("{:.2}k", bp as f64 / 1000.0)
+    }
+}
+
+fn comma_int(n: usize) -> String {
+    let raw = n.to_string();
+    let len = raw.len();
+    let mut out = String::with_capacity(len + len / 3);
+    for (i, ch) in raw.chars().enumerate() {
+        if i > 0 && (len - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn place_outer_labels(
+    text: &mut CharCanvas,
+    record: &Record,
+    opt: &MapOptions,
+    n: usize,
+    geom: &CircleGeom,
+    band: f64,
+) {
+    let mut slots: Vec<(f64, String, Color)> = Vec::new();
+    if opt.show_labels {
+        let mut feats: Vec<&Feature> = record
+            .features
+            .iter()
+            .filter(|f| f.kind != "source" && !f.label.is_empty())
+            .collect();
+        feats.sort_by_key(|f| std::cmp::Reverse(f.len_on(n)));
+        for feat in feats {
+            let ang = bp_to_angle(feature_label_bp(feat, n), n, opt.origin);
+            slots.push((ang, feat.label.clone(), feature_paint_color(feat)));
+        }
+    }
+    if opt.show_restr {
+        for hit in labeled_resites(record, opt) {
+            let mid = (hit.start + hit.end) / 2;
+            let ang = bp_to_angle(mid, n, opt.origin);
+            slots.push((
+                ang,
+                feat_decorated_label(&hit.label, hit.cut_count),
+                ENZYME_ACCENT,
+            ));
+        }
+    }
+    if slots.is_empty() {
+        return;
+    }
+
+    let dr_min = (band.ceil() as i32).max(2);
+    let dr_max = (geom.rx as i32 / 2 + 6).max(dr_min + 10);
+    let h_i = geom.h as i32;
+    let mut placed_by_row: Vec<Vec<(i32, i32)>> = vec![Vec::new(); geom.h];
+
+    for (angle, lbl, color) in slots {
+        let on_right = angle.cos() >= 0.0;
+        let len = lbl.chars().count() as i32;
+        let mut chosen: Option<(i32, i32, i32, i32)> = None; // lx, ly, x0, x1
+        for dr in dr_min..=dr_max {
+            let (lx, ly) = geom.xy(angle, f64::from(dr));
+            if ly < 0 || ly >= h_i {
+                continue;
+            }
+            let (x0, x1) = if on_right {
+                (lx, lx + len - 1)
+            } else {
+                (lx - len + 1, lx)
+            };
+            let x0 = x0.max(0);
+            let row = ly as usize;
+            let ok = placed_by_row[row]
+                .iter()
+                .all(|&(bx0, bx1)| x1 < bx0 || x0 > bx1);
+            if ok {
+                chosen = Some((lx, ly, x0, x1));
+                break;
+            }
+        }
+        let (lx, ly, x0, x1) = chosen.unwrap_or_else(|| {
+            let (lx, ly) = geom.xy(angle, f64::from(dr_max));
+            let (x0, x1) = if on_right {
+                (lx, lx + len - 1)
+            } else {
+                (lx - len + 1, lx)
+            };
+            (lx, ly, x0.max(0), x1)
+        });
+        if ly >= 0 && ly < h_i {
+            placed_by_row[ly as usize].push((x0, x1));
+        }
+        let (dot_x, dot_y) = geom.xy(angle, band);
+        text.put_colored(dot_x, dot_y, '·', Some(color));
+        let put_x = if on_right { lx } else { x0 };
+        text.put_text_colored(put_x, ly, &lbl, Some(color));
     }
 }
 
@@ -313,25 +505,6 @@ fn labeled_resites(record: &Record, opt: &MapOptions) -> impl Iterator<Item = Re
     )
     .into_iter()
     .filter(|h| h.is_resite() && !h.label.is_empty())
-}
-
-fn polar(bp: usize, total: usize, origin: usize, cx: f64, cy: f64, r: f64) -> (i32, i32) {
-    let frac = ((bp + total - origin % total) % total) as f64 / total as f64;
-    let ang = frac * std::f64::consts::TAU - std::f64::consts::FRAC_PI_2;
-    (
-        (cx + r * ang.cos()).round() as i32,
-        (cy + r * ang.sin()).round() as i32,
-    )
-}
-
-fn step_along(start: usize, end: usize, total: usize, k: usize, steps: usize) -> usize {
-    let flen = if end < start {
-        (total - start) + end
-    } else {
-        end.saturating_sub(start)
-    };
-    let off = if steps <= 1 { 0 } else { (k * flen) / steps };
-    (start + off) % total
 }
 
 fn linear_x(bp: usize, total: usize, x0: i32, x1: i32, origin: usize) -> i32 {
