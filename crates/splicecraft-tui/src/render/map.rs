@@ -8,7 +8,7 @@ use splicecraft_bio::{
 use splicecraft_core::{Feature, Record, wrap_midpoint};
 use splicecraft_io::{AlignState, render_alignment_bar};
 
-use crate::theme::{ENZYME_ACCENT, TEXT, feature_paint_color};
+use crate::theme::{BRAILLE_FG, ENZYME_ACCENT, TEXT, feature_paint_color};
 
 use super::canvas::{BrailleCanvas, CharCanvas};
 
@@ -145,6 +145,20 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
             );
         }
     }
+    // Tick labels around the ring (upstream bp scale).
+    if n >= 40 && w >= 24 {
+        let ticks = 8usize.min(n / 20).max(4);
+        for i in 0..ticks {
+            let bp_i = (i * n) / ticks;
+            let label = if bp_i >= 1000 {
+                format!("{:.1}k", bp_i as f64 / 1000.0)
+            } else {
+                format!("{bp_i}")
+            };
+            let (px, py) = polar(bp_i, n, opt.origin, cx, cy, r_back - 5.0);
+            text.put_text_colored(px / 2, py / 4, &label, Some(TEXT));
+        }
+    }
     let name = truncate(&record.name, w.saturating_sub(2));
     let bp = format!("{} bp", record.len());
     let name_col = ((w.saturating_sub(name.len())) / 2) as i32;
@@ -157,7 +171,7 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
         Some(Color::White),
     );
     text.put_text_colored(bp_col, mid_row, &bp, Some(TEXT));
-    dots.to_styled_lines(&text, opt.ascii, Color::DarkGray)
+    dots.to_styled_lines(&text, opt.ascii, BRAILLE_FG)
 }
 
 fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<Line<'static>> {
@@ -214,7 +228,7 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<L
         let bar = render_alignment_bar(&opt.align_segments, n, w);
         text.put_text(0, h.saturating_sub(1) as i32, &bar);
     }
-    dots.to_styled_lines(&text, opt.ascii, Color::DarkGray)
+    dots.to_styled_lines(&text, opt.ascii, BRAILLE_FG)
 }
 
 fn labeled_resites(record: &Record, opt: &MapOptions) -> impl Iterator<Item = RestrictionHit> {

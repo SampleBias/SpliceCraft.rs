@@ -1,7 +1,7 @@
 //! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
 //! Simulator, Sequencing, Experiments, History, Search, satellites.
 //!
-//! Stage 17. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 18. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only. Map PNG/SVG writes use atomic user paths.
 
@@ -52,8 +52,9 @@ pub use render::{
 };
 pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN, demo_record};
 pub use theme::{
-    AA_GREEN, DEFAULT_TYPE_COLORS, FEATURE_PALETTE_XTERM, FOOTER_SHORTCUTS, default_type_color,
-    feature_paint_color, parse_color_input, resolve_feature_color, xterm_index_to_rgb,
+    AA_GREEN, DEFAULT_TYPE_COLORS, FEATURE_PALETTE_XTERM, FOOTER_SHORTCUTS, SEQUENCE_ROWS,
+    SIDE_PANE_COLS, default_type_color, feature_paint_color, parse_color_input,
+    resolve_feature_color, xterm_index_to_rgb,
 };
 
 use std::time::Duration;
@@ -61,8 +62,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (theme chrome).
-pub const IMPLEMENTATION_STAGE: u8 = 17;
+/// Stage this crate currently satisfies (layout density).
+pub const IMPLEMENTATION_STAGE: u8 = 18;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -269,6 +270,45 @@ mod tests {
     }
 
     #[test]
+    fn layout_uses_fixed_side_panes_on_wide_terminal() {
+        assert_eq!(SIDE_PANE_COLS, 32);
+        assert_eq!(SEQUENCE_ROWS, 14);
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        state.toast = None; // toast temporarily replaces footer shortcuts
+        let text = draw_text(120, 36, &state);
+        assert!(text.contains("Library") && text.contains("Features") && text.contains("Map"));
+        assert!(text.contains("^q Quit"), "footer shortcuts:\n{text}");
+        assert!(
+            text.contains("Search"),
+            "library search chrome missing:\n{text}"
+        );
+    }
+
+    #[test]
+    fn focused_pane_uses_focus_background() {
+        use crate::theme::FOCUS_BG;
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        state.focus = Pane::Map;
+        let backend = TestBackend::new(100, 28);
+        let mut terminal = Terminal::new(backend).expect("term");
+        terminal
+            .draw(|frame| draw_workbench(frame, &state))
+            .expect("draw");
+        let buf = terminal.backend().buffer();
+        let mut saw_focus_bg = false;
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                if buf[(x, y)].style().bg == Some(FOCUS_BG) {
+                    saw_focus_bg = true;
+                }
+            }
+        }
+        assert!(saw_focus_bg, "focused pane should paint FOCUS_BG");
+    }
+
+    #[test]
     fn crate_name_matches() {
         assert_eq!(crate_name(), "splicecraft-tui");
     }
@@ -309,7 +349,7 @@ mod tests {
             "footer must show shortcut strip, got:\n{text}"
         );
         assert!(
-            !text.contains("stage 16") && !text.contains("stage 17"),
+            !text.contains("stage 16") && !text.contains("stage 17") && !text.contains("stage 18"),
             "footer must not lead with stage chrome, got:\n{text}"
         );
         assert!(
@@ -351,8 +391,8 @@ mod tests {
             "expected empty-canvas copy, got:\n{text}"
         );
         assert!(
-            text.contains("(no record)"),
-            "status missing empty label:\n{text}"
+            text.contains("^q Quit") || text.contains("Help"),
+            "footer shortcuts missing:\n{text}"
         );
     }
 

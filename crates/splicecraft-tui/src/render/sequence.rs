@@ -32,7 +32,7 @@ pub fn render_sequence(record: &Record, view: &SeqView) -> Vec<String> {
         .collect()
 }
 
-/// Styled sequence panel (feature-colored bases, green AA lane).
+/// Styled sequence panel matching upstream density: arrows, AA, strands.
 #[must_use]
 pub fn render_sequence_styled(record: &Record, view: &SeqView) -> Vec<Line<'static>> {
     let n = record.len();
@@ -53,27 +53,29 @@ pub fn render_sequence_styled(record: &Record, view: &SeqView) -> Vec<Line<'stat
     }
 
     let ruler = format!("{start}..{}", (start + w).min(n));
-    let lane = feature_lane_styled(record, start, w);
-    let top = bases_styled(record, start, &top_chars, false);
+    let arrows = feature_arrows_styled(record, start, w);
+    let labels = feature_lane_styled(record, start, w);
     let aa = aa_lane_styled(record, start, w);
+    let top = bases_styled(record, start, &top_chars);
     let bot_chars: Vec<char> = top_chars
         .iter()
         .map(|&c| if c == ' ' { ' ' } else { complement_base(c) })
         .collect();
-    let bot = bases_styled(record, start, &bot_chars, false);
+    let bot = bases_styled(record, start, &bot_chars);
     let caret = caret_line(view.cursor, start, w);
 
     vec![
         Line::from(Span::styled(ruler, Style::default().fg(TEXT))),
-        lane,
-        top,
+        labels,
+        arrows,
         aa,
+        top,
         bot,
         caret,
     ]
 }
 
-fn bases_styled(record: &Record, start: usize, chars: &[char], _rev: bool) -> Line<'static> {
+fn bases_styled(record: &Record, start: usize, chars: &[char]) -> Line<'static> {
     let n = record.len();
     let mut spans = Vec::new();
     let mut run = String::new();
@@ -114,28 +116,77 @@ fn enclosing_feature_color(record: &Record, bp: usize) -> Option<Color> {
         .map(feature_paint_color)
 }
 
+/// Thick colored feature bars with strand arrowheads (upstream sequence chrome).
+fn feature_arrows_styled(record: &Record, start: usize, w: usize) -> Line<'static> {
+    let n = record.len();
+    let mut cells: Vec<(char, Color, bool)> = vec![(' ', TEXT, false); w];
+    for feat in record.features.iter().filter(|f| f.kind != "source") {
+        let color = feature_paint_color(feat);
+        let mut first = None;
+        let mut last = None;
+        for (i, cell) in cells.iter_mut().enumerate() {
+            let bp = start + i;
+            if bp < n && feat.contains_bp(bp) {
+                *cell = ('█', color, true);
+                if first.is_none() {
+                    first = Some(i);
+                }
+                last = Some(i);
+            }
+        }
+        match (first, last, feat.strand) {
+            (Some(a), Some(b), 1) if a <= b => cells[b] = ('▶', color, true),
+            (Some(a), Some(_), -1) => cells[a] = ('◀', color, true),
+            _ => {}
+        }
+    }
+    let mut spans = Vec::new();
+    let mut run = String::new();
+    let mut run_style = Style::default().fg(TEXT);
+    for &(ch, fg, filled) in &cells {
+        let style = if filled {
+            Style::default().fg(fg).bg(fg)
+        } else {
+            Style::default().fg(TEXT)
+        };
+        // Arrowheads: bright fg on feature bg.
+        let style = if ch == '▶' || ch == '◀' {
+            Style::default()
+                .fg(Color::Black)
+                .bg(fg)
+                .add_modifier(Modifier::BOLD)
+        } else if filled {
+            Style::default().fg(fg).bg(fg)
+        } else {
+            style
+        };
+        let paint_ch = if filled && ch == '█' { ' ' } else { ch };
+        if run.is_empty() {
+            run.push(paint_ch);
+            run_style = style;
+        } else if style == run_style {
+            run.push(paint_ch);
+        } else {
+            spans.push(Span::styled(std::mem::take(&mut run), run_style));
+            run.push(paint_ch);
+            run_style = style;
+        }
+    }
+    if !run.is_empty() {
+        spans.push(Span::styled(run, run_style));
+    }
+    Line::from(spans)
+}
+
 fn feature_lane_styled(record: &Record, start: usize, w: usize) -> Line<'static> {
     let n = record.len();
     let mut cells: Vec<(char, Color)> = vec![(' ', TEXT); w];
     for feat in record.features.iter().filter(|f| f.kind != "source") {
         let color = feature_paint_color(feat);
-        for (i, cell) in cells.iter_mut().enumerate() {
-            let bp = start + i;
-            if bp < n && feat.contains_bp(bp) {
-                *cell = (
-                    if feat.kind.eq_ignore_ascii_case("CDS") {
-                        '='
-                    } else {
-                        '-'
-                    },
-                    color,
-                );
-            }
-        }
         if !feat.label.is_empty() {
             let mid = splicecraft_core::wrap_midpoint(feat.start, feat.end, n);
             if mid >= start && mid < start + w {
-                for (k, ch) in feat.label.chars().take(6).enumerate() {
+                for (k, ch) in feat.label.chars().take(10).enumerate() {
                     let idx = mid - start + k;
                     if idx < w {
                         cells[idx] = (ch, color);
@@ -144,7 +195,7 @@ fn feature_lane_styled(record: &Record, start: usize, w: usize) -> Line<'static>
             }
         }
     }
-    spans_from_cells(&cells)
+    spans_from_cells(&cells, false)
 }
 
 fn aa_lane_styled(record: &Record, start: usize, w: usize) -> Line<'static> {
@@ -171,7 +222,7 @@ fn aa_lane_styled(record: &Record, start: usize, w: usize) -> Line<'static> {
             }
         }
     }
-    spans_from_cells(&cells)
+    spans_from_cells(&cells, true)
 }
 
 fn caret_line(cursor: usize, start: usize, w: usize) -> Line<'static> {
@@ -179,10 +230,10 @@ fn caret_line(cursor: usize, start: usize, w: usize) -> Line<'static> {
     if cursor >= start && cursor < start + w {
         cells[cursor - start] = ('^', CARET);
     }
-    spans_from_cells(&cells)
+    spans_from_cells(&cells, false)
 }
 
-fn spans_from_cells(cells: &[(char, Color)]) -> Line<'static> {
+fn spans_from_cells(cells: &[(char, Color)], bold_green: bool) -> Line<'static> {
     let mut spans = Vec::new();
     let mut run = String::new();
     let mut run_fg = TEXT;
@@ -193,36 +244,33 @@ fn spans_from_cells(cells: &[(char, Color)]) -> Line<'static> {
         } else if fg == run_fg {
             run.push(ch);
         } else {
-            spans.push(Span::styled(
-                std::mem::take(&mut run),
-                Style::default().fg(run_fg),
-            ));
+            let style = cell_style(run_fg, bold_green);
+            spans.push(Span::styled(std::mem::take(&mut run), style));
             run.push(ch);
             run_fg = fg;
         }
     }
     if !run.is_empty() {
-        let style = if run_fg == AA_GREEN {
-            Style::default().fg(AA_GREEN).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(run_fg)
-        };
-        spans.push(Span::styled(run, style));
+        spans.push(Span::styled(run, cell_style(run_fg, bold_green)));
     }
     Line::from(spans)
 }
 
-fn codon_midpoint(
-    feat: &splicecraft_core::Feature,
-    total: usize,
-    aa_index: usize,
-) -> Option<usize> {
+fn cell_style(fg: Color, bold_green: bool) -> Style {
+    if bold_green && fg == AA_GREEN {
+        Style::default().fg(AA_GREEN).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(fg)
+    }
+}
+
+fn codon_midpoint(feat: &splicecraft_core::Feature, total: usize, codon_i: usize) -> Option<usize> {
     let flen = feat.len_on(total);
-    let base = aa_index * 3 + 1;
-    if base >= flen {
+    let mid_off = codon_i * 3 + 1;
+    if mid_off >= flen {
         return None;
     }
-    Some((feat.start + base) % total.max(1))
+    Some((feat.start + mid_off) % total)
 }
 
 fn complement_base(c: char) -> char {
@@ -265,11 +313,29 @@ mod tests {
         );
         let aa = &lines[3];
         assert!(
-            aa.spans
-                .iter()
-                .any(|s| s.style.fg == Some(AA_GREEN)
-                    && s.content.chars().any(|c| c.is_alphabetic())),
+            aa.spans.iter().any(|s| {
+                s.style.fg == Some(AA_GREEN) && s.content.chars().any(|c| c.is_alphabetic())
+            }),
             "expected green AA span, got {aa:?}"
+        );
+    }
+
+    #[test]
+    fn feature_arrows_paint_filled_span() {
+        let mut rec = Record::new("t", "ATGAAATAGAAA", true);
+        rec.features.push(Feature::new("promoter", 0, 6, 1, "p"));
+        let lines = render_sequence_styled(
+            &rec,
+            &SeqView {
+                width: 12,
+                window_start: 0,
+                cursor: 0,
+            },
+        );
+        let arrows = &lines[2];
+        assert!(
+            arrows.spans.iter().any(|s| s.style.bg.is_some()),
+            "expected colored feature bar background, got {arrows:?}"
         );
     }
 }

@@ -9,26 +9,38 @@ use splicecraft_core::Feature;
 pub const FOCUS_BG: Color = Color::Rgb(12, 12, 12);
 /// Unfocused panel / screen background.
 pub const PANEL_BG: Color = Color::Black;
-/// Focused pane border / primary accent.
-pub const PRIMARY: Color = Color::Cyan;
-/// Dim primary for menu bar background.
-pub const PRIMARY_DARK: Color = Color::Rgb(0, 80, 100);
+/// Focused pane border / primary accent (Textual `$primary`-ish cyan).
+pub const PRIMARY: Color = Color::Rgb(0, 200, 220);
+/// Dim primary for menu / library header bars.
+pub const PRIMARY_DARK: Color = Color::Rgb(0, 45, 70);
 /// Unfocused border.
-pub const BORDER_DIM: Color = Color::DarkGray;
+pub const BORDER_DIM: Color = Color::Rgb(50, 50, 55);
 /// Default body text.
-pub const TEXT: Color = Color::Gray;
-/// Bright text on primary chips.
+pub const TEXT: Color = Color::Rgb(170, 170, 170);
+/// Menu labels (upstream light text on dark bar).
+pub const MENU_FG: Color = Color::Rgb(210, 220, 230);
+/// Bright text on primary chips / selected rows.
 pub const TEXT_ON_PRIMARY: Color = Color::Black;
 /// Restriction-site / enzyme accent.
 pub const ENZYME_ACCENT: Color = Color::Magenta;
-/// CDS amino-acid lane.
-pub const AA_GREEN: Color = Color::Rgb(0, 220, 80);
+/// CDS amino-acid lane (upstream bright green).
+pub const AA_GREEN: Color = Color::Rgb(80, 255, 100);
 /// Cursor caret.
 pub const CARET: Color = Color::Yellow;
 /// Warning / collision border.
 pub const WARN: Color = Color::Yellow;
 /// Destructive overlay border.
 pub const DANGER: Color = Color::Red;
+/// Braille backbone (upstream crisp white ring).
+pub const BRAILLE_FG: Color = Color::White;
+/// Footer shortcuts (upstream yellow-on-black Footer).
+pub const FOOTER_FG: Color = Color::Rgb(240, 220, 60);
+pub const FOOTER_BG: Color = Color::Black;
+
+/// Upstream `LibraryPanel` / `FeatureSidebar` width target.
+pub const SIDE_PANE_COLS: u16 = 32;
+/// Upstream `SequencePanel` height target.
+pub const SEQUENCE_ROWS: u16 = 14;
 
 /// Upstream `_FEATURE_PALETTE` xterm-256 indices.
 pub const FEATURE_PALETTE_XTERM: &[u8] = &[
@@ -73,7 +85,21 @@ pub const DEFAULT_TYPE_COLORS: &[(&str, &str)] = &[
 ];
 
 /// Footer shortcut strip (toast replaces this while active).
-pub const FOOTER_SHORTCUTS: &str = "^q Quit  f Fetch  ^o Open  ^s Save  ^n New  ^k Palette  ? Help";
+pub const FOOTER_SHORTCUTS: &str =
+    "^q Quit  f Fetch  ^o Open  ^s Save  ^n New  ^a Select all  ^p Primers  ^b BLAST  ? Help";
+
+/// Darken an RGB color for table-cell backgrounds (readable black text on top).
+#[must_use]
+pub fn darken(color: Color, factor: f32) -> Color {
+    match color {
+        Color::Rgb(r, g, b) => Color::Rgb(
+            ((f32::from(r) * factor) as u8).max(8),
+            ((f32::from(g) * factor) as u8).max(8),
+            ((f32::from(b) * factor) as u8).max(8),
+        ),
+        other => other,
+    }
+}
 
 /// Convert an xterm-256 index to RGB (default xterm cube / greyscale).
 #[must_use]
@@ -165,8 +191,6 @@ pub fn palette_fallback() -> Color {
 }
 
 /// Resolve paint color: qualifier → type default → palette[0].
-///
-/// `user_defaults` is an optional map of type → color string (settings store).
 #[must_use]
 pub fn resolve_feature_color(
     kind: &str,

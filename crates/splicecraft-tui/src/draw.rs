@@ -12,8 +12,9 @@ use crate::keys::KEY_TABLE;
 use crate::render::{MapOptions, SeqView, render_map_styled, render_sequence_styled};
 use crate::state::AppState;
 use crate::theme::{
-    BORDER_DIM, DANGER, ENZYME_ACCENT, FOCUS_BG, FOOTER_SHORTCUTS, PANEL_BG, PRIMARY, PRIMARY_DARK,
-    TEXT, TEXT_ON_PRIMARY, WARN, feature_paint_color,
+    BORDER_DIM, DANGER, ENZYME_ACCENT, FOCUS_BG, FOOTER_BG, FOOTER_FG, FOOTER_SHORTCUTS, MENU_FG,
+    PANEL_BG, PRIMARY, PRIMARY_DARK, SEQUENCE_ROWS, SIDE_PANE_COLS, TEXT, TEXT_ON_PRIMARY, WARN,
+    darken, feature_paint_color,
 };
 
 /// Menu labels matching upstream `MenuBar.MENUS`.
@@ -75,39 +76,22 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
     }
 }
 
-fn draw_menu(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+fn draw_menu(frame: &mut Frame<'_>, area: Rect, _state: &AppState) {
     let mut spans = vec![
         Span::styled(
             format!(" {WELCOME_TITLE} "),
             Style::default()
-                .fg(TEXT_ON_PRIMARY)
-                .bg(PRIMARY)
+                .fg(PRIMARY)
+                .bg(PRIMARY_DARK)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" "),
     ];
-    // Highlight first menu as a visual "live" tab affordance (activation in stage 19).
-    let active = match state.focus {
-        Pane::Library => 0usize,
-        Pane::Map => 0,
-        Pane::Features => 4,
-        Pane::Sequence => 0,
-    };
-    for (i, name) in MENUS.iter().enumerate() {
-        if i == active {
-            spans.push(Span::styled(
-                format!(" {name} "),
-                Style::default()
-                    .fg(TEXT_ON_PRIMARY)
-                    .bg(PRIMARY)
-                    .add_modifier(Modifier::BOLD),
-            ));
-        } else {
-            spans.push(Span::styled(
-                format!(" {name} "),
-                Style::default().fg(Color::Rgb(160, 200, 220)),
-            ));
-        }
+    for name in MENUS {
+        spans.push(Span::styled(
+            format!(" {name} "),
+            Style::default().fg(MENU_FG),
+        ));
     }
     frame.render_widget(
         Paragraph::new(Line::from(spans)).style(Style::default().bg(PRIMARY_DARK)),
@@ -119,12 +103,23 @@ fn draw_body(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     match state.focus_mode {
         FocusMode::Single(pane) => draw_pane(frame, area, pane, state, true),
         FocusMode::All => {
-            let rows = Layout::vertical([Constraint::Percentage(62), Constraint::Percentage(38)])
-                .split(area);
+            // Upstream density: side panes ~32 cols, sequence ~14 rows when room.
+            let side = if area.width >= 100 {
+                SIDE_PANE_COLS
+            } else {
+                (area.width / 5).max(12)
+            };
+            let seq_h = if area.height >= 24 {
+                SEQUENCE_ROWS.min(area.height.saturating_sub(8)).max(6)
+            } else {
+                (area.height / 3).max(4)
+            };
+            let rows =
+                Layout::vertical([Constraint::Min(1), Constraint::Length(seq_h)]).split(area);
             let cols = Layout::horizontal([
-                Constraint::Percentage(22),
-                Constraint::Percentage(50),
-                Constraint::Percentage(28),
+                Constraint::Length(side),
+                Constraint::Min(1),
+                Constraint::Length(side),
             ])
             .split(rows[0]);
             draw_pane(
@@ -230,13 +225,22 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Vec<L
 }
 
 fn library_pane(state: &AppState) -> Vec<Line<'static>> {
-    let mut lines = vec![Line::from(Span::styled(
-        format!("[{}]", state.library.active),
-        Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
-    ))];
+    let mut lines = vec![
+        Line::from(Span::styled(
+            format!(" {:<28}", state.library.active),
+            Style::default()
+                .fg(TEXT_ON_PRIMARY)
+                .bg(PRIMARY)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            " Search…",
+            Style::default().fg(TEXT).bg(Color::Rgb(30, 30, 35)),
+        )),
+    ];
     if state.library.plasmids.is_empty() {
         lines.push(Line::from(Span::styled(
-            "Empty collection — Alt+K keeps the loaded record.",
+            " Empty — Alt+K keeps loaded record",
             Style::default().fg(TEXT),
         )));
     } else {
@@ -261,6 +265,13 @@ fn library_pane(state: &AppState) -> Vec<Line<'static>> {
             }
         }
     }
+    lines.push(Line::from(""));
+    lines.push(Line::from(vec![
+        Span::styled(" [+] ", Style::default().fg(Color::White).bg(Color::Blue)),
+        Span::styled(" [-] ", Style::default().fg(Color::White).bg(DANGER)),
+        Span::styled(" [□] ", Style::default().fg(Color::White).bg(PRIMARY_DARK)),
+        Span::styled(" [✎] ", Style::default().fg(Color::Black).bg(Color::Gray)),
+    ]));
     lines
 }
 
@@ -274,11 +285,17 @@ fn features_pane(state: &AppState) -> Vec<Line<'static>> {
             let mut lines = vec![Line::from(vec![
                 Span::styled(
                     format!("{:<14}", "Type"),
-                    Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::White)
+                        .bg(PRIMARY_DARK)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
-                    "Label",
-                    Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+                    " Label",
+                    Style::default()
+                        .fg(Color::White)
+                        .bg(PRIMARY_DARK)
+                        .add_modifier(Modifier::BOLD),
                 ),
             ])];
             for (i, f) in rec.features.iter().enumerate() {
@@ -287,15 +304,21 @@ fn features_pane(state: &AppState) -> Vec<Line<'static>> {
                 }
                 let color = feature_paint_color(f);
                 let selected = state.selected_feat == Some(i);
-                let type_txt = format!("{:<14}", truncate_str(&f.kind, 12));
-                let label_txt = format!(
-                    "{}  {}..{}  {} bp",
-                    f.label,
-                    f.start,
-                    f.end,
-                    f.len_on(rec.len())
-                );
-                let style = if selected {
+                let type_txt = format!(" {:<12}", truncate_str(&f.kind, 11));
+                let label_txt = format!(" {} ", f.label);
+                let type_style = if selected {
+                    Style::default()
+                        .fg(TEXT_ON_PRIMARY)
+                        .bg(color)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    // Upstream FeatureSidebar: type cell sits on a tinted chip.
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(darken(color, 0.85))
+                        .add_modifier(Modifier::BOLD)
+                };
+                let label_style = if selected {
                     Style::default()
                         .fg(TEXT_ON_PRIMARY)
                         .bg(color)
@@ -304,8 +327,8 @@ fn features_pane(state: &AppState) -> Vec<Line<'static>> {
                     Style::default().fg(color)
                 };
                 lines.push(Line::from(vec![
-                    Span::styled(type_txt, style),
-                    Span::styled(label_txt, style),
+                    Span::styled(type_txt, type_style),
+                    Span::styled(label_txt, label_style),
                 ]));
             }
             if lines.len() == 1 {
@@ -324,24 +347,25 @@ fn truncate_str(s: &str, max: usize) -> String {
 }
 
 fn draw_status(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
-    let (topo, bp) = match &state.record {
-        Some(rec) => (
-            if rec.circular { "circular" } else { "linear" },
-            format!("{} bp", rec.len()),
-        ),
-        None => ("—", "— bp".into()),
+    // Toast temporarily replaces the cheat-sheet (upstream Footer toast).
+    let line = if let Some(toast) = state.toast.as_deref() {
+        format!(" {toast} ")
+    } else {
+        format!(" {FOOTER_SHORTCUTS} ")
     };
-    let hint = state.toast.as_deref().unwrap_or(FOOTER_SHORTCUTS);
-    let text = format!(" {}  ·  {topo}  ·  {bp}  ·  {hint} ", state.source_label);
     frame.render_widget(
-        Paragraph::new(text).style(
-            Style::default()
-                .fg(TEXT_ON_PRIMARY)
-                .bg(PRIMARY)
-                .add_modifier(Modifier::BOLD),
-        ),
+        Paragraph::new(line).style(Style::default().fg(FOOTER_FG).bg(FOOTER_BG)),
         area,
     );
+}
+
+/// Shared overlay dialog chrome (stage 18).
+fn dialog_block(title: &str, border: Color) -> Block<'_> {
+    Block::default()
+        .title(format!(" {title} "))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border))
+        .style(Style::default().bg(FOCUS_BG))
 }
 
 fn draw_help(frame: &mut Frame<'_>, area: Rect) {
@@ -364,10 +388,7 @@ fn draw_help(frame: &mut Frame<'_>, area: Rect) {
     lines.push(Line::from(
         "q / Esc / ? close this overlay. Main-view q / Esc quits.",
     ));
-    let block = Block::default()
-        .title(" Help ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(PRIMARY));
+    let block = dialog_block("Help", PRIMARY);
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -397,10 +418,7 @@ fn draw_palette(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
             lines.push(Line::from(format!(" {mark} {}", cmd.title)));
         }
     }
-    let block = Block::default()
-        .title(" Command palette ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(PRIMARY));
+    let block = dialog_block("Command palette", PRIMARY);
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 

@@ -21,14 +21,20 @@ check a box early.
 - [x] 15 Satellite features
 - [x] 16 Parity gate
 
-**Next:** 18 Layout density + overlay polish (see `docs/theme.md`).
+**Next:** 19 Interaction keys + menu activation (see `docs/theme.md`).
 
 UI polish track (post parity gate):
 
 - [x] 17 Theme + colored chrome
-- [ ] 18 Layout density + overlay polish
+- [x] 18 Layout density + overlay polish
 - [ ] 19 Interaction keys + menu activation
 - [ ] 20 Mouse + remaining polish
+
+Stage 18 notes: Fixed side panes (`SIDE_PANE_COLS=32`) and sequence strip
+(`SEQUENCE_ROWS=14`) on terminals ≥100×24. Yellow-on-black footer shortcuts
+(toast replaces temporarily). Library header/search/button chrome. Feature
+Type cells use darkened type-color backgrounds. Map braille is white with
+bp ticks; sequence panel paints colored feature arrow bars + green AA.
 
 Stage 17 notes: `docs/theme.md` is the visual contract. `splicecraft_tui::theme`
 ports `_DEFAULT_TYPE_COLORS` + `_FEATURE_PALETTE` resolve order. Map/sequence

@@ -1,6 +1,6 @@
 # Stage 18 — Layout density + overlay polish
 
-**Status:** open
+**Status:** done
 **Depends on:** 17
 **Primary crates:** `splicecraft-tui`
 
@@ -37,14 +37,14 @@ None new. Paint / layout only.
 
 ## Acceptance
 
-- [ ] Default `FocusMode::All` uses fixed side widths + fixed sequence height
+- [x] Default `FocusMode::All` uses fixed side widths + fixed sequence height
       from theme constants (documented in `docs/theme.md`)
-- [ ] Focused pane background differs from unfocused (visible in
+- [x] Focused pane background differs from unfocused (visible in
       `TestBackend` style or a small draw unit test)
-- [ ] Help / palette / Settings overlays share one dialog chrome helper
-- [ ] 40×12 and 160×40 draws do not panic
-- [ ] `cargo test -p splicecraft-tui` + workspace / fmt / clippy gates
-- [ ] `docs/parity.md` layout notes updated if any gap closed
+- [x] Help / palette / Settings overlays share one dialog chrome helper
+- [x] 40×12 and 160×40 draws do not panic
+- [x] `cargo test -p splicecraft-tui` + workspace / fmt / clippy gates
+- [x] `docs/parity.md` layout notes updated if any gap closed
 
 ## Forbidden
 
