@@ -22,7 +22,8 @@ splicecraft
 Or run without installing:
 
 ```bash
-cargo run -p splicecraft        # map + sequence editor (? help, Ctrl+K, q / Esc quit)
+cargo run -p splicecraft        # splash → workbench (? help, Ctrl+K, q / Esc quit)
+splicecraft --no-splash         # skip the DNA entry screen
 ```
 
 Requires Rust 1.88+ (Ratatui 0.30). crates.io publication is later; the

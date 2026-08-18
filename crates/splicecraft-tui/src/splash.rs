@@ -124,7 +124,7 @@ pub fn compose_splash(width: u16, height: u16, phase: f64) -> Vec<Line<'static>>
 
 /// Helix phase from elapsed splash time.
 #[must_use]
-pub fn helix_phase(elapsed_secs: f64) -> f64 {
+pub(crate) fn helix_phase(elapsed_secs: f64) -> f64 {
     (elapsed_secs * 2.0 * PI * HELIX_TURNS_PER_SECOND) % (2.0 * PI)
 }
 
@@ -268,9 +268,8 @@ fn draw_logo(tc: &mut CharCanvas, w: usize, h: usize) {
         }
         let col = w.saturating_sub(line.chars().count()) / 2;
         for (j, ch) in line.chars().enumerate() {
-            if ch != ' ' {
-                tc.put_colored((col + j) as i32, row as i32, ch, Some(*color));
-            }
+            let glyph = if ch == ' ' { '\u{00A0}' } else { ch };
+            tc.put_colored((col + j) as i32, row as i32, glyph, Some(*color));
         }
     }
 }
@@ -287,32 +286,30 @@ fn pick_logo(width: usize) -> (&'static str, usize) {
     }
 }
 
-/// True when helix cells are greyscale (gold prompt is the only chroma).
-#[must_use]
-pub fn splash_colors_are_greyscale(lines: &[Line<'_>]) -> bool {
-    for line in lines {
-        for span in &line.spans {
-            if let Color::Rgb(r, g, b) = span.style.fg.unwrap_or(Color::Reset) {
-                let chroma = r.abs_diff(g).max(g.abs_diff(b)).max(r.abs_diff(b));
-                if chroma > 8 && !is_gold(r, g, b) {
-                    return false;
-                }
-            }
-        }
-    }
-    true
-}
-
-fn is_gold(r: u8, g: u8, b: u8) -> bool {
-    r.abs_diff(255) < 8 && g.abs_diff(215) < 8 && b.abs_diff(0) < 8
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::render::lines_contain_braille;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
+
+    fn splash_colors_are_greyscale(lines: &[Line<'_>]) -> bool {
+        for line in lines {
+            for span in &line.spans {
+                if let Color::Rgb(r, g, b) = span.style.fg.unwrap_or(Color::Reset) {
+                    let chroma = r.abs_diff(g).max(g.abs_diff(b)).max(r.abs_diff(b));
+                    if chroma > 8 && !is_gold(r, g, b) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    fn is_gold(r: u8, g: u8, b: u8) -> bool {
+        r.abs_diff(255) < 8 && g.abs_diff(215) < 8 && b.abs_diff(0) < 8
+    }
 
     fn splash_text(width: u16, height: u16) -> String {
         let backend = TestBackend::new(width, height);
@@ -324,23 +321,12 @@ mod tests {
         let mut out = String::new();
         for y in 0..buffer.area.height {
             for x in 0..buffer.area.width {
-                out.push_str(buffer[(x, y)].symbol());
+                let sym = buffer[(x, y)].symbol().replace('\u{00A0}', " ");
+                out.push_str(&sym);
             }
             out.push('\n');
         }
         out
-    }
-
-    fn lines_plain(width: u16, height: u16) -> Vec<String> {
-        compose_splash(width, height, 0.0)
-            .into_iter()
-            .map(|line| {
-                line.spans
-                    .into_iter()
-                    .map(|s| s.content.into_owned())
-                    .collect()
-            })
-            .collect()
     }
 
     #[test]
@@ -402,7 +388,6 @@ mod tests {
             text.contains("press any key to begin") || text.contains("begin"),
             "narrow splash keeps a continue prompt:\n{text}"
         );
-        let _ = lines_plain(40, 12);
     }
 
     #[test]
