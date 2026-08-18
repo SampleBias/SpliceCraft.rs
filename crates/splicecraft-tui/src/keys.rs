@@ -42,16 +42,64 @@ pub const KEY_TABLE: &[KeyEntry] = &[
         description: "Restore all panels",
     },
     KeyEntry {
+        keys: "F10",
+        description: "Menu bar (←/→ highlight, Enter opens)",
+    },
+    KeyEntry {
+        keys: "Alt+S/P/H",
+        description: "Settings / Primers / History (more Alt letters)",
+    },
+    KeyEntry {
         keys: "Ctrl+O",
         description: "Open file path",
     },
     KeyEntry {
-        keys: "Alt+K",
-        description: "Keep into collection",
+        keys: "f",
+        description: "Fetch NCBI accession",
     },
     KeyEntry {
-        keys: "f",
-        description: "Fetch NCBI (tracked gap)",
+        keys: "Ctrl+S",
+        description: "Save (keep through persist)",
+    },
+    KeyEntry {
+        keys: "Ctrl+N",
+        description: "New plasmid (paste DNA)",
+    },
+    KeyEntry {
+        keys: "Ctrl+F",
+        description: "Find DNA (both strands)",
+    },
+    KeyEntry {
+        keys: "Ctrl+A",
+        description: "Select all sequence",
+    },
+    KeyEntry {
+        keys: "Ctrl+C",
+        description: "Copy selection (top strand)",
+    },
+    KeyEntry {
+        keys: "Alt+C",
+        description: "Copy selection (bottom RC)",
+    },
+    KeyEntry {
+        keys: "Ctrl+B",
+        description: "BLAST / search overlay",
+    },
+    KeyEntry {
+        keys: "Ctrl+P",
+        description: "Primer design",
+    },
+    KeyEntry {
+        keys: "F6 / Alt+H",
+        description: "History",
+    },
+    KeyEntry {
+        keys: "Alt+Shift+F",
+        description: "Add feature from selection",
+    },
+    KeyEntry {
+        keys: "Alt+K",
+        description: "Keep into collection",
     },
     KeyEntry {
         keys: "v / r / l",
@@ -114,6 +162,7 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         | Overlay::Babs
         | Overlay::Autolab => tool_key(state, key),
         Overlay::MasterDelete => master_delete_key(key),
+        Overlay::FileMenu => file_menu_key(key),
         Overlay::None => main_key(state, key),
     }
 }
@@ -255,12 +304,56 @@ fn master_delete_key(key: KeyEvent) -> Option<Action> {
     }
 }
 
+fn file_menu_key(key: KeyEvent) -> Option<Action> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => Some(Action::CloseOverlay),
+        KeyCode::Up => Some(Action::ToolMove(-1)),
+        KeyCode::Down => Some(Action::ToolMove(1)),
+        KeyCode::Enter => Some(Action::ToolEnter),
+        KeyCode::Left => Some(Action::MenuMove(-1)),
+        KeyCode::Right => Some(Action::MenuMove(1)),
+        _ => None,
+    }
+}
+
+fn menu_nav_key(key: KeyEvent) -> Option<Action> {
+    match key.code {
+        KeyCode::Esc => Some(Action::ToggleMenuFocus),
+        KeyCode::Left => Some(Action::MenuMove(-1)),
+        KeyCode::Right => Some(Action::MenuMove(1)),
+        KeyCode::Enter => Some(Action::MenuActivate),
+        KeyCode::Char('q') if key.modifiers.is_empty() => Some(Action::Quit),
+        _ => None,
+    }
+}
+
 fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_ctrl(key, 'k') {
         return Some(Action::OpenPalette);
     }
     if has_ctrl(key, 'o') {
         return Some(Action::OpenPathPrompt);
+    }
+    if has_ctrl(key, 'b') {
+        return Some(Action::OpenSearch);
+    }
+    if has_ctrl(key, 'p') {
+        return Some(Action::OpenPrimerDesign);
+    }
+    if has_ctrl(key, 's') {
+        return Some(Action::SaveRecord);
+    }
+    if has_ctrl(key, 'f') {
+        return Some(Action::OpenFindDna);
+    }
+    if has_ctrl(key, 'a') {
+        return Some(Action::SelectAll);
+    }
+    if has_ctrl(key, 'c') {
+        return Some(Action::CopyTop);
+    }
+    if has_ctrl(key, 'n') {
+        return Some(Action::OpenNewPlasmid);
     }
     if has_ctrl(key, 'z') {
         return Some(Action::Undo);
@@ -274,13 +367,34 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_alt_shift(key, 'o') {
         return Some(Action::SetOriginHere);
     }
+    if has_alt_shift(key, 'f') {
+        return Some(Action::OpenAddFeature);
+    }
+    if has_alt(key, 'c') {
+        return Some(Action::CopyBottom);
+    }
     if has_alt(key, 'k') {
         return Some(Action::KeepRecord);
+    }
+    if let KeyCode::Char(ch) = key.code
+        && has_alt(key, ch)
+        && let Some(action) = crate::menu::alt_menu_action(ch)
+    {
+        return Some(action);
+    }
+    if key.code == KeyCode::F(10) {
+        return Some(Action::ToggleMenuFocus);
+    }
+    if key.code == KeyCode::F(6) {
+        return Some(Action::OpenHistory);
+    }
+    if state.menu_focus {
+        return menu_nav_key(key);
     }
     let seq = state.focus == Pane::Sequence;
     let lib = state.focus == Pane::Library;
     match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
+        KeyCode::Char('q') | KeyCode::Esc if key.modifiers.is_empty() => Some(Action::Quit),
         KeyCode::Char('?') => Some(Action::ToggleHelp),
         KeyCode::F(1) => Some(Action::FocusPane(Pane::Library)),
         KeyCode::F(2) => Some(Action::FocusPane(Pane::Map)),
@@ -309,10 +423,7 @@ fn main_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         KeyCode::Char(']') if key.modifiers.is_empty() => Some(Action::CycleEnzymeCollection(1)),
         KeyCode::Char('l') if key.modifiers.is_empty() => Some(Action::ToggleLabels),
         KeyCode::Char('o') if key.modifiers.is_empty() => Some(Action::OpenPathPrompt),
-        KeyCode::Char('f') if key.modifiers.is_empty() => Some(Action::Stub {
-            name: "Fetch from NCBI",
-            stage: 13,
-        }),
+        KeyCode::Char('f') if key.modifiers.is_empty() => Some(Action::OpenFetch),
         _ => None,
     }
 }

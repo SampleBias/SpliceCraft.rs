@@ -118,7 +118,7 @@ Top row = Library | Map | Features. Sequence under it spans the window.
 
 ## Chrome roles
 
-1. **Menu bar** — 16 labels (`File` … `BABS`). Activatable (highlight + open tool). File may stay palette/path-driven until a dropdown exists.
+1. **Menu bar** — 16 labels (`File` … `BABS`). **F10** focuses the bar; Left/Right highlight; Enter opens the same overlay as the palette. **File** is a dropdown (Open / Fetch / New / Keep / Save / Quit). Mouse hits are stage 20.
 2. **Library** — collection name, scrollable list, selected row, search line, action affordances (+ / − / edit as space allows).
 3. **Map** — thick braille annulus colored by enclosing feature (not a 1-px dotted ellipse); inner `+` ticks; direction arrows; labels outside.
 4. **Features** — table-like Type | Label (and bp/strand when space); type-colored text.

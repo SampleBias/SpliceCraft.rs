@@ -21,14 +21,25 @@ check a box early.
 - [x] 15 Satellite features
 - [x] 16 Parity gate
 
-**Next:** 19 Interaction keys + menu activation (see `docs/theme.md`).
+**Next:** 20 Mouse + remaining polish (see `docs/theme.md`).
 
 UI polish track (post parity gate):
 
 - [x] 17 Theme + colored chrome
 - [x] 18 Layout density + overlay polish
-- [ ] 19 Interaction keys + menu activation
+- [x] 19 Interaction keys + menu activation
 - [ ] 20 Mouse + remaining polish
+
+Stage 19 notes: F10 focuses the 16-label menu bar; ←/→ highlight; Enter
+opens the same overlay as the palette. File is a dropdown (Open / Fetch /
+New / Keep / Save / Quit). Alt letters match upstream Help (no Alt+F).
+Daily-driver keys: Ctrl+B BLAST, Ctrl+P primers, F6/Alt+H history,
+Ctrl+S save through the persist chokepoint, Ctrl+F find both strands,
+Ctrl+A select-all, Ctrl+C / Alt+C in-app clipboard (no OSC-52), Ctrl+N
+paste-DNA new plasmid, `f` NCBI accession prompt (settings-gated;
+`fetch_genbank` stays NetworkDisabled in the default build), Alt+Shift+F
+add feature from selection. Library Space/mark/`c` and bulk export keys
+are deferred to stage 20. Mouse hits on the bar are stage 20.
 
 Stage 18 notes: Fixed side panes (`SIDE_PANE_COLS=32`) and sequence strip
 (`SEQUENCE_ROWS=14`) on terminals ≥100×24. Yellow-on-black footer shortcuts

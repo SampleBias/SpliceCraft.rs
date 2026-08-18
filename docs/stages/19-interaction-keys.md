@@ -1,6 +1,6 @@
 # Stage 19 — Interaction keys + menu activation
 
-**Status:** open
+**Status:** done
 **Depends on:** 18
 **Primary crates:** `splicecraft-tui`, `splicecraft-io` (fetch only)
 
@@ -54,15 +54,15 @@ Gaps tracked in [`docs/parity.md`](../parity.md) (Keybindings) and
 
 ## Acceptance
 
-- [ ] `Ctrl+B`, `Ctrl+P`, `F6` open live overlays (not stub toasts)
-- [ ] `f` fetch path is not a stage-13 stub when online is allowed; offline
+- [x] `Ctrl+B`, `Ctrl+P`, `F6` open live overlays (not stub toasts)
+- [x] `f` fetch path is not a stage-13 stub when online is allowed; offline
       shows a clear toast
-- [ ] `Ctrl+C` / `Alt+C` copy tests (or documented terminal clipboard limit)
-- [ ] Menu bar can open Primers and BLAST without the palette
-- [ ] `KEY_TABLE` / `?` help updated
-- [ ] `docs/parity.md` keybinding rows updated
-- [ ] Workspace tests + fmt + clippy clean
-- [ ] Sandboxed persist in any save test (`XDG_DATA_HOME`)
+- [x] `Ctrl+C` / `Alt+C` copy tests (or documented terminal clipboard limit)
+- [x] Menu bar can open Primers and BLAST without the palette
+- [x] `KEY_TABLE` / `?` help updated
+- [x] `docs/parity.md` keybinding rows updated
+- [x] Workspace tests + fmt + clippy clean
+- [x] Sandboxed persist in any save test (`XDG_DATA_HOME`)
 
 ## Forbidden
 
@@ -71,7 +71,20 @@ Gaps tracked in [`docs/parity.md`](../parity.md) (Keybindings) and
 - Master Delete without existing triple confirm
 - Mouse support (stage 20)
 
+## Notes
+
+- File opens with **F10** (focus) then **Enter** (dropdown). Upstream has no
+  Alt+F for File. Alt letters match Help: `s` Settings, `n` Enzymes,
+  `p` Primers, `y` Synthesis, `r` Parts, `i` Simulator, `q` Sequencing,
+  `x` Experiments, `h` History, `u` AUTOLAB.
+- Copy is an **in-app** buffer. The toast says there is no OSC-52 / system
+  clipboard.
+- NCBI: TUI calls `fetch_genbank`. Default CI stays `NetworkDisabled`. Both
+  online settings off → toast to enable Settings.
+- Library Space / mark cycle / `c` / bulk `m` `y` `p` `s` `h` deferred to
+  stage 20.
+
 ## Handoff
 
-Stage 20 adds mouse, sticky-cut tint, and leftover library mark/export
-chrome.
+Stage 20 adds mouse (including menu-bar hits), sticky-cut tint, and leftover
+library mark/export chrome.

@@ -161,6 +161,28 @@ pub enum Action {
     PathBackspace,
     /// Submit the path prompt.
     PathSubmit,
+    /// F10 — keyboard focus on the top menu bar.
+    ToggleMenuFocus,
+    /// Move the menu-bar highlight. Negative is left.
+    MenuMove(i32),
+    /// Enter on the highlighted menu (File opens the dropdown).
+    MenuActivate,
+    /// NCBI accession prompt (`f`).
+    OpenFetch,
+    /// New-plasmid sequence prompt (`Ctrl+N`).
+    OpenNewPlasmid,
+    /// Find DNA subsequence (`Ctrl+F`).
+    OpenFindDna,
+    /// Add-feature prompt (`Alt+Shift+F`).
+    OpenAddFeature,
+    /// Save the loaded record through the persist chokepoint (`Ctrl+S`).
+    SaveRecord,
+    /// Select the whole sequence (`Ctrl+A`).
+    SelectAll,
+    /// Copy the selection top strand (`Ctrl+C`).
+    CopyTop,
+    /// Copy the selection bottom-strand RC (`Alt+C`).
+    CopyBottom,
     /// Tool that is a documented post-1.0 gap (`docs/parity.md`).
     Stub {
         /// Palette / menu title (no sequence content).
@@ -228,6 +250,8 @@ pub enum Overlay {
     Autolab,
     /// Triple-gated data wipe.
     MasterDelete,
+    /// File menu dropdown (Open / Fetch / Quit).
+    FileMenu,
 }
 
 /// Which designer the primer overlay will run.
@@ -573,6 +597,14 @@ pub enum PathKind {
     MigrateExport,
     /// Restore a migrate zip into the sandboxed data dir.
     MigrateImport,
+    /// NCBI accession (not a filesystem path).
+    FetchNcbi,
+    /// DNA subsequence find (both strands).
+    FindDna,
+    /// Paste a sequence into a memory record.
+    NewPlasmid,
+    /// Label [+ type] for a feature covering the selection.
+    AddFeature,
 }
 
 /// Re-export so keys/state stay on one collision vocabulary.

@@ -1,8 +1,9 @@
 //! Workbench state. Library writes go through the persist chokepoint.
 
 use splicecraft_bio::{
-    BlastProgram, CustomEnzyme, Orf, extract_feature, find_orfs, record_fingerprint,
-    results_are_stale, reverse_complement_record,
+    BlastProgram, CustomEnzyme, Orf, circ_slice, extract_feature, find_orfs,
+    normalize_dna_for_align, rc, record_fingerprint, results_are_stale, reverse_complement_record,
+    search_subsequence,
 };
 use splicecraft_clone::{
     GibsonFragment, GrammarStore, HistoryCheckNode, HistoryNode, PartRecord, PartsBinStore,
@@ -13,7 +14,7 @@ use splicecraft_clone::{
     simulate_traditional_cloning, stub_entry_vector, traditional_closed,
 };
 use splicecraft_codon::{CodonMode, CodonTableStore, DnaBuffer, MotifStore, ProteinBuffer};
-use splicecraft_core::{Record, rotate_record};
+use splicecraft_core::{Feature, Record, rotate_record};
 use splicecraft_gels::{
     GEL_UI_MAX_LANES, GelLane, GelRenderOpts, GelStore, PcrAmplicon, amplicon_to_record,
     append_pcr_gel_lane, render_gel_image, simulate_pcr, snapshot_gel,
@@ -44,6 +45,7 @@ use crate::babs::{BabsCommand, parse_command};
 use crate::commands::{Command, filter_commands, fuzzy_text_match};
 use crate::editor::{UndoStack, delete_span, insert_bases, smallest_enclosing};
 use crate::mapimage::{MapImageOpts, export_plasmid_map};
+use crate::menu::{FILE_ITEMS, MENUS, menu_action};
 
 /// Master Delete final-confirm cooldown (upstream `_MASTER_DELETE_CONFIRM_COOLDOWN_S`).
 pub const MASTER_DELETE_CONFIRM_COOLDOWN: Duration = Duration::from_secs(3);
@@ -255,6 +257,14 @@ pub struct AppState {
     pub search_cancel: splicecraft_io::CancellationToken,
     /// Full-screen DNA splash. Off in [`Self::new`] so workbench tests stay on the editor.
     pub show_splash: bool,
+    /// Keyboard focus is on the top menu bar (F10).
+    pub menu_focus: bool,
+    /// Highlighted menu index into [`crate::menu::MENUS`].
+    pub menu_selected: usize,
+    /// Inclusive-start exclusive-end sequence selection (0-based).
+    pub sel: Option<(usize, usize)>,
+    /// Last copied bases (in-app; never logged).
+    pub clipboard: String,
 }
 
 /// Collision modal payload.
@@ -379,6 +389,10 @@ impl AppState {
             hmm_catalog: splicecraft_persist::builtin_hmm_db_catalog().to_vec(),
             search_cancel: splicecraft_io::CancellationToken::new(),
             show_splash: false,
+            menu_focus: false,
+            menu_selected: 0,
+            sel: None,
+            clipboard: String::new(),
         }
     }
 
@@ -417,6 +431,7 @@ impl AppState {
                 }
             }
             Action::CloseOverlay => {
+                let keep_menu = self.overlay == Overlay::FileMenu;
                 self.search_cancel.cancel();
                 self.overlay = Overlay::None;
                 self.reset_palette();
@@ -424,6 +439,9 @@ impl AppState {
                 self.tool_query.clear();
                 self.pending_collision = None;
                 self.reset_master_delete();
+                if !keep_menu {
+                    self.menu_focus = false;
+                }
             }
             Action::OpenPalette => {
                 self.toast = None;
@@ -662,6 +680,7 @@ impl AppState {
                 }
             }
             Action::ToolEnter => match self.overlay {
+                Overlay::FileMenu => return self.execute_file_menu(),
                 Overlay::PrimerDesign => self.run_primer_design(),
                 Overlay::PrimerCheck => self.run_primer_check(),
                 Overlay::Enzymes => self.activate_selected_collection(),
@@ -802,7 +821,13 @@ impl AppState {
                 }
             }
             Action::ToolMove(delta) => {
-                if self.overlay == Overlay::Enzymes {
+                if self.overlay == Overlay::FileMenu {
+                    let n = FILE_ITEMS.len();
+                    if n > 0 {
+                        self.tool_selected =
+                            (self.tool_selected as i32 + delta).rem_euclid(n as i32) as usize;
+                    }
+                } else if self.overlay == Overlay::Enzymes {
                     let n = self.enzymes.collections.len();
                     if n == 0 {
                         self.enzyme_selected = 0;
@@ -971,6 +996,69 @@ impl AppState {
                 self.path_query.pop();
             }
             Action::PathSubmit => self.submit_path(),
+            Action::ToggleMenuFocus => {
+                if self.menu_focus {
+                    self.menu_focus = false;
+                    if self.overlay == Overlay::FileMenu {
+                        self.overlay = Overlay::None;
+                    }
+                } else {
+                    self.menu_focus = true;
+                    self.toast = None;
+                }
+            }
+            Action::MenuMove(delta) => {
+                if self.overlay == Overlay::FileMenu {
+                    self.overlay = Overlay::None;
+                }
+                self.menu_focus = true;
+                let n = MENUS.len() as i32;
+                self.menu_selected = (self.menu_selected as i32 + delta).rem_euclid(n) as usize;
+            }
+            Action::MenuActivate => {
+                let name = MENUS.get(self.menu_selected).copied().unwrap_or("File");
+                if name == "File" {
+                    self.overlay = Overlay::FileMenu;
+                    self.tool_selected = 0;
+                    self.menu_focus = true;
+                    self.toast = None;
+                } else if let Some(next) = menu_action(name) {
+                    self.menu_focus = false;
+                    return self.reduce(next);
+                }
+            }
+            Action::OpenFetch => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::FetchNcbi;
+                self.path_query.clear();
+                self.menu_focus = false;
+                self.toast = None;
+            }
+            Action::OpenNewPlasmid => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::NewPlasmid;
+                self.path_query.clear();
+                self.menu_focus = false;
+                self.toast = None;
+            }
+            Action::OpenFindDna => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::FindDna;
+                self.path_query.clear();
+                self.menu_focus = false;
+                self.toast = None;
+            }
+            Action::OpenAddFeature => {
+                self.overlay = Overlay::Path;
+                self.path_kind = PathKind::AddFeature;
+                self.path_query.clear();
+                self.menu_focus = false;
+                self.toast = None;
+            }
+            Action::SaveRecord => self.save_loaded_record(),
+            Action::SelectAll => self.select_all_sequence(),
+            Action::CopyTop => self.copy_selection(false),
+            Action::CopyBottom => self.copy_selection(true),
             Action::Stub { name, stage: _ } => {
                 self.toast = Some(format!("{name} — tracked gap; see docs/parity.md"));
             }
@@ -1580,6 +1668,25 @@ impl AppState {
         let raw = self.path_query.trim().to_owned();
         self.overlay = Overlay::None;
         self.path_query.clear();
+        match self.path_kind {
+            PathKind::FetchNcbi => {
+                self.submit_fetch(&raw);
+                return;
+            }
+            PathKind::FindDna => {
+                self.submit_find(&raw);
+                return;
+            }
+            PathKind::NewPlasmid => {
+                self.submit_new_plasmid(&raw);
+                return;
+            }
+            PathKind::AddFeature => {
+                self.submit_add_feature(&raw);
+                return;
+            }
+            _ => {}
+        }
         if raw.is_empty() {
             self.toast = Some("Empty path".into());
             return;
@@ -1594,6 +1701,7 @@ impl AppState {
                     self.source_label = rec.name.clone();
                     self.record = Some(rec);
                     self.cursor = 0;
+                    self.sel = None;
                     self.undo = UndoStack::new();
                     self.dirty = false;
                     self.toast = Some("Opened file (memory)".into());
@@ -1613,7 +1721,196 @@ impl AppState {
             PathKind::MapExport => self.export_map_to(&path),
             PathKind::MigrateExport => self.export_migrate_to(&path),
             PathKind::MigrateImport => self.import_migrate_from(&path),
+            PathKind::FetchNcbi
+            | PathKind::FindDna
+            | PathKind::NewPlasmid
+            | PathKind::AddFeature => {}
         }
+    }
+
+    fn execute_file_menu(&mut self) -> bool {
+        let action = FILE_ITEMS
+            .get(self.tool_selected)
+            .map(|(_, a)| *a)
+            .unwrap_or(Action::CloseOverlay);
+        self.overlay = Overlay::None;
+        self.menu_focus = false;
+        self.reduce(action)
+    }
+
+    fn save_loaded_record(&mut self) {
+        if self.record.is_none() {
+            self.toast = Some("Nothing loaded to save".into());
+            return;
+        }
+        if !self.dirty {
+            self.toast = Some("Nothing to save".into());
+            return;
+        }
+        self.keep_record();
+    }
+
+    fn select_all_sequence(&mut self) {
+        let Some(rec) = &self.record else {
+            self.toast = Some("Nothing loaded".into());
+            return;
+        };
+        if rec.is_empty() {
+            self.toast = Some("Empty sequence".into());
+            return;
+        }
+        let n = rec.len();
+        self.sel = Some((0, n));
+        self.toast = Some(format!("Selected {n} bp"));
+    }
+
+    fn copy_selection(&mut self, bottom: bool) {
+        let Some(rec) = &self.record else {
+            self.toast = Some("Nothing loaded".into());
+            return;
+        };
+        let Some((a, b)) = self.sel else {
+            self.toast = Some("No selection — Ctrl+A selects all".into());
+            return;
+        };
+        let start = a.min(b);
+        let end = a.max(b);
+        let len = end.saturating_sub(start);
+        if len == 0 {
+            self.toast = Some("Empty selection".into());
+            return;
+        }
+        let top = circ_slice(&rec.sequence, start as i64, len, rec.len());
+        let text = if bottom { rc(&top) } else { top };
+        let n = text.len();
+        self.clipboard = text;
+        self.toast = Some(format!(
+            "Copied {n} bp ({}) — in-app clipboard (no OSC-52)",
+            if bottom { "bottom RC" } else { "top strand" }
+        ));
+    }
+
+    fn submit_fetch(&mut self, accession: &str) {
+        if accession.is_empty() {
+            self.toast = Some("Empty accession".into());
+            return;
+        }
+        if splicecraft_io::sanitize_accession(accession).is_none() {
+            self.toast = Some("Invalid NCBI accession".into());
+            return;
+        }
+        if !self.allow_online_lookups && !self.allow_online_search {
+            self.toast = Some("NCBI fetch is off — enable allow_online_lookups in Settings".into());
+            return;
+        }
+        match crate::io::fetch_genbank(accession) {
+            Ok(rec) => {
+                let name = rec.name.clone();
+                self.source_label = name.clone();
+                self.record = Some(rec);
+                self.cursor = 0;
+                self.sel = None;
+                self.undo = UndoStack::new();
+                self.dirty = false;
+                self.toast = Some(format!("Fetched {name}"));
+            }
+            Err(e) => {
+                self.toast = Some(format!("Fetch failed: {e}"));
+            }
+        }
+    }
+
+    fn submit_find(&mut self, query: &str) {
+        if query.is_empty() {
+            self.toast = Some("Empty find query".into());
+            return;
+        }
+        let Some(rec) = &self.record else {
+            self.toast = Some("Nothing loaded".into());
+            return;
+        };
+        let hits = match search_subsequence(&rec.sequence, query, 0, rec.circular, true) {
+            Ok(h) => h,
+            Err(_) => {
+                self.toast = Some("Find failed — query is not IUPAC DNA".into());
+                return;
+            }
+        };
+        if hits.is_empty() {
+            self.toast = Some("No match on either strand".into());
+            return;
+        }
+        let from = self.cursor;
+        let hit = hits.iter().find(|h| h.start >= from).unwrap_or(&hits[0]);
+        let start = hit.start % rec.len().max(1);
+        self.cursor = start;
+        self.sel = Some((
+            start,
+            start + query.trim().len().min(rec.len().saturating_sub(start)),
+        ));
+        if hit.end > hit.start && hit.end <= rec.len() {
+            self.sel = Some((hit.start, hit.end));
+        }
+        self.toast = Some(format!("Found at bp {} ({} hits)", start + 1, hits.len()));
+    }
+
+    fn submit_new_plasmid(&mut self, raw: &str) {
+        let seq = match normalize_dna_for_align(raw) {
+            Ok(s) if !s.is_empty() => s,
+            Ok(_) => {
+                self.toast = Some("Empty sequence".into());
+                return;
+            }
+            Err(_) => {
+                self.toast = Some("New plasmid needs IUPAC DNA (no sequence logged)".into());
+                return;
+            }
+        };
+        let n = seq.len();
+        self.record = Some(Record::new("untitled", seq, true));
+        self.source_label = "untitled (memory)".into();
+        self.cursor = 0;
+        self.sel = None;
+        self.undo = UndoStack::new();
+        self.dirty = true;
+        self.toast = Some(format!("New plasmid (memory, {n} bp)"));
+    }
+
+    fn submit_add_feature(&mut self, raw: &str) {
+        let mut parts = raw.split_whitespace();
+        let label = parts.next().unwrap_or("").trim();
+        if label.is_empty() {
+            self.toast = Some("Add feature needs a label (optional type after)".into());
+            return;
+        }
+        let kind = parts.next().unwrap_or("misc_feature");
+        let Some(rec) = self.record.clone() else {
+            self.toast = Some("Nothing loaded".into());
+            return;
+        };
+        if rec.is_empty() {
+            self.toast = Some("Empty sequence".into());
+            return;
+        }
+        let (start, end) = match self.sel {
+            Some((a, b)) if a != b => (a.min(b), a.max(b).min(rec.len())),
+            _ => {
+                let s = self.cursor.min(rec.len().saturating_sub(1));
+                (s, (s + 1).min(rec.len()))
+            }
+        };
+        if start >= end {
+            self.toast = Some("Need a selection or cursor base".into());
+            return;
+        }
+        self.undo.push(&rec);
+        let mut next = rec;
+        next.features.push(Feature::new(kind, start, end, 1, label));
+        let nfeat = next.features.len();
+        self.record = Some(next);
+        self.selected_feat = Some(nfeat - 1);
+        self.dirty = true;
+        self.toast = Some(format!("Added feature {label}"));
     }
 
     fn bulk_import(&mut self, folder: &std::path::Path) {

@@ -81,10 +81,12 @@ pub fn palette_commands() -> &'static [Command] {
         Command {
             title: "Fetch from NCBI",
             keywords: "fetch accession entrez",
-            action: Action::Stub {
-                name: "Fetch from NCBI",
-                stage: 13,
-            },
+            action: Action::OpenFetch,
+        },
+        Command {
+            title: "New plasmid",
+            keywords: "new paste sequence ctrl n",
+            action: Action::OpenNewPlasmid,
         },
         Command {
             title: "Settings",

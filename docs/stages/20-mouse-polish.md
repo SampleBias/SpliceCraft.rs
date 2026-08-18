@@ -24,6 +24,7 @@ Contract: [`docs/theme.md`](../theme.md). Gaps: [`docs/parity.md`](../parity.md)
 
 - Enable crossterm mouse where safe; click DNA row → cursor; click feature
   bar → select feature; click RE site → highlight span
+- Menu bar click-to-open (File dropdown on click) — keyboard landed in 19
 - Sticky-cut visualization on Type IIS click (deferred since stage 05)
 - Scroll wheel over map → rotate view (when map focused / hovered)
 - Library: `Space` mark cycle if not done; `p` export marked maps via existing

@@ -22,7 +22,7 @@ splicecraft
 Or run without installing:
 
 ```bash
-cargo run -p splicecraft        # splash → workbench (? help, Ctrl+K, q / Esc quit)
+cargo run -p splicecraft        # splash → workbench (F10 menus, ? help, Ctrl+K, q / Esc quit)
 splicecraft --no-splash         # skip the DNA entry screen
 ```
 

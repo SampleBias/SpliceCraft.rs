@@ -9,6 +9,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use crate::WELCOME_TITLE;
 use crate::action::{FocusMode, Overlay, Pane, PathKind};
 use crate::keys::KEY_TABLE;
+use crate::menu::{FILE_ITEMS, MENUS};
 use crate::render::{MapOptions, SeqView, render_map_styled, render_sequence_styled};
 use crate::state::AppState;
 use crate::theme::{
@@ -16,26 +17,6 @@ use crate::theme::{
     PANEL_BG, PRIMARY, PRIMARY_DARK, SEQUENCE_ROWS, SIDE_PANE_COLS, TEXT, TEXT_ON_PRIMARY, WARN,
     darken, feature_paint_color,
 };
-
-/// Menu labels matching upstream `MenuBar.MENUS`.
-const MENUS: &[&str] = &[
-    "File",
-    "Settings",
-    "BLAST",
-    "Enzymes",
-    "Features",
-    "Primers",
-    "Mutato",
-    "Synthesis",
-    "Parts",
-    "Constructor",
-    "Simulator",
-    "Sequencing",
-    "Experiments",
-    "History",
-    "AUTOLAB",
-    "BABS",
-];
 
 /// Paint the workbench (and any overlay) into `frame`.
 pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
@@ -72,11 +53,12 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
         Overlay::Babs => draw_babs(frame, area, state),
         Overlay::Autolab => draw_autolab(frame, area, state),
         Overlay::MasterDelete => draw_master_delete(frame, area, state),
+        Overlay::FileMenu => draw_file_menu(frame, area, state),
         Overlay::None => {}
     }
 }
 
-fn draw_menu(frame: &mut Frame<'_>, area: Rect, _state: &AppState) {
+fn draw_menu(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let mut spans = vec![
         Span::styled(
             format!(" {WELCOME_TITLE} "),
@@ -87,15 +69,52 @@ fn draw_menu(frame: &mut Frame<'_>, area: Rect, _state: &AppState) {
         ),
         Span::raw(" "),
     ];
-    for name in MENUS {
-        spans.push(Span::styled(
-            format!(" {name} "),
-            Style::default().fg(MENU_FG),
-        ));
+    for (i, name) in MENUS.iter().enumerate() {
+        let focused = state.menu_focus && i == state.menu_selected;
+        let style = if focused {
+            Style::default()
+                .fg(TEXT_ON_PRIMARY)
+                .bg(PRIMARY)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(MENU_FG)
+        };
+        spans.push(Span::styled(format!(" {name} "), style));
     }
     frame.render_widget(
         Paragraph::new(Line::from(spans)).style(Style::default().bg(PRIMARY_DARK)),
         area,
+    );
+}
+
+fn draw_file_menu(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let height = (FILE_ITEMS.len() as u16)
+        .saturating_add(2)
+        .min(area.height.saturating_sub(1));
+    let width = 28u16.min(area.width.saturating_sub(2)).max(16);
+    let box_area = Rect {
+        x: area.x.saturating_add(16),
+        y: area.y.saturating_add(1),
+        width,
+        height,
+    };
+    frame.render_widget(Clear, box_area);
+    let mut lines = Vec::new();
+    for (i, (label, _)) in FILE_ITEMS.iter().enumerate() {
+        let mark = if i == state.tool_selected { ">" } else { " " };
+        let style = if i == state.tool_selected {
+            Style::default()
+                .fg(TEXT_ON_PRIMARY)
+                .bg(PRIMARY)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(TEXT)
+        };
+        lines.push(Line::from(Span::styled(format!(" {mark} {label}"), style)));
+    }
+    frame.render_widget(
+        Paragraph::new(lines).block(dialog_block("File", PRIMARY)),
+        box_area,
     );
 }
 
@@ -369,7 +388,7 @@ fn dialog_block(title: &str, border: Color) -> Block<'_> {
 }
 
 fn draw_help(frame: &mut Frame<'_>, area: Rect) {
-    let box_area = centered(area, 56, 18);
+    let box_area = centered(area, 62, 22);
     frame.render_widget(Clear, box_area);
     let mut lines = vec![
         Line::from(Span::styled(
@@ -386,7 +405,7 @@ fn draw_help(frame: &mut Frame<'_>, area: Rect) {
     }
     lines.push(Line::from(""));
     lines.push(Line::from(
-        "q / Esc / ? close this overlay. Main-view q / Esc quits.",
+        "F10 then ←/→ Enter opens menus (File is a dropdown). q / Esc / ? close Help.",
     ));
     let block = dialog_block("Help", PRIMARY);
     frame.render_widget(
@@ -459,6 +478,10 @@ fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
         PathKind::MapExport => "Export plasmid map (svg/png path)",
         PathKind::MigrateExport => "Export migrate archive (.zip)",
         PathKind::MigrateImport => "Import migrate archive (.zip)",
+        PathKind::FetchNcbi => "NCBI accession",
+        PathKind::FindDna => "Find DNA (both strands)",
+        PathKind::NewPlasmid => "New plasmid — paste DNA",
+        PathKind::AddFeature => "Add feature — label [type]",
     };
     let lines = vec![
         Line::from(Span::styled(

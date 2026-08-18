@@ -24,6 +24,7 @@ mod draw;
 mod editor;
 mod keys;
 mod mapimage;
+mod menu;
 mod render;
 mod splash;
 mod state;
@@ -47,6 +48,7 @@ pub use mapimage::{
     export_plasmid_map, export_plasmid_maps, render_map_bytes, render_plasmid_map_png,
     render_plasmid_map_svg, svg_is_well_formed,
 };
+pub use menu::{FILE_ITEMS, MENUS, alt_menu_action, menu_action};
 pub use render::{
     MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_map_styled,
     render_sequence, render_sequence_styled,
@@ -66,8 +68,8 @@ use ratatui::{DefaultTerminal, Frame};
 
 use crate::splash::{HELIX_TICK_MS, helix_phase};
 
-/// Stage this crate currently satisfies (layout density).
-pub const IMPLEMENTATION_STAGE: u8 = 18;
+/// Stage this crate currently satisfies (interaction keys + menus).
+pub const IMPLEMENTATION_STAGE: u8 = 19;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -241,6 +243,14 @@ mod tests {
         KeyEvent::new(KeyCode::Char(ch), KeyModifiers::CONTROL)
     }
 
+    fn alt(ch: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(ch), KeyModifiers::ALT)
+    }
+
+    fn alt_shift(ch: char) -> KeyEvent {
+        KeyEvent::new(KeyCode::Char(ch), KeyModifiers::ALT | KeyModifiers::SHIFT)
+    }
+
     #[test]
     fn theme_doc_exists() {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -394,7 +404,10 @@ mod tests {
             "footer must show shortcut strip, got:\n{text}"
         );
         assert!(
-            !text.contains("stage 16") && !text.contains("stage 17") && !text.contains("stage 18"),
+            !text.contains("stage 16")
+                && !text.contains("stage 17")
+                && !text.contains("stage 18")
+                && !text.contains("stage 19"),
             "footer must not lead with stage chrome, got:\n{text}"
         );
         assert!(
@@ -413,6 +426,177 @@ mod tests {
         assert!(
             !apply_key(&mut state, ctrl('q')),
             "Ctrl+Q still quits from the splash"
+        );
+    }
+
+    #[test]
+    fn menu_bar_opens_blast_and_primers_without_palette() {
+        let mut state = AppState::new();
+        assert!(apply_key(&mut state, key(KeyCode::F(10))));
+        assert!(state.menu_focus);
+        assert_eq!(state.menu_selected, 0);
+        assert!(apply_key(&mut state, key(KeyCode::Right)));
+        assert!(apply_key(&mut state, key(KeyCode::Right)));
+        assert_eq!(MENUS[state.menu_selected], "BLAST");
+        assert!(apply_key(&mut state, key(KeyCode::Enter)));
+        assert_eq!(state.overlay, Overlay::Search);
+        assert!(!state.menu_focus);
+
+        let mut primers = AppState::new();
+        assert!(apply_key(&mut primers, key(KeyCode::F(10))));
+        for _ in 0..5 {
+            assert!(apply_key(&mut primers, key(KeyCode::Right)));
+        }
+        assert_eq!(MENUS[primers.menu_selected], "Primers");
+        assert!(apply_key(&mut primers, key(KeyCode::Enter)));
+        assert_eq!(primers.overlay, Overlay::PrimerDesign);
+        let text = draw_text(80, 24, &primers);
+        assert!(text.contains("Primer"), "{text}");
+    }
+
+    #[test]
+    fn file_dropdown_reaches_open_fetch_quit() {
+        let mut state = AppState::new();
+        assert!(apply_key(&mut state, key(KeyCode::F(10))));
+        assert!(apply_key(&mut state, key(KeyCode::Enter)));
+        assert_eq!(state.overlay, Overlay::FileMenu);
+        let labels: Vec<_> = FILE_ITEMS.iter().map(|(l, _)| *l).collect();
+        assert!(labels.iter().any(|l| l.contains("Open")));
+        assert!(labels.iter().any(|l| l.contains("Fetch")));
+        assert!(labels.contains(&"Quit"));
+        let text = draw_text(80, 24, &state);
+        assert!(text.contains("Open file"), "{text}");
+        assert!(text.contains("Fetch"), "{text}");
+        assert!(text.contains("Quit"), "{text}");
+        assert!(apply_key(&mut state, key(KeyCode::Down)));
+        assert!(apply_key(&mut state, key(KeyCode::Enter)));
+        assert_eq!(state.overlay, Overlay::Path);
+        assert_eq!(state.path_kind, PathKind::FetchNcbi);
+    }
+
+    #[test]
+    fn daily_driver_keys_open_live_overlays() {
+        let mut state = AppState::new();
+        assert!(apply_key(&mut state, ctrl('b')));
+        assert_eq!(state.overlay, Overlay::Search);
+        state.reduce(Action::CloseOverlay);
+        assert!(apply_key(&mut state, ctrl('p')));
+        assert_eq!(state.overlay, Overlay::PrimerDesign);
+        state.reduce(Action::CloseOverlay);
+        assert!(apply_key(&mut state, key(KeyCode::F(6))));
+        assert_eq!(state.overlay, Overlay::History);
+        state.reduce(Action::CloseOverlay);
+        assert!(apply_key(&mut state, alt('h')));
+        assert_eq!(state.overlay, Overlay::History);
+        assert!(KEY_TABLE.iter().any(|e| e.keys.contains("F10")));
+        assert!(KEY_TABLE.iter().any(|e| e.keys.contains("Ctrl+B")));
+    }
+
+    #[test]
+    fn fetch_offline_shows_clear_toast() {
+        let mut state = AppState::new();
+        assert!(apply_key(&mut state, key(KeyCode::Char('f'))));
+        assert_eq!(state.overlay, Overlay::Path);
+        assert_eq!(state.path_kind, PathKind::FetchNcbi);
+        state.path_query = "L09137".into();
+        assert!(state.reduce(Action::PathSubmit));
+        let toast = state.toast.clone().unwrap_or_default();
+        assert!(
+            toast.to_ascii_lowercase().contains("off")
+                || toast.to_ascii_lowercase().contains("disabled"),
+            "{toast}"
+        );
+        assert!(!toast.contains("tracked gap"));
+        state.allow_online_lookups = true;
+        state.reduce(Action::OpenFetch);
+        state.path_query = "L09137".into();
+        assert!(state.reduce(Action::PathSubmit));
+        let toast = state.toast.unwrap_or_default();
+        assert!(
+            toast.to_ascii_lowercase().contains("disabled")
+                || toast.to_ascii_lowercase().contains("failed"),
+            "live fetch path, not a stub: {toast}"
+        );
+    }
+
+    #[test]
+    fn copy_selection_is_in_app_clipboard() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        let seq = state.record.as_ref().unwrap().sequence.clone();
+        assert!(apply_key(&mut state, ctrl('a')));
+        assert_eq!(state.sel, Some((0, seq.len())));
+        assert!(apply_key(&mut state, ctrl('c')));
+        assert_eq!(state.clipboard, seq);
+        assert!(
+            state
+                .toast
+                .as_deref()
+                .unwrap_or("")
+                .contains("in-app clipboard")
+        );
+        assert!(apply_key(&mut state, alt('c')));
+        assert_eq!(state.clipboard, splicecraft_bio::rc(&seq));
+    }
+
+    #[test]
+    fn ctrl_s_saves_through_persist_chokepoint() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        persist::authorize_writes_for_sandbox(tmp.path()).expect("sandbox");
+        let layout = persist::DataLayout::from_xdg_home(tmp.path()).expect("layout");
+        assert!(
+            layout.root.starts_with(tmp.path()),
+            "save must stay in the sandbox: {}",
+            layout.root.display()
+        );
+        let mut state = AppState::new();
+        state.attach_layout(layout.clone());
+        state.reduce(Action::LoadDemo);
+        assert!(state.reduce(Action::InsertBase('A')));
+        assert!(state.dirty);
+        assert!(apply_key(&mut state, ctrl('s')));
+        persist::revoke_thread_writes();
+        let again = persist::LibraryStore::load(&layout);
+        assert!(
+            again.plasmids.iter().any(|e| e.name == "pDemo"),
+            "{:?}",
+            again.plasmids
+        );
+    }
+
+    #[test]
+    fn find_and_new_plasmid_and_add_feature() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        assert!(apply_key(&mut state, ctrl('f')));
+        assert_eq!(state.path_kind, PathKind::FindDna);
+        state.path_query = "ATGAAA".into();
+        assert!(state.reduce(Action::PathSubmit));
+        assert_eq!(state.cursor, 0);
+        assert!(
+            state
+                .toast
+                .as_deref()
+                .unwrap_or("")
+                .to_ascii_lowercase()
+                .contains("found")
+        );
+        assert!(apply_key(&mut state, ctrl('n')));
+        state.path_query = "ATGCATGC".into();
+        assert!(state.reduce(Action::PathSubmit));
+        assert_eq!(
+            state.record.as_ref().map(|r| r.sequence.as_str()),
+            Some("ATGCATGC")
+        );
+        assert!(apply_key(&mut state, ctrl('a')));
+        assert!(apply_key(&mut state, alt_shift('f')));
+        state.path_query = "cassette misc_feature".into();
+        assert!(state.reduce(Action::PathSubmit));
+        let rec = state.record.as_ref().unwrap();
+        assert!(
+            rec.features.iter().any(|f| f.label == "cassette"),
+            "{:?}",
+            rec.features
         );
     }
 
@@ -801,10 +985,6 @@ mod tests {
             bio::rc(&top_bases),
             "must not reverse the window"
         );
-    }
-
-    fn alt(ch: char) -> KeyEvent {
-        KeyEvent::new(KeyCode::Char(ch), KeyModifiers::ALT)
     }
 
     #[test]

@@ -125,8 +125,8 @@ Every core tag has a named `invNN_*` test. Table: [`invariants.md`](invariants.m
 | Plasmidsaurus zip / API | **done** | `plasmidsaurus:` tag; no overwrite. |
 | New L0 part from synthetic fragment | **done** | Constructor + `l0_part_from_syn_fragment`. |
 | Sanger `.ab1` | **done** | |
-| New Plasmid modal (`Ctrl+N`) | **gap** | Paste-and-annotate dialog is not wired. Open file / keep / demo are **done**. |
-| NCBI accession fetch (`f`) | **gap** | `splicecraft_io::fetch_genbank` exists and stays offline by default; the TUI/palette action is a stub. |
+| New Plasmid modal (`Ctrl+N`) | **done** | Paste IUPAC DNA into a prompt → memory record. Annotate with `Alt+Shift+F` from a selection. |
+| NCBI accession fetch (`f`) | **done** | TUI/palette call `splicecraft_io::fetch_genbank`. Offline / lookups-off → clear toast. Default build still `NetworkDisabled` (fail-closed). |
 | ORF finder UI | **done** | Search overlay. |
 
 ### Library
@@ -240,24 +240,24 @@ Live help is `?`. Palette is `Ctrl+K`.
 | `↑` reset origin | **done** | Home. |
 | `,` / `.` map aspect | **gap** | |
 | `v` / `l` / `r` | **done** | |
-| `f` NCBI fetch | **gap** | Stub toast points at this file. |
+| `f` NCBI fetch | **done** | Accession prompt; settings-gated; `fetch_genbank` (default build: `NetworkDisabled`). |
 | `Ctrl+O` / `o` open | **done** | |
-| `Ctrl+N` new plasmid | **gap** | |
-| `Ctrl+B` BLAST | **gap** (key) | Palette / menu **BLAST** is **done**. |
+| `Ctrl+N` new plasmid | **done** | Paste DNA → memory. |
+| `Ctrl+B` BLAST | **done** | Search overlay. Also F10 → BLAST → Enter. |
 | `Ctrl+K` palette | **done** | |
 | `Alt+K` keep | **done** | |
-| `Ctrl+A` / `Ctrl+E` / `Ctrl+S` / `Ctrl+F` | **gap** | In-place IUPAC insert on the sequence pane is **done**. |
-| `Alt+Shift+F` / `Alt+Shift+C` feature add / capture | **gap** / **done** | Capture = Save selected feature (palette). |
-| `Ctrl+P` primers | **gap** (key) | Palette **Primer design** is **done**. |
+| `Ctrl+A` / `Ctrl+S` / `Ctrl+F` | **done** | Select-all / save (keep via chokepoint) / find both strands. `Ctrl+E` (end-of-line) is still a **gap**. In-place IUPAC insert on the sequence pane is **done**. |
+| `Alt+Shift+F` / `Alt+Shift+C` feature add / capture | **done** | Add = label [type] from selection; capture = Save selected feature (palette). |
+| `Ctrl+P` primers | **done** | Also F10 → Primers → Enter. |
 | `Enter` / `Delete` / undo / redo | **done** | |
-| `Ctrl+C` / `Alt+C` copy | **gap** | |
+| `Ctrl+C` / `Alt+C` copy | **done** | In-app clipboard (top / bottom RC). Toast documents no OSC-52. |
 | `F1`–`F5` | **done** | |
-| `F6` history | **gap** (key) | Palette **History** is **done**. |
+| `F6` history | **done** | Also `Alt+H`. |
 | `Alt+D` UI snapshot / hover debug | **gap** | |
-| `?` help / `Ctrl+Q` quit | **done** | Also `q` / Esc. |
-| Library Space / `c` / `m` / `y` / `p` / `s` / `h` | **gap** | Delete + `u` undelete **done**. |
-| Mouse click / drag / wheel | **gap** | Keyboard workbench only. |
-| 16 top-bar menus | **done** | Labels match; tools open from the palette (no dropdown). |
+| `?` help / `Ctrl+Q` quit | **done** | Also `q` / Esc. F10 menu bar documented in Help. |
+| Library Space / `c` / `m` / `y` / `p` / `s` / `h` | **gap** | Delete + `u` undelete **done**. Deferred to stage 20. |
+| Mouse click / drag / wheel | **gap** | Keyboard workbench only (stage 20). |
+| 16 top-bar menus | **done** | F10 + ←/→ + Enter. File is a dropdown. Alt letters match upstream Help. |
 
 ## Agent API
 
@@ -310,14 +310,15 @@ Not registered yet. File ordinary issues; this is not a new bootstrap stage.
 
 ## Keybindings vs menus
 
-The 16 menu labels in `draw.rs` (`File` … `BABS`) match upstream
-`MenuBar.MENUS`. File-menu items that are still stubs or palette-only are
-called out as **gap** above (NCBI fetch, New Plasmid, mark-cycle export).
+The 16 menu labels in `menu.rs` (`File` … `BABS`) match upstream
+`MenuBar.MENUS`. Keyboard activation is **done** (F10 / Alt letters / File
+dropdown). Remaining File-adjacent gaps are library mark-cycle export
+(stage 20) and live NCBI HTTP (default build stays `NetworkDisabled`).
 
 ## Post-1.0
 
 UI chrome / color landed in stage **17** ([`docs/theme.md`](theme.md)). Layout
-(**18**), keys (**19**), and mouse (**20**) remain open in
+(**18**) and keys (**19**) are done. Mouse (**20**) remains open in
 [`docs/stages/STATUS.md`](stages/STATUS.md). Other gaps remain ordinary issues
 (no stage 21+ unless explicitly opened).
 Do not add a Python compatibility module. Do not share the Python XDG leaf.
