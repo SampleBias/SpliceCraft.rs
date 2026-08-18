@@ -40,7 +40,6 @@ pub use babs::{
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
-pub use splash::{compose_splash, draw_splash};
 pub use editor::{UNDO_LIMIT, UndoStack};
 pub use keys::{KEY_TABLE, KeyEntry, action_from_key};
 pub use mapimage::{
@@ -52,6 +51,7 @@ pub use render::{
     MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_map_styled,
     render_sequence, render_sequence_styled,
 };
+pub use splash::{compose_splash, draw_splash};
 pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN, demo_record};
 pub use theme::{
     AA_GREEN, DEFAULT_TYPE_COLORS, FEATURE_PALETTE_XTERM, FOOTER_SHORTCUTS, SEQUENCE_ROWS,
