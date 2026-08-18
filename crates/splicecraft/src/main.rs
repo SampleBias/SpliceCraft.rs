@@ -19,6 +19,9 @@ struct Args {
     /// Loopback port (default 6701). Never binds `0.0.0.0`.
     #[arg(long, default_value_t = splicecraft_agent::DEFAULT_PORT)]
     agent_port: u16,
+    /// Skip the greyscale DNA splash (also `SPLICECRAFT_NO_SPLASH=1`).
+    #[arg(long)]
+    no_splash: bool,
 }
 
 fn main() {
@@ -42,7 +45,8 @@ fn main() {
         eprintln!("splicecraft agent error: {err}");
         std::process::exit(1);
     }
-    if let Err(err) = splicecraft_tui::run() {
+    let splash = !args.no_splash && splicecraft_tui::splash_enabled_from_env();
+    if let Err(err) = splicecraft_tui::run_with(splicecraft_tui::RunOptions { splash }) {
         eprintln!("splicecraft tui error: {err}");
         std::process::exit(1);
     }
@@ -67,5 +71,7 @@ mod tests {
         let b = Args::try_parse_from(["splicecraft", "--agent"]).unwrap();
         assert!(b.agent);
         assert_eq!(b.agent_port, splicecraft_agent::DEFAULT_PORT);
+        let c = Args::try_parse_from(["splicecraft", "--no-splash"]).unwrap();
+        assert!(c.no_splash);
     }
 }

@@ -22,6 +22,7 @@ draw path). Paint only — do not change scan / `rc` / wrap / persist.
 - Toolkit is **Ratatui**, not Textual. No TCSS, no Textual widgets.
 - Data dir remains `splicecraft-rs` (never the Python leaf).
 - Welcome / about chrome says **SpliceCraft.rs**.
+- Startup splash uses a **greyscale** helix (white / grey / black), not the upstream rainbow.
 
 ## Palette
 
@@ -123,6 +124,7 @@ Top row = Library | Map | Features. Sequence under it spans the window.
 4. **Features** — table-like Type | Label (and bp/strand when space); type-colored text.
 5. **Sequence** — ruler, feature lane, top strand, AA lane, bottom strand, caret — styled spans.
 6. **Footer** — bindings like upstream (`^q Quit`, `f Fetch`, `^o Open`, `? Help`, …), toast overrides temporarily.
+7. **Startup splash** — full-screen greyscale DNA helix + `SpliceCraft.rs` figlet; any key (or `--no-splash`) enters the workbench.
 
 ## Render architecture
 

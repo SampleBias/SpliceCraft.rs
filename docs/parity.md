@@ -56,6 +56,7 @@ Every core tag has a named `invNN_*` test. Table: [`invariants.md`](invariants.m
 
 | Heading | Status | Notes |
 |---|---|---|
+| Startup splash (DNA helix) | **done** | Greyscale braille B-DNA (not the upstream rainbow); cosmic/big/small `SpliceCraft.rs` figlet; any key continues. Skip with `--no-splash` or `SPLICECRAFT_NO_SPLASH=1`. |
 | Braille circular / linear maps | **done** | `render_map` / `render_map_styled`; feature labels colored (stage 17). `v` toggles linear. ASCII density ramp is the documented fallback. |
 | Export map as PNG / SVG | **done** | One geometry pass; size 300–6000; atomic write to a **user-chosen** path (not `safe_save_json`). PNG anti-aliasing is **intentional** (no LANCZOS super-sample). |
 | Per-base sequence panel | **done** | Two-strand, wrap-aware feature lane, CDS AA (green) at codon midpoint; bases tinted by enclosing feature (stage 17). |
