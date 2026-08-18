@@ -58,6 +58,7 @@ pub struct BrailleCanvas {
     cols: usize,
     rows: usize,
     bits: Vec<Vec<u8>>,
+    colors: Vec<Vec<Option<Color>>>,
 }
 
 impl BrailleCanvas {
@@ -67,10 +68,16 @@ impl BrailleCanvas {
             cols,
             rows,
             bits: vec![vec![0; cols]; rows],
+            colors: vec![vec![None; cols]; rows],
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_pixel(&mut self, px: i32, py: i32) {
+        self.set_pixel_colored(px, py, None);
+    }
+
+    pub fn set_pixel_colored(&mut self, px: i32, py: i32, color: Option<Color>) {
         if px < 0 || py < 0 {
             return;
         }
@@ -81,6 +88,9 @@ impl BrailleCanvas {
         }
         let bit = DOT_BITS[py as usize % 4][px as usize % 2];
         self.bits[row][col] |= 1 << bit;
+        if color.is_some() {
+            self.colors[row][col] = color;
+        }
     }
 
     /// Overlay `text` on braille (or the ASCII density ramp).
@@ -98,7 +108,7 @@ impl BrailleCanvas {
             .collect()
     }
 
-    /// Same geometry as [`Self::to_lines`], with per-cell label colors.
+    /// Same geometry as [`Self::to_lines`], with per-cell label and ring colors.
     #[must_use]
     pub fn to_styled_lines(
         &self,
@@ -133,7 +143,8 @@ impl BrailleCanvas {
                     } else {
                         char::from_u32(0x2800 + u32::from(bits)).unwrap_or(' ')
                     };
-                    (ch, Style::default().fg(braille_fg))
+                    let fg = self.colors[row][col].unwrap_or(braille_fg);
+                    (ch, Style::default().fg(fg))
                 };
                 if run.is_empty() {
                     run.push(ch);

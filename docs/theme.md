@@ -119,7 +119,7 @@ Top row = Library | Map | Features. Sequence under it spans the window.
 
 1. **Menu bar** — 16 labels (`File` … `BABS`). Activatable (highlight + open tool). File may stay palette/path-driven until a dropdown exists.
 2. **Library** — collection name, scrollable list, selected row, search line, action affordances (+ / − / edit as space allows).
-3. **Map** — braille / ASCII ring or linear backbone; **colored** feature labels and RE ticks.
+3. **Map** — thick braille annulus colored by enclosing feature (not a 1-px dotted ellipse); inner `+` ticks; direction arrows; labels outside.
 4. **Features** — table-like Type | Label (and bp/strand when space); type-colored text.
 5. **Sequence** — ruler, feature lane, top strand, AA lane, bottom strand, caret — styled spans.
 6. **Footer** — bindings like upstream (`^q Quit`, `f Fetch`, `^o Open`, `? Help`, …), toast overrides temporarily.

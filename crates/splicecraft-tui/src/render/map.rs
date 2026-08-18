@@ -99,44 +99,60 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
     let n = record.len().max(1);
     let cx = (w * 2) as f64 / 2.0;
     let cy = (h * 4) as f64 / 2.0;
-    let r_back = (cx.min(cy) * 0.72).max(4.0);
-    let samples = (n.max(64) * 4).min(800);
+    // Leave room for outer labels; fill most of the pane like upstream.
+    let r_back = (cx.min(cy) * 0.78).max(6.0);
+    let thickness = (r_back * 0.06).clamp(2.0, 4.0);
+
+    // Dense annulus: sample by circumference so braille cells fill solid.
+    let samples = ((std::f64::consts::TAU * r_back * 4.0) as usize).clamp(720, 8000);
     for i in 0..samples {
         let bp = (i * n) / samples;
-        let (px, py) = polar(bp, n, opt.origin, cx, cy, r_back);
-        dots.set_pixel(px, py);
+        let color = backbone_color(record, bp);
+        stroke_radial(
+            &mut dots, bp, n, opt.origin, cx, cy, r_back, thickness, color,
+        );
     }
+
+    // Inner colored lanes for features (overlap-visible, still thick).
     let mut ring = 0.0;
     for feat in record.features.iter().filter(|f| f.kind != "source") {
-        let r = r_back - 3.0 - ring;
-        ring = (ring + 2.0) % 6.0;
-        if r < 3.0 {
+        let r = r_back - thickness - 3.0 - ring;
+        ring = (ring + 2.5) % 6.0;
+        if r < 4.0 {
             continue;
         }
         let flen = feat.len_on(n).max(1);
-        let steps = flen.min(400);
+        let steps = ((flen as f64 / n as f64) * samples as f64).max(8.0) as usize;
+        let color = feature_paint_color(feat);
         for k in 0..steps {
             let bp = step_along(feat.start, feat.end, n, k, steps);
-            let (px, py) = polar(bp, n, opt.origin, cx, cy, r);
-            dots.set_pixel(px, py);
+            stroke_radial(&mut dots, bp, n, opt.origin, cx, cy, r, 1.2, color);
         }
+        // Direction arrow at the 3′ end, sitting on the backbone.
+        let tip = if feat.strand < 0 {
+            feat.start
+        } else if feat.end == 0 {
+            n.saturating_sub(1)
+        } else {
+            (feat.end + n - 1) % n
+        };
+        let (px, py) = polar(tip, n, opt.origin, cx, cy, r_back);
+        text.put_colored(
+            px / 2,
+            py / 4,
+            strand_arrow(tip, n, opt.origin, feat.strand),
+            Some(color),
+        );
         if opt.show_labels && !feat.label.is_empty() {
             let mid = feature_label_bp(feat, n);
-            let (px, py) = polar(mid, n, opt.origin, cx, cy, r_back + 3.0);
-            let col = px / 2;
-            let row = py / 4;
-            text.put_text_colored(
-                col,
-                row,
-                &truncate(&feat.label, 10),
-                Some(feature_paint_color(feat)),
-            );
+            let (lx, ly) = polar(mid, n, opt.origin, cx, cy, r_back + thickness + 4.0);
+            text.put_text_colored(lx / 2, ly / 4, &truncate(&feat.label, 10), Some(color));
         }
     }
     if opt.show_restr {
         for hit in labeled_resites(record, opt) {
-            let (px, py) = polar(hit.start, n, opt.origin, cx, cy, r_back + 1.5);
-            dots.set_pixel(px, py);
+            let (px, py) = polar(hit.start, n, opt.origin, cx, cy, r_back + thickness + 1.0);
+            dots.set_pixel_colored(px, py, Some(ENZYME_ACCENT));
             text.put_text_colored(
                 px / 2,
                 py / 4,
@@ -145,18 +161,17 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
             );
         }
     }
-    // Tick labels around the ring (upstream bp scale).
+    // Inner tick marks + bp scale (upstream `+` ticks).
     if n >= 40 && w >= 24 {
-        let ticks = 8usize.min(n / 20).max(4);
+        let ticks = if n >= 1000 { 12 } else { (n / 20).clamp(6, 12) };
+        let r_tick = (r_back - thickness - 3.0).max(3.0);
         for i in 0..ticks {
             let bp_i = (i * n) / ticks;
-            let label = if bp_i >= 1000 {
-                format!("{:.1}k", bp_i as f64 / 1000.0)
-            } else {
-                format!("{bp_i}")
-            };
-            let (px, py) = polar(bp_i, n, opt.origin, cx, cy, r_back - 5.0);
-            text.put_text_colored(px / 2, py / 4, &label, Some(TEXT));
+            let (px, py) = polar(bp_i, n, opt.origin, cx, cy, r_tick);
+            text.put_colored(px / 2, py / 4, '+', Some(Color::White));
+            let label = format_bp(bp_i);
+            let (lx, ly) = polar(bp_i, n, opt.origin, cx, cy, (r_tick - 3.0).max(2.0));
+            text.put_text_colored(lx / 2, ly / 4, &label, Some(TEXT));
         }
     }
     let name = truncate(&record.name, w.saturating_sub(2));
@@ -182,28 +197,30 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<L
     let x0 = 2;
     let x1 = (w * 2).saturating_sub(2) as i32;
     for px in x0..x1 {
-        dots.set_pixel(px, y);
+        let frac = (px - x0) as f64 / (x1 - x0).max(1) as f64;
+        let bp = ((frac * n as f64) as usize) % n;
+        let color = backbone_color(record, bp);
+        for dy in -2..=2 {
+            dots.set_pixel_colored(px, y + dy, Some(color));
+        }
     }
     for feat in record.features.iter().filter(|f| f.kind != "source") {
         let (a, b) = linear_span(feat.start, feat.end, n, x0, x1, opt.origin);
+        let color = feature_paint_color(feat);
         for px in a..b {
-            dots.set_pixel(px, y - 3);
+            dots.set_pixel_colored(px, y - 5, Some(color));
+            dots.set_pixel_colored(px, y - 6, Some(color));
         }
         if opt.show_labels && !feat.label.is_empty() {
             let mid = feature_label_bp(feat, n);
             let col = linear_x(mid, n, x0, x1, opt.origin) / 2;
-            text.put_text_colored(
-                col,
-                (y / 4) - 2,
-                &truncate(&feat.label, 8),
-                Some(feature_paint_color(feat)),
-            );
+            text.put_text_colored(col, (y / 4) - 2, &truncate(&feat.label, 8), Some(color));
         }
     }
     if opt.show_restr {
         for hit in labeled_resites(record, opt) {
             let px = linear_x(hit.start, n, x0, x1, opt.origin);
-            dots.set_pixel(px, y + 2);
+            dots.set_pixel_colored(px, y + 3, Some(ENZYME_ACCENT));
             text.put_text_colored(
                 px / 2,
                 (y / 4) + 1,
@@ -229,6 +246,58 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<L
         text.put_text(0, h.saturating_sub(1) as i32, &bar);
     }
     dots.to_styled_lines(&text, opt.ascii, BRAILLE_FG)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn stroke_radial(
+    dots: &mut BrailleCanvas,
+    bp: usize,
+    n: usize,
+    origin: usize,
+    cx: f64,
+    cy: f64,
+    r: f64,
+    thickness: f64,
+    color: Color,
+) {
+    let steps = ((thickness * 2.0).ceil() as i32).max(1);
+    for s in 0..=steps {
+        let dr = -thickness + (f64::from(s) * (2.0 * thickness) / f64::from(steps).max(1.0));
+        let (px, py) = polar(bp, n, origin, cx, cy, r + dr);
+        dots.set_pixel_colored(px, py, Some(color));
+    }
+}
+
+fn backbone_color(record: &Record, bp: usize) -> Color {
+    record
+        .features
+        .iter()
+        .filter(|f| f.kind != "source" && f.contains_bp(bp))
+        .min_by_key(|f| f.len_on(record.len()))
+        .map(feature_paint_color)
+        .unwrap_or(BRAILLE_FG)
+}
+
+fn strand_arrow(bp: usize, total: usize, origin: usize, strand: i8) -> char {
+    let frac = ((bp + total - origin % total) % total) as f64 / total as f64;
+    let oct = ((frac * 8.0).round() as i32).rem_euclid(8) as usize;
+    // Clockwise (forward) arrows around the circle; reverse flips.
+    const CW: [char; 8] = ['▶', '▼', '▼', '◀', '◀', '▲', '▲', '▶'];
+    const CCW: [char; 8] = ['◀', '▲', '▲', '▶', '▶', '▼', '▼', '◀'];
+    if strand < 0 { CCW[oct] } else { CW[oct] }
+}
+
+fn format_bp(bp: usize) -> String {
+    if bp >= 1000 {
+        let k = bp as f64 / 1000.0;
+        if bp.is_multiple_of(1000) {
+            format!("{k:.0}k")
+        } else {
+            format!("{k:.1}k")
+        }
+    } else {
+        format!("{bp}")
+    }
 }
 
 fn labeled_resites(record: &Record, opt: &MapOptions) -> impl Iterator<Item = RestrictionHit> {

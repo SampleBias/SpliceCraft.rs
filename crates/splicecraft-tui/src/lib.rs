@@ -528,6 +528,34 @@ mod tests {
     }
 
     #[test]
+    fn circular_ring_is_feature_colored_not_plain_white() {
+        let rec = demo_record();
+        let lines = render_map_styled(
+            &rec,
+            &MapOptions {
+                width: 48,
+                height: 16,
+                circular: true,
+                show_labels: true,
+                ..MapOptions::default()
+            },
+        );
+        let cds = default_type_color("CDS").expect("CDS");
+        let misc = default_type_color("misc_feature").expect("misc");
+        let colored = lines.iter().any(|l| {
+            l.spans.iter().any(|s| {
+                let ch = s.content.chars().next().unwrap_or(' ');
+                let braille = ('\u{2800}'..='\u{28FF}').contains(&ch);
+                braille && (s.style.fg == Some(cds) || s.style.fg == Some(misc))
+            })
+        });
+        assert!(
+            colored,
+            "backbone braille must take feature colors, got {lines:?}"
+        );
+    }
+
+    #[test]
     fn wrap_feature_label_uses_wrap_midpoint() {
         let rec = demo_record();
         let wrap = rec
