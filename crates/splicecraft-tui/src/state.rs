@@ -253,6 +253,8 @@ pub struct AppState {
     pub hmm_catalog: Vec<HmmDbEntry>,
     /// Cancel token for an in-flight online poll.
     pub search_cancel: splicecraft_io::CancellationToken,
+    /// Full-screen DNA splash. Off in [`Self::new`] so workbench tests stay on the editor.
+    pub show_splash: bool,
 }
 
 /// Collision modal payload.
@@ -376,6 +378,7 @@ impl AppState {
             search_submitted: None,
             hmm_catalog: splicecraft_persist::builtin_hmm_db_catalog().to_vec(),
             search_cancel: splicecraft_io::CancellationToken::new(),
+            show_splash: false,
         }
     }
 
@@ -402,6 +405,9 @@ impl AppState {
     pub fn reduce(&mut self, action: Action) -> bool {
         match action {
             Action::Quit => return false,
+            Action::DismissSplash => {
+                self.show_splash = false;
+            }
             Action::ToggleHelp => {
                 self.toast = None;
                 if self.overlay == Overlay::Help {

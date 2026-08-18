@@ -25,6 +25,7 @@ mod editor;
 mod keys;
 mod mapimage;
 mod render;
+mod splash;
 mod state;
 mod theme;
 
@@ -39,6 +40,7 @@ pub use babs::{
 };
 pub use commands::{Command, filter_commands, palette_commands};
 pub use draw::draw_workbench;
+pub use splash::{compose_splash, draw_splash};
 pub use editor::{UNDO_LIMIT, UndoStack};
 pub use keys::{KEY_TABLE, KeyEntry, action_from_key};
 pub use mapimage::{
@@ -57,10 +59,12 @@ pub use theme::{
     resolve_feature_color, xterm_index_to_rgb,
 };
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
+
+use crate::splash::{HELIX_TICK_MS, helix_phase};
 
 /// Stage this crate currently satisfies (layout density).
 pub const IMPLEMENTATION_STAGE: u8 = 18;
@@ -73,10 +77,39 @@ pub fn crate_name() -> &'static str {
     env!("CARGO_PKG_NAME")
 }
 
+/// Options for [`run_with`].
+#[derive(Clone, Copy, Debug)]
+pub struct RunOptions {
+    /// Show the greyscale DNA splash until any key.
+    pub splash: bool,
+}
+
+impl Default for RunOptions {
+    fn default() -> Self {
+        Self {
+            splash: splash_enabled_from_env(),
+        }
+    }
+}
+
+/// `SPLICECRAFT_NO_SPLASH=1` skips the entry screen (tests / scripted runs).
+#[must_use]
+pub fn splash_enabled_from_env() -> bool {
+    !std::env::var("SPLICECRAFT_NO_SPLASH")
+        .ok()
+        .is_some_and(|v| matches!(v.trim(), "1" | "true" | "yes" | "on"))
+}
+
 /// Run the interactive TUI until Quit.
 pub fn run() -> std::io::Result<()> {
+    run_with(RunOptions::default())
+}
+
+/// Run the TUI with explicit splash / no-splash.
+pub fn run_with(opts: RunOptions) -> std::io::Result<()> {
     persist::authorize_writes("splicecraft-tui");
     let mut state = AppState::new();
+    state.show_splash = opts.splash;
     if let Ok(layout) = persist::DataLayout::resolve() {
         state.attach_layout(layout);
     }
@@ -87,11 +120,23 @@ pub fn run() -> std::io::Result<()> {
 }
 
 fn run_app(terminal: &mut DefaultTerminal, state: &mut AppState) -> std::io::Result<()> {
-    let mut dirty_since: Option<std::time::Instant> = None;
+    let mut dirty_since: Option<Instant> = None;
+    let splash_t0 = Instant::now();
     loop {
-        terminal.draw(|frame| draw_workbench(frame, state))?;
+        terminal.draw(|frame| {
+            if state.show_splash {
+                draw_splash(frame, helix_phase(splash_t0.elapsed().as_secs_f64()));
+            } else {
+                draw_workbench(frame, state);
+            }
+        })?;
         maybe_autosave(state, &mut dirty_since);
-        if !event::poll(Duration::from_millis(250))? {
+        let poll_ms = if state.show_splash {
+            HELIX_TICK_MS
+        } else {
+            250
+        };
+        if !event::poll(Duration::from_millis(poll_ms))? {
             continue;
         }
         match event::read()? {
@@ -100,7 +145,7 @@ fn run_app(terminal: &mut DefaultTerminal, state: &mut AppState) -> std::io::Res
                     break;
                 }
                 if state.dirty {
-                    dirty_since.get_or_insert_with(std::time::Instant::now);
+                    dirty_since.get_or_insert_with(Instant::now);
                 }
             }
             Event::Resize(_, _) => {}
@@ -355,6 +400,19 @@ mod tests {
         assert!(
             !text.to_ascii_lowercase().contains("python package"),
             "welcome must not present this as a Python wrapper:\n{text}"
+        );
+    }
+
+    #[test]
+    fn any_key_dismisses_splash() {
+        let mut state = AppState::new();
+        state.show_splash = true;
+        assert!(apply_key(&mut state, key(KeyCode::Char('x'))));
+        assert!(!state.show_splash, "splash should dismiss on any key");
+        state.show_splash = true;
+        assert!(
+            !apply_key(&mut state, ctrl('q')),
+            "Ctrl+Q still quits from the splash"
         );
     }
 

@@ -90,6 +90,9 @@ pub fn action_from_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     if has_ctrl(key, 'q') {
         return Some(Action::Quit);
     }
+    if state.show_splash {
+        return Some(Action::DismissSplash);
+    }
     match state.overlay {
         Overlay::Help => help_key(key),
         Overlay::Palette => palette_key(key),

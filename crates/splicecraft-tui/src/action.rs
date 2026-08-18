@@ -5,6 +5,8 @@
 pub enum Action {
     /// Leave the process. `q` / Esc / Ctrl+Q on the main view.
     Quit,
+    /// Dismiss the startup DNA splash and show the workbench.
+    DismissSplash,
     /// Open or close the `?` keyboard overlay.
     ToggleHelp,
     /// Dismiss help or the command palette.
