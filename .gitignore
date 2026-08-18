@@ -15,3 +15,7 @@ Cargo.lock.bak
 # Never commit user plasmid libraries or local data dirs
 .splicecraft-rs/
 scratch/
+
+# Local agent handoff — not published
+AGENTS.md
+CLAUDE.md

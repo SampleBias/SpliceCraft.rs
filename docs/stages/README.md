@@ -14,7 +14,6 @@ Ledger: [`STATUS.md`](STATUS.md).
 ## Rules
 
 - Implement **exactly one** open stage.
-- Read [`AGENTS.md`](../../AGENTS.md) and [`CLAUDE.md`](../../CLAUDE.md) first.
 - Fetch upstream Python with `gh`; do not vendor it.
 - Do not mark a stage done until its acceptance list is green.
 
