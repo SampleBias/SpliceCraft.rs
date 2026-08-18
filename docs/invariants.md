@@ -105,6 +105,24 @@ undo stack is a data-loss bug.
 **Rust home:** `splicecraft_tui::UndoStack` + `Record: Clone` that is deep.
 **Upstream:** `_push_undo` / `_action_undo` / `_action_redo`.
 
+## Named tests (stage 16 audit)
+
+Each core tag has at least one `invNN_*` test. Do not rename these without
+updating [`parity.md`](parity.md).
+
+| Tag | Named tests |
+|---|---|
+| [INV-01] | `splicecraft-bio`: `inv01_ecori_single_site_not_double_counted`, `inv01_palindrome_one_recut`, `inv01_three_ecori_sites`, `inv01_cut_count_badge`, `inv01_full_catalog_still_counts_ecori_once`, `inv01_planted_ecori_counted_once` |
+| [INV-02] | `splicecraft-bio`: `inv02_bsai_forward_and_reverse_coords`, `inv02_bsai_reverse_recut_off_by_one` |
+| [INV-03] | `splicecraft-bio`: `inv03_rc_acgt_ground_truth`, `inv03_each_iupac_code`, `inv03_rc_uppercases_and_preserves_len`, `inv03_rc_is_involutive` |
+| [INV-04] | `splicecraft-bio`: `inv04_plain_and_degenerate_patterns`, `inv04_cache_same_object`, `inv04_rejects_non_iupac` |
+| [INV-05] | `splicecraft-core`: `inv05_non_wrapped_midpoint`, `inv05_degenerate_returns_start`, `inv05_wrap_around`, `inv05_naive_formula_is_opposite_on_wrap`, `inv05_midpoint_lies_on_the_arc`, `inv05_half_and_more_than_half` |
+| [INV-06] | `splicecraft-bio`: `inv06_circular_wrap_ecori`, `inv06_wrap_type_iis_ext_and_rec_bounds`, `inv06_non_wrap_rec_bounds_equal_span`, `inv06_wrap_reverse_bsai` |
+| [INV-07] | `splicecraft-persist`: `inv07_bak_exists_after_second_save`, `inv07_crash_between_write_and_replace_leaves_previous_intact`, `inv07_shrink_refuse_does_not_overwrite_large_fixture_with_empty` |
+| [INV-08] | `splicecraft-core`: `inv08_feat_len_linear_and_wrap`, `inv08_sort_key_orders_wrap_features` |
+| [INV-09] | `splicecraft-core`: `inv09_wrap_survives_mid_arc_insert`, `inv09_insert_at_origin_keeps_wrap`, `inv09_linear_feature_shifts_after_upstream_insert`, `inv09_replace_consumes_feature` |
+| [INV-10] | `splicecraft-tui`: `inv10_edit_undo_is_deep_clone` |
+
 ## Standing contracts (from upstream pitfalls)
 
 These are not the core ten but agents must not regress them once the

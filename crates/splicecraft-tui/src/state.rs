@@ -965,8 +965,8 @@ impl AppState {
                 self.path_query.pop();
             }
             Action::PathSubmit => self.submit_path(),
-            Action::Stub { name, stage } => {
-                self.toast = Some(format!("{name} — not implemented until stage {stage:02}"));
+            Action::Stub { name, stage: _ } => {
+                self.toast = Some(format!("{name} — tracked gap; see docs/parity.md"));
             }
         }
         true

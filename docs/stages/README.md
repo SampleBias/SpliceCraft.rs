@@ -4,9 +4,8 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-**16 — Parity gate** is next.
-
-Stages 00–15 are done.
+Stages 00–16 are done. Post-1.0 work is ordinary issues
+([`docs/parity.md`](../parity.md)).
 
 Ledger: [`STATUS.md`](STATUS.md).
 

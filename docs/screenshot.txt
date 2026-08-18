@@ -1,0 +1,18 @@
+ SpliceCraft.rs  File  Settings  BLAST  Enzymes  Features  Primers  Mutato  Synt
+┌ Library ───────┐┌ Map ⊙ ───────────────────────────────┐┌ Features ──────────┐
+│[Main           ││                  wrap_ori            ││  orf  0..9  9 bp   │
+│Collection]     ││               ⣀⠴⠒⠚⡙⠒⠲⢄⡀              ││  wrap_ori  110..8  │
+│Empty collection││             ⢀⡜⠁ ⠠⠤⠪⠍  ⠙⣄             ││18 bp               │
+│— Alt+K keeps   ││             ⣸  pDemo   ⢸⡀            ││                    │
+│the loaded      ││             ⢳  120 bp  ⢰⠃            ││                    │
+│record.         ││             ⠘⢆        ⢀⠞             ││                    │
+│                ││              ⠈⠓⢤⣀⣀⢀⣀⣠⠔⠋              ││                    │
+│                ││                  ⠈⠉                  ││                    │
+└────────────────┘└──────────────────────────────────────┘└────────────────────┘
+┌ Sequence ────────────────────────────────────────────────────────────────────┐
+│0..78                                                                         │
+│--------=                                                                     │
+│ATGAAATAGATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCATGCA│
+│ M  K  *                                                                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+ pDemo (memory)  ·  circular  ·  120 bp  ·  stage 16  ·  Loaded memory-only demo

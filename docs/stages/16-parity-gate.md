@@ -1,6 +1,6 @@
 # Stage 16 — Parity gate
 
-**Status:** not started
+**Status:** done
 **Depends on:** 01–15
 **Primary crates:** all
 
@@ -37,12 +37,12 @@ All of [`docs/invariants.md`](../invariants.md).
 
 ## Acceptance
 
-- [ ] `docs/parity.md` exists and has no undocumented gaps
-- [ ] Every core invariant test still passes
-- [ ] No Python sources in git
-- [ ] README describes install via `cargo install --path crates/splicecraft`
+- [x] `docs/parity.md` exists and has no undocumented gaps
+- [x] Every core invariant test still passes
+- [x] No Python sources in git
+- [x] README describes install via `cargo install --path crates/splicecraft`
       (and/or crates.io later)
-- [ ] Welcome/about mentions SpliceCraft.rs, not the Python package name
+- [x] Welcome/about mentions SpliceCraft.rs, not the Python package name
       as if this were a wrapper
 
 ## Forbidden
@@ -53,10 +53,8 @@ All of [`docs/invariants.md`](../invariants.md).
 
 ## Handoff
 
-Post-1.0 work (perf budgets, extra grammars) is ordinary issues — not a
-new bootstrap stage.
+Post-1.0 work (perf budgets, extra grammars, remaining **gap** rows in
+[`docs/parity.md`](../parity.md)) is ordinary issues — not a new
+bootstrap stage.
 
-Known gap from stage 15: splice-site scoring + cassette assembler
-(`splicecraft_splice.py` / `splicecraft_cassette.py`) are not in this
-tree. Document them in `docs/parity.md` rather than treating them as
-silent omissions.
+Splice-site scoring + cassette assembler are listed in `docs/parity.md`.

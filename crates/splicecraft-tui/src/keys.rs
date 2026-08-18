@@ -51,7 +51,7 @@ pub const KEY_TABLE: &[KeyEntry] = &[
     },
     KeyEntry {
         keys: "f",
-        description: "Fetch NCBI (stage 13)",
+        description: "Fetch NCBI (tracked gap)",
     },
     KeyEntry {
         keys: "v / r / l",

@@ -19,9 +19,18 @@ check a box early.
 - [x] 13 Search
 - [x] 14 Agent API + CLI
 - [x] 15 Satellite features
-- [ ] 16 Parity gate
+- [x] 16 Parity gate
 
-**Next:** stage 16 (`docs/stages/16-parity-gate.md`).
+**Next:** none. Post-1.0 work is ordinary issues (see `docs/parity.md`).
+
+Stage 16 notes: `docs/parity.md` walks every upstream `docs/features.md`
+heading plus keybindings and agent-api groups. Intentional differences
+(data-dir leaf, Ratatui, no GPL primer3, HMMER fallback, first-wave
+agent registry) are listed first. Splice/cassette, sticky-cut tint,
+NCBI fetch chrome, EMBL/FASTQ/GFF3 import, and BABS/OT-2 extras are
+named gaps. Each [INV-01]…[INV-10] has an `invNN_*` test. README
+installs with `cargo install --path crates/splicecraft`. Welcome chrome
+is `SpliceCraft.rs`, not a Python wrapper.
 
 Stage 15 notes: publication map SVG/PNG uses one geometry pass (size
 300–6000, atomic write to a user-chosen path — not `safe_save_json`).
@@ -31,8 +40,8 @@ fixture deck; motion always requires `confirm`. Migrate zip is
 checksum-verified (`splicecraft-migrate.json` + `data/`). Master Delete
 needs the module sentinel, write authorisation, and a triple TUI
 confirm (default No, type DELETE, 3 s cooldown); the agent still has
-no wipe endpoint. Splice-site scoring / cassette assembler remains a
-tracked gap for stage 16.
+no wipe endpoint. Splice-site scoring / cassette assembler is a named
+gap in `docs/parity.md`.
 
 Stage 14 notes: axum serves `127.0.0.1` only (default port 6701).
 `/healthz` and `/tools` are unauthenticated and bare (no `data`

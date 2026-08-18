@@ -49,7 +49,7 @@ Do not commit fetched files.
 | `splicecraft_demo_plasmids.py` | fixtures under `crates/*/tests/data` (not Python) | 04 |
 | `splicecraft_splice.py` / `_splice_model.py` / `_cassette.py` | satellite (stage 15) | 15 |
 | `tests/test_dna_sanity.py` | `splicecraft-bio` unit + proptest | 01 |
-| `docs/features.md` | parity checklist | 16 |
+| `docs/features.md` | [`docs/parity.md`](parity.md) | 16 |
 | `docs/keybindings.md` | TUI keymap | 04, 05 |
 | `docs/agent-api.md` | agent surface | 14 |
 | `docs/data-safety.md` | persist behavior | 02 |

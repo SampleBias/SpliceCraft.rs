@@ -12,7 +12,9 @@ This is a behavioral reimplementation, not a transpile.
 ## How to work
 
 1. Open [`docs/stages/STATUS.md`](docs/stages/STATUS.md). The first stage that
-   is not `done` is the only stage you implement.
+   is not `done` is the only stage you implement. If every stage is done,
+   do not invent a stage 17 — remaining work is ordinary issues in
+   [`docs/parity.md`](docs/parity.md).
 2. Read that stage file end to end. Grep [`docs/invariants.md`](docs/invariants.md)
    and [`docs/upstream.md`](docs/upstream.md) for the tags it names.
 3. Fetch upstream Python **over the network** (`gh api` / raw GitHub). Do not

@@ -1,7 +1,7 @@
 //! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
 //! Simulator, Sequencing, Experiments, History, Search, satellites.
 //!
-//! Stage 15. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 16. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only. Map PNG/SVG writes use atomic user paths.
 
@@ -55,8 +55,8 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (satellites: map export, BABS, OT-2).
-pub const IMPLEMENTATION_STAGE: u8 = 15;
+/// Stage this crate currently satisfies (parity gate).
+pub const IMPLEMENTATION_STAGE: u8 = 16;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -200,6 +200,25 @@ mod tests {
     }
 
     #[test]
+    fn parity_doc_exists_and_documents_known_gaps() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let text = std::fs::read_to_string(root.join("docs/parity.md"))
+            .expect("docs/parity.md is the stage-16 checklist");
+        assert!(
+            text.contains("## Intentional differences"),
+            "parity.md must list intentional differences"
+        );
+        assert!(
+            text.contains("splice") && text.contains("cassette"),
+            "parity.md must document the splice/cassette gap"
+        );
+        assert!(
+            text.contains("[INV-01]") && text.contains("[INV-10]"),
+            "parity.md must audit the core ten invariants"
+        );
+    }
+
+    #[test]
     fn welcome_frame_paints_title() {
         let text = draw_text(60, 16, &AppState::new());
         assert!(
@@ -207,9 +226,38 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 15"),
+            text.contains("stage 16"),
             "status bar missing stage, got:\n{text}"
         );
+        assert!(
+            !text.to_ascii_lowercase().contains("python package"),
+            "welcome must not present this as a Python wrapper:\n{text}"
+        );
+    }
+
+    #[test]
+    fn workbench_about_is_splicecraft_rs() {
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        let text = draw_text(80, 18, &state);
+        assert!(
+            text.contains(WELCOME_TITLE),
+            "menu bar must say SpliceCraft.rs:\n{text}"
+        );
+        assert!(
+            text.contains("stage 16"),
+            "status bar must show the parity-gate stage:\n{text}"
+        );
+        let lower = text.to_ascii_lowercase();
+        assert!(
+            !lower.contains("python package") && !lower.contains("pyo3"),
+            "must not present as a Python wrapper:\n{text}"
+        );
+        if std::env::var_os("SPLICECRAFT_WRITE_SCREENSHOT").is_some() {
+            let dest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../docs/screenshot.txt");
+            std::fs::write(&dest, &text).expect("write docs/screenshot.txt");
+        }
     }
 
     #[test]
@@ -392,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    fn edit_undo_is_deep_clone() {
+    fn inv10_edit_undo_is_deep_clone() {
         let mut state = AppState::new();
         state.reduce(Action::LoadDemo);
         let original = state.record.clone().unwrap();

@@ -6,18 +6,29 @@ workbench. This is an independent **Rust + Ratatui** rewrite of
 (Python + Textual). Behavioral spec and sacred biology come from that project;
 the code here is original Rust.
 
-**Status:** stages 00–15 done (workspace, sacred biology, persist, file I/O,
-Ratatui chrome, map + sequence editor, plasmid library, enzymes + primers,
-cloning workbench, Mutato + codon + synthesis, Simulator + gels, Sequencing,
-Experiments + History, Search, localhost agent API + CLI, satellites:
-map export, BABS, OT-2, migrate, Master Delete). Stage 16 is the parity
-gate. Splice/cassette scoring is a tracked gap.
-See [`docs/stages/README.md`](docs/stages/README.md).
+**Status:** stages 00–16 done. Feature checklist: [`docs/parity.md`](docs/parity.md).
+Splice/cassette scoring and a few Textual-only extras remain tracked gaps —
+they are listed there, not silently omitted.
 
-## Quick start
+## Install
+
+From a checkout:
+
+```bash
+cargo install --path crates/splicecraft
+splicecraft
+```
+
+Or run without installing:
 
 ```bash
 cargo run -p splicecraft        # map + sequence editor (? help, Ctrl+K, q / Esc quit)
+```
+
+Requires Rust 1.88+ (Ratatui 0.30). crates.io publication is later; the
+install path above is the supported one.
+
+```bash
 cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -29,7 +40,12 @@ cargo run -p splicecraft -- --headless --agent-port 6701   # localhost API only
 cargo run -p splicecraft-cli -- call list-library
 ```
 
-Requires Rust 1.88+ (Ratatui 0.30).
+## Screenshot
+
+[`docs/screenshot.txt`](docs/screenshot.txt) is an 80×18 TestBackend capture
+of the workbench after **Load demo plasmid** (title `SpliceCraft.rs`,
+status `stage 16`). Braille maps look right in a real terminal; regenerate
+with `SPLICECRAFT_WRITE_SCREENSHOT=1 cargo test -p splicecraft-tui --lib workbench_about`.
 
 ## What this is not
 
@@ -61,6 +77,7 @@ Requires Rust 1.88+ (Ratatui 0.30).
 - [`AGENTS.md`](AGENTS.md) — how to pick and finish a stage
 - [`CLAUDE.md`](CLAUDE.md) — sacred rules (data dir, biology, no Python)
 - [`docs/invariants.md`](docs/invariants.md) — numbered invariants in Rust names
+- [`docs/parity.md`](docs/parity.md) — upstream feature checklist (done / gap / intentional)
 - [`docs/upstream.md`](docs/upstream.md) — Python file → crate map + permalinks
 - [`docs/stages/`](docs/stages/) — the build contract
 

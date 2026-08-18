@@ -159,11 +159,11 @@ pub enum Action {
     PathBackspace,
     /// Submit the path prompt.
     PathSubmit,
-    /// Tool that is chrome-only until a later stage.
+    /// Tool that is a documented post-1.0 gap (`docs/parity.md`).
     Stub {
         /// Palette / menu title (no sequence content).
         name: &'static str,
-        /// Stage that will implement the handler.
+        /// Historical stage hint (unused; gaps are listed in `docs/parity.md`).
         stage: u8,
     },
 }

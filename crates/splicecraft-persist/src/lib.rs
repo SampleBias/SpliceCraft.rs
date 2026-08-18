@@ -238,7 +238,7 @@ mod tests {
     }
 
     #[test]
-    fn bak_exists_after_second_save() {
+    fn inv07_bak_exists_after_second_save() {
         let (tmp, _) = sandbox();
         let p = tmp.path().join("test.json");
         safe_save_json(&p, &[json!({"id": "first"})], "test").unwrap();
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn crash_between_write_and_replace_leaves_previous_intact() {
+    fn inv07_crash_between_write_and_replace_leaves_previous_intact() {
         let (tmp, _) = sandbox();
         let p = tmp.path().join("lib.json");
         safe_save_json(&p, &[json!({"id": "good"})], "test").unwrap();
@@ -265,7 +265,7 @@ mod tests {
     }
 
     #[test]
-    fn shrink_refuse_does_not_overwrite_large_fixture_with_empty() {
+    fn inv07_shrink_refuse_does_not_overwrite_large_fixture_with_empty() {
         let (tmp, _) = sandbox();
         let p = tmp.path().join("lib.json");
         safe_save_json(&p, &entries(20), "library").unwrap();
