@@ -4,8 +4,10 @@ Each file in this directory is a **contract** for one agent session.
 
 ## Current stage
 
-Stages 00–16 are done. Post-1.0 work is ordinary issues
-([`docs/parity.md`](../parity.md)).
+Stages 00–16 (parity gate) are done. Open the first unchecked stage in
+[`STATUS.md`](STATUS.md). UI polish stages **17–20** follow
+[`docs/theme.md`](../theme.md); other gaps stay in
+[`docs/parity.md`](../parity.md).
 
 Ledger: [`STATUS.md`](STATUS.md).
 
@@ -37,6 +39,10 @@ Ledger: [`STATUS.md`](STATUS.md).
 | 14 | [14-agent-api-cli.md](14-agent-api-cli.md) | `agent` + `cli` |
 | 15 | [15-satellites.md](15-satellites.md) | map export, BABS, OT-2, migrate |
 | 16 | [16-parity-gate.md](16-parity-gate.md) | feature checklist |
+| 17 | [17-theme-chrome.md](17-theme-chrome.md) | theme + colored map/seq |
+| 18 | [18-layout-density.md](18-layout-density.md) | pane sizes + overlays |
+| 19 | [19-interaction-keys.md](19-interaction-keys.md) | keys + menu activation |
+| 20 | [20-mouse-polish.md](20-mouse-polish.md) | mouse + sticky-cut |
 
 ## Stage file template
 

@@ -6,13 +6,17 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
+use crate::WELCOME_TITLE;
 use crate::action::{FocusMode, Overlay, Pane, PathKind};
 use crate::keys::KEY_TABLE;
-use crate::render::{MapOptions, SeqView, render_map, render_sequence};
+use crate::render::{MapOptions, SeqView, render_map_styled, render_sequence_styled};
 use crate::state::AppState;
-use crate::{IMPLEMENTATION_STAGE, WELCOME_TITLE};
+use crate::theme::{
+    BORDER_DIM, DANGER, ENZYME_ACCENT, FOCUS_BG, FOOTER_SHORTCUTS, PANEL_BG, PRIMARY, PRIMARY_DARK,
+    TEXT, TEXT_ON_PRIMARY, WARN, feature_paint_color,
+};
 
-/// Menu labels matching upstream `MenuBar.MENUS` (tools are stubs).
+/// Menu labels matching upstream `MenuBar.MENUS`.
 const MENUS: &[&str] = &[
     "File",
     "Settings",
@@ -42,7 +46,7 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
     ])
     .split(area);
 
-    draw_menu(frame, chunks[0]);
+    draw_menu(frame, chunks[0], state);
     draw_body(frame, chunks[1], state);
     draw_status(frame, chunks[2], state);
 
@@ -71,21 +75,42 @@ pub fn draw_workbench(frame: &mut Frame<'_>, state: &AppState) {
     }
 }
 
-fn draw_menu(frame: &mut Frame<'_>, area: Rect) {
-    let items = MENUS.join("  ");
-    let line = Line::from(vec![
+fn draw_menu(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
+    let mut spans = vec![
         Span::styled(
             format!(" {WELCOME_TITLE} "),
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(TEXT_ON_PRIMARY)
+                .bg(PRIMARY)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::raw(" "),
-        Span::styled(items, Style::default().fg(Color::Gray)),
-    ]);
+    ];
+    // Highlight first menu as a visual "live" tab affordance (activation in stage 19).
+    let active = match state.focus {
+        Pane::Library => 0usize,
+        Pane::Map => 0,
+        Pane::Features => 4,
+        Pane::Sequence => 0,
+    };
+    for (i, name) in MENUS.iter().enumerate() {
+        if i == active {
+            spans.push(Span::styled(
+                format!(" {name} "),
+                Style::default()
+                    .fg(TEXT_ON_PRIMARY)
+                    .bg(PRIMARY)
+                    .add_modifier(Modifier::BOLD),
+            ));
+        } else {
+            spans.push(Span::styled(
+                format!(" {name} "),
+                Style::default().fg(Color::Rgb(160, 200, 220)),
+            ));
+        }
+    }
     frame.render_widget(
-        Paragraph::new(line).style(Style::default().bg(Color::Black)),
+        Paragraph::new(Line::from(spans)).style(Style::default().bg(PRIMARY_DARK)),
         area,
     );
 }
@@ -141,35 +166,30 @@ fn draw_pane(frame: &mut Frame<'_>, area: Rect, pane: Pane, state: &AppState, fo
         Pane::Features => "Features",
         Pane::Sequence => "Sequence",
     };
-    let border = if focused {
-        Color::Cyan
-    } else {
-        Color::DarkGray
-    };
+    let border = if focused { PRIMARY } else { BORDER_DIM };
     let block = Block::default()
         .title(format!(" {title} "))
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(border));
+        .border_style(Style::default().fg(border))
+        .style(Style::default().bg(if focused { FOCUS_BG } else { PANEL_BG }));
     let inner = block.inner(area);
     frame.render_widget(block, area);
     if inner.width == 0 || inner.height == 0 {
         return;
     }
     let body = pane_body(pane, state, inner.width as usize, inner.height as usize);
-    frame.render_widget(
-        Paragraph::new(body)
-            .style(Style::default().fg(Color::Gray))
-            .wrap(Wrap { trim: false }),
-        inner,
-    );
+    frame.render_widget(Paragraph::new(body).wrap(Wrap { trim: false }), inner);
 }
 
-fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> String {
+fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Vec<Line<'static>> {
     match pane {
         Pane::Library => library_pane(state),
         Pane::Map => match &state.record {
-            None => "Empty canvas — no plasmid loaded.\nCtrl+K · Load demo plasmid".into(),
-            Some(rec) => render_map(
+            None => vec![Line::from(Span::styled(
+                "Empty canvas — no plasmid loaded.  Ctrl+K · Load demo plasmid",
+                Style::default().fg(TEXT),
+            ))],
+            Some(rec) => render_map_styled(
                 rec,
                 &MapOptions {
                     width,
@@ -185,16 +205,18 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
                     extra_enzymes: state.custom_for_scan(),
                     align_segments: state.seq_segments.clone(),
                 },
-            )
-            .join("\n"),
+            ),
         },
         Pane::Features => features_pane(state),
         Pane::Sequence => match &state.record {
-            None => "Sequence panel — empty.".into(),
+            None => vec![Line::from(Span::styled(
+                "Sequence panel — empty.",
+                Style::default().fg(TEXT),
+            ))],
             Some(rec) => {
                 let w = width.max(8);
                 let start = state.cursor.saturating_sub(w / 4);
-                render_sequence(
+                render_sequence_styled(
                     rec,
                     &SeqView {
                         width: w,
@@ -202,54 +224,103 @@ fn pane_body(pane: Pane, state: &AppState, width: usize, height: usize) -> Strin
                         cursor: state.cursor,
                     },
                 )
-                .join("\n")
             }
         },
     }
 }
 
-fn library_pane(state: &AppState) -> String {
-    let mut lines = vec![format!("[{}]", state.library.active)];
+fn library_pane(state: &AppState) -> Vec<Line<'static>> {
+    let mut lines = vec![Line::from(Span::styled(
+        format!("[{}]", state.library.active),
+        Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+    ))];
     if state.library.plasmids.is_empty() {
-        lines.push("Empty collection — Alt+K keeps the loaded record.".into());
+        lines.push(Line::from(Span::styled(
+            "Empty collection — Alt+K keeps the loaded record.",
+            Style::default().fg(TEXT),
+        )));
     } else {
         for (i, e) in state.library.plasmids.iter().enumerate() {
-            let mark = if state.selected_lib == i { ">" } else { " " };
             let seq = crate::io::library_entry_alignment_summary(&e.alignments)
                 .map(|s| format!("  {}", s.glyph()))
                 .unwrap_or_default();
-            lines.push(format!("{mark} {}  {} bp{seq}", e.name, e.size));
+            let label = format!(" {}  {} bp{seq} ", e.name, e.size);
+            if state.selected_lib == i {
+                lines.push(Line::from(Span::styled(
+                    label,
+                    Style::default()
+                        .fg(TEXT_ON_PRIMARY)
+                        .bg(PRIMARY)
+                        .add_modifier(Modifier::BOLD),
+                )));
+            } else {
+                lines.push(Line::from(Span::styled(
+                    label,
+                    Style::default().fg(Color::White),
+                )));
+            }
         }
     }
-    lines.join("\n")
+    lines
 }
 
-fn features_pane(state: &AppState) -> String {
+fn features_pane(state: &AppState) -> Vec<Line<'static>> {
     match &state.record {
-        None => "No features.".into(),
+        None => vec![Line::from(Span::styled(
+            "No features.",
+            Style::default().fg(TEXT),
+        ))],
         Some(rec) => {
-            let mut lines = Vec::new();
+            let mut lines = vec![Line::from(vec![
+                Span::styled(
+                    format!("{:<14}", "Type"),
+                    Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    "Label",
+                    Style::default().fg(PRIMARY).add_modifier(Modifier::BOLD),
+                ),
+            ])];
             for (i, f) in rec.features.iter().enumerate() {
-                let mark = if state.selected_feat == Some(i) {
-                    ">"
-                } else {
-                    " "
-                };
-                lines.push(format!(
-                    "{mark} {}  {}..{}  {} bp",
+                if f.kind == "source" {
+                    continue;
+                }
+                let color = feature_paint_color(f);
+                let selected = state.selected_feat == Some(i);
+                let type_txt = format!("{:<14}", truncate_str(&f.kind, 12));
+                let label_txt = format!(
+                    "{}  {}..{}  {} bp",
                     f.label,
                     f.start,
                     f.end,
                     f.len_on(rec.len())
-                ));
+                );
+                let style = if selected {
+                    Style::default()
+                        .fg(TEXT_ON_PRIMARY)
+                        .bg(color)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(color)
+                };
+                lines.push(Line::from(vec![
+                    Span::styled(type_txt, style),
+                    Span::styled(label_txt, style),
+                ]));
             }
-            if lines.is_empty() {
-                "No features.".into()
-            } else {
-                lines.join("\n")
+            if lines.len() == 1 {
+                lines.push(Line::from(Span::styled(
+                    "No features.",
+                    Style::default().fg(TEXT),
+                )));
             }
+            lines
         }
     }
+}
+
+fn truncate_str(s: &str, max: usize) -> String {
+    s.chars().take(max.max(1)).collect()
 }
 
 fn draw_status(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
@@ -260,16 +331,15 @@ fn draw_status(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
         ),
         None => ("—", "— bp".into()),
     };
-    let hint = state
-        .toast
-        .as_deref()
-        .unwrap_or("? help  ^K palette  q quit");
-    let text = format!(
-        " {}  ·  {topo}  ·  {bp}  ·  stage {IMPLEMENTATION_STAGE:02}  ·  {hint} ",
-        state.source_label
-    );
+    let hint = state.toast.as_deref().unwrap_or(FOOTER_SHORTCUTS);
+    let text = format!(" {}  ·  {topo}  ·  {bp}  ·  {hint} ", state.source_label);
     frame.render_widget(
-        Paragraph::new(text).style(Style::default().fg(Color::Black).bg(Color::Cyan)),
+        Paragraph::new(text).style(
+            Style::default()
+                .fg(TEXT_ON_PRIMARY)
+                .bg(PRIMARY)
+                .add_modifier(Modifier::BOLD),
+        ),
         area,
     );
 }
@@ -297,7 +367,7 @@ fn draw_help(frame: &mut Frame<'_>, area: Rect) {
     let block = Block::default()
         .title(" Help ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -330,7 +400,7 @@ fn draw_palette(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Command palette ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -356,7 +426,7 @@ fn draw_collision(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Collision ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::default().fg(WARN));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -385,7 +455,7 @@ fn draw_path(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Path ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -412,7 +482,7 @@ fn draw_primer_design(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Primers ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -439,7 +509,7 @@ fn draw_primer_check(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Primer check ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -481,7 +551,7 @@ fn draw_enzymes(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Enzymes ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -524,7 +594,7 @@ fn draw_constructor(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Constructor ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -565,7 +635,7 @@ fn draw_mutato(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Mutato ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -604,7 +674,7 @@ fn draw_synthesis(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Synthesis ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -658,7 +728,7 @@ fn draw_simulator(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Simulator ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -732,7 +802,7 @@ fn draw_sequencing(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Sequencing ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -808,7 +878,7 @@ fn draw_experiments(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Experiments ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -832,7 +902,7 @@ fn draw_history(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
                 "  ⚠ {} recorded detail(s) the sequence doesn't support",
                 state.hist_warnings.len()
             ),
-            Style::default().fg(Color::Yellow),
+            Style::default().fg(WARN),
         )));
         for w in state.hist_warnings.iter().take(3) {
             lines.push(Line::from(format!("  {w}")));
@@ -849,7 +919,7 @@ fn draw_history(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" History ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -907,7 +977,7 @@ fn draw_search(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" BLAST ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -945,7 +1015,7 @@ fn draw_parts(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Parts ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -982,7 +1052,7 @@ fn draw_settings(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Settings ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(PRIMARY));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 
@@ -1005,7 +1075,7 @@ fn draw_babs(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" BABS ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(ENZYME_ACCENT));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -1042,7 +1112,7 @@ fn draw_autolab(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" AUTOLAB ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::default().fg(WARN));
     frame.render_widget(
         Paragraph::new(lines).block(block).wrap(Wrap { trim: true }),
         box_area,
@@ -1066,7 +1136,7 @@ fn draw_master_delete(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let lines = vec![
         Line::from(Span::styled(
             "Master Delete — wipe SpliceCraft.rs data",
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            Style::default().fg(DANGER).add_modifier(Modifier::BOLD),
         )),
         Line::from("  This does not touch the Python ~/.local/share/splicecraft/ dir."),
         Line::from("  Default focus is No. There is no keyboard shortcut to open this."),
@@ -1089,7 +1159,7 @@ fn draw_master_delete(frame: &mut Frame<'_>, area: Rect, state: &AppState) {
     let block = Block::default()
         .title(" Master Delete ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Red));
+        .border_style(Style::default().fg(DANGER));
     frame.render_widget(Paragraph::new(lines).block(block), box_area);
 }
 

@@ -50,7 +50,9 @@ Do not commit fetched files.
 | `splicecraft_splice.py` / `_splice_model.py` / `_cassette.py` | satellite (stage 15) | 15 |
 | `tests/test_dna_sanity.py` | `splicecraft-bio` unit + proptest | 01 |
 | `docs/features.md` | [`docs/parity.md`](parity.md) | 16 |
-| `docs/keybindings.md` | TUI keymap | 04, 05 |
+| `docs/keybindings.md` | TUI keymap | 04, 05, 19 |
+| `_DEFAULT_TYPE_COLORS` / `_FEATURE_PALETTE` | [`docs/theme.md`](theme.md) + `splicecraft-tui` theme | 17 |
+| `PlasmidApp.CSS` panel sizes | layout constraints in `draw.rs` | 18 |
 | `docs/agent-api.md` | agent surface | 14 |
 | `docs/data-safety.md` | persist behavior | 02 |
 

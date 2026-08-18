@@ -21,7 +21,21 @@ check a box early.
 - [x] 15 Satellite features
 - [x] 16 Parity gate
 
-**Next:** none. Post-1.0 work is ordinary issues (see `docs/parity.md`).
+**Next:** 18 Layout density + overlay polish (see `docs/theme.md`).
+
+UI polish track (post parity gate):
+
+- [x] 17 Theme + colored chrome
+- [ ] 18 Layout density + overlay polish
+- [ ] 19 Interaction keys + menu activation
+- [ ] 20 Mouse + remaining polish
+
+Stage 17 notes: `docs/theme.md` is the visual contract. `splicecraft_tui::theme`
+ports `_DEFAULT_TYPE_COLORS` + `_FEATURE_PALETTE` resolve order. Map/sequence
+paint via `render_*_styled`; feature sidebar Type|Label uses resolved colors;
+library selection is primary-on-dark; menu bar has a live highlight chip;
+footer is the shortcut strip (no `stage NN` chrome). Layout percentages are
+unchanged until stage 18.
 
 Stage 16 notes: `docs/parity.md` walks every upstream `docs/features.md`
 heading plus keybindings and agent-api groups. Intentional differences

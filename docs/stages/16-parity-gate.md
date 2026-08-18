@@ -53,8 +53,8 @@ All of [`docs/invariants.md`](../invariants.md).
 
 ## Handoff
 
-Post-1.0 work (perf budgets, extra grammars, remaining **gap** rows in
-[`docs/parity.md`](../parity.md)) is ordinary issues — not a new
-bootstrap stage.
+UI polish continues in stages **17–20** ([`docs/theme.md`](../theme.md)).
+Other post-1.0 work (perf budgets, extra grammars, remaining **gap** rows in
+[`docs/parity.md`](../parity.md)) stays ordinary issues after stage 20.
 
 Splice-site scoring + cassette assembler are listed in `docs/parity.md`.

@@ -56,9 +56,9 @@ Every core tag has a named `invNN_*` test. Table: [`invariants.md`](invariants.m
 
 | Heading | Status | Notes |
 |---|---|---|
-| Braille circular / linear maps | **done** | `render_map`; `v` toggles linear. ASCII density ramp is the documented fallback. |
+| Braille circular / linear maps | **done** | `render_map` / `render_map_styled`; feature labels colored (stage 17). `v` toggles linear. ASCII density ramp is the documented fallback. |
 | Export map as PNG / SVG | **done** | One geometry pass; size 300–6000; atomic write to a **user-chosen** path (not `safe_save_json`). PNG anti-aliasing is **intentional** (no LANCZOS super-sample). |
-| Per-base sequence panel | **done** | Two-strand, wrap-aware feature lane, CDS AA at codon midpoint. |
+| Per-base sequence panel | **done** | Two-strand, wrap-aware feature lane, CDS AA (green) at codon midpoint; bases tinted by enclosing feature (stage 17). |
 | Per-strand sticky-cut tint | **gap** | Deferred since stage 05 (upstream/downstream blue/red on click). Restriction overlay ticks and unique / 6+ filters are **done**. |
 | 200+ NEB enzymes + Type IIS | **done** | Stage 07 catalog; `r` / `u` / `6`; collection cycle `[` / `]`. |
 
@@ -315,5 +315,8 @@ called out as **gap** above (NCBI fetch, New Plasmid, mark-cycle export).
 
 ## Post-1.0
 
-Closing a **gap** is an ordinary issue, not a new `docs/stages/` file.
+UI chrome / color landed in stage **17** ([`docs/theme.md`](theme.md)). Layout
+(**18**), keys (**19**), and mouse (**20**) remain open in
+[`docs/stages/STATUS.md`](stages/STATUS.md). Other gaps remain ordinary issues
+(no stage 21+ unless explicitly opened).
 Do not add a Python compatibility module. Do not share the Python XDG leaf.

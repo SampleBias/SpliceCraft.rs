@@ -1,5 +1,8 @@
 //! Braille / ASCII sub-cell canvas. Port of upstream `_BrailleCanvas`.
 
+use ratatui::style::{Color, Style};
+use ratatui::text::{Line, Span};
+
 const DOT_BITS: [[u8; 2]; 4] = [[0, 3], [1, 4], [2, 5], [6, 7]];
 const ASCII_RAMP: &[u8] = b" .:-=+*#@";
 
@@ -9,6 +12,7 @@ pub struct CharCanvas {
     width: usize,
     height: usize,
     chars: Vec<Vec<char>>,
+    colors: Vec<Vec<Option<Color>>>,
 }
 
 impl CharCanvas {
@@ -18,21 +22,32 @@ impl CharCanvas {
             width,
             height,
             chars: vec![vec![' '; width]; height],
+            colors: vec![vec![None; width]; height],
         }
     }
 
+    #[allow(dead_code)] // plain put kept for mapimage / future ASCII helpers
     pub fn put(&mut self, col: i32, row: i32, ch: char) {
+        self.put_colored(col, row, ch, None);
+    }
+
+    pub fn put_colored(&mut self, col: i32, row: i32, ch: char, color: Option<Color>) {
         if col >= 0 && row >= 0 {
             let (c, r) = (col as usize, row as usize);
             if c < self.width && r < self.height {
                 self.chars[r][c] = ch;
+                self.colors[r][c] = color;
             }
         }
     }
 
     pub fn put_text(&mut self, col: i32, row: i32, text: &str) {
+        self.put_text_colored(col, row, text, None);
+    }
+
+    pub fn put_text_colored(&mut self, col: i32, row: i32, text: &str, color: Option<Color>) {
         for (i, ch) in text.chars().enumerate() {
-            self.put(col + i as i32, row, ch);
+            self.put_colored(col + i as i32, row, ch, color);
         }
     }
 }
@@ -70,29 +85,69 @@ impl BrailleCanvas {
 
     /// Overlay `text` on braille (or the ASCII density ramp).
     #[must_use]
+    #[allow(dead_code)] // plain-string path; styled maps call `to_styled_lines`
     pub fn to_lines(&self, text: &CharCanvas, ascii: bool) -> Vec<String> {
+        self.to_styled_lines(text, ascii, Color::DarkGray)
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|s| s.content.into_owned())
+                    .collect::<String>()
+            })
+            .collect()
+    }
+
+    /// Same geometry as [`Self::to_lines`], with per-cell label colors.
+    #[must_use]
+    pub fn to_styled_lines(
+        &self,
+        text: &CharCanvas,
+        ascii: bool,
+        braille_fg: Color,
+    ) -> Vec<Line<'static>> {
         let rows = self.rows.min(text.height);
         let cols = self.cols.min(text.width);
         let mut lines = Vec::with_capacity(rows);
         for row in 0..rows {
-            let mut s = String::with_capacity(cols);
+            let mut spans: Vec<Span<'static>> = Vec::new();
+            let mut run = String::new();
+            let mut run_style = Style::default().fg(braille_fg);
+            let flush = |spans: &mut Vec<Span<'static>>, run: &mut String, style: Style| {
+                if !run.is_empty() {
+                    spans.push(Span::styled(std::mem::take(run), style));
+                }
+            };
             for col in 0..cols {
                 let tc = text.chars[row][col];
-                if tc != ' ' {
-                    s.push(tc);
+                let (ch, style) = if tc != ' ' {
+                    let fg = text.colors[row][col].unwrap_or(Color::White);
+                    (tc, Style::default().fg(fg))
                 } else {
                     let bits = self.bits[row][col];
-                    if bits == 0 {
-                        s.push(' ');
+                    let ch = if bits == 0 {
+                        ' '
                     } else if ascii {
                         let pop = bits.count_ones() as usize;
-                        s.push(ASCII_RAMP[pop.min(8)] as char);
+                        ASCII_RAMP[pop.min(8)] as char
                     } else {
-                        s.push(char::from_u32(0x2800 + u32::from(bits)).unwrap_or(' '));
-                    }
+                        char::from_u32(0x2800 + u32::from(bits)).unwrap_or(' ')
+                    };
+                    (ch, Style::default().fg(braille_fg))
+                };
+                if run.is_empty() {
+                    run.push(ch);
+                    run_style = style;
+                } else if style == run_style {
+                    run.push(ch);
+                } else {
+                    flush(&mut spans, &mut run, run_style);
+                    run.push(ch);
+                    run_style = style;
                 }
             }
-            lines.push(s);
+            flush(&mut spans, &mut run, run_style);
+            lines.push(Line::from(spans));
         }
         lines
     }

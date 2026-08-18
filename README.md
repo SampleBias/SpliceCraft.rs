@@ -44,7 +44,7 @@ cargo run -p splicecraft-cli -- call list-library
 
 [`docs/screenshot.txt`](docs/screenshot.txt) is an 80×18 TestBackend capture
 of the workbench after **Load demo plasmid** (title `SpliceCraft.rs`,
-status `stage 16`). Braille maps look right in a real terminal; regenerate
+theme chrome (stage 17+). Braille maps look right in a real terminal; regenerate
 with `SPLICECRAFT_WRITE_SCREENSHOT=1 cargo test -p splicecraft-tui --lib workbench_about`.
 
 ## What this is not

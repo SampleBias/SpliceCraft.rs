@@ -1,7 +1,7 @@
 //! Ratatui workbench: map, sequence editor, help, palette, cloning, Mutato,
 //! Simulator, Sequencing, Experiments, History, Search, satellites.
 //!
-//! Stage 16. Event → [`Action`] → [`AppState::reduce`] → draw.
+//! Stage 17. Event → [`Action`] → [`AppState::reduce`] → draw.
 //! Library writes go through `safe_save_json`. Crash-recovery autosave
 //! uses the persist chokepoint only. Map PNG/SVG writes use atomic user paths.
 
@@ -26,6 +26,7 @@ mod keys;
 mod mapimage;
 mod render;
 mod state;
+mod theme;
 
 pub use action::{
     Action, CollisionChoice, ConstructorTab, DesignKind, ExperimentsTab, FocusMode, HistoryTab,
@@ -46,17 +47,22 @@ pub use mapimage::{
     render_plasmid_map_svg, svg_is_well_formed,
 };
 pub use render::{
-    MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_sequence,
+    MapOptions, SeqView, feature_label_bp, lines_contain_braille, render_map, render_map_styled,
+    render_sequence, render_sequence_styled,
 };
 pub use state::{AppState, MASTER_DELETE_CONFIRM_COOLDOWN, demo_record};
+pub use theme::{
+    AA_GREEN, DEFAULT_TYPE_COLORS, FEATURE_PALETTE_XTERM, FOOTER_SHORTCUTS, default_type_color,
+    feature_paint_color, parse_color_input, resolve_feature_color, xterm_index_to_rgb,
+};
 
 use std::time::Duration;
 
 use ratatui::crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 use ratatui::{DefaultTerminal, Frame};
 
-/// Stage this crate currently satisfies (parity gate).
-pub const IMPLEMENTATION_STAGE: u8 = 16;
+/// Stage this crate currently satisfies (theme chrome).
+pub const IMPLEMENTATION_STAGE: u8 = 17;
 
 /// Title painted on the menu bar and help overlay.
 pub const WELCOME_TITLE: &str = "SpliceCraft.rs";
@@ -190,6 +196,79 @@ mod tests {
     }
 
     #[test]
+    fn theme_doc_exists() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let text = std::fs::read_to_string(root.join("docs/theme.md"))
+            .expect("docs/theme.md is the stage-17 contract");
+        assert!(text.contains("_DEFAULT_TYPE_COLORS") || text.contains("CDS"));
+        assert!(text.contains("17"));
+    }
+
+    #[test]
+    fn styled_map_and_sidebar_use_feature_colors() {
+        let rec = demo_record();
+        let lines = render_map_styled(
+            &rec,
+            &MapOptions {
+                width: 48,
+                height: 16,
+                show_labels: true,
+                ..MapOptions::default()
+            },
+        );
+        let cds = default_type_color("CDS").expect("CDS color");
+        let misc = default_type_color("misc_feature").expect("misc color");
+        let has_cds = lines.iter().any(|l| {
+            l.spans
+                .iter()
+                .any(|s| s.style.fg == Some(cds) && s.content.contains('o'))
+        });
+        let has_misc = lines.iter().any(|l| {
+            l.spans
+                .iter()
+                .any(|s| s.style.fg == Some(misc) && !s.content.trim().is_empty())
+        });
+        assert!(
+            has_cds || has_misc,
+            "map labels must carry feature colors, got {lines:?}"
+        );
+
+        let mut state = AppState::new();
+        state.reduce(Action::LoadDemo);
+        let backend = TestBackend::new(100, 28);
+        let mut terminal = Terminal::new(backend).expect("term");
+        terminal
+            .draw(|frame| draw_workbench(frame, &state))
+            .expect("draw");
+        let buf = terminal.backend().buffer();
+        let mut saw_non_gray_feat = false;
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                let cell = &buf[(x, y)];
+                let sym = cell.symbol();
+                if (sym.contains("CDS") || sym.contains("orf") || sym.contains("misc"))
+                    && cell.style().fg != Some(ratatui::style::Color::Gray)
+                    && cell.style().fg.is_some()
+                {
+                    saw_non_gray_feat = true;
+                }
+                // Also accept orange CDS / teal misc RGB on any glyph in features pane.
+                if matches!(
+                    cell.style().fg,
+                    Some(ratatui::style::Color::Rgb(255, 165, 0))
+                        | Some(ratatui::style::Color::Rgb(32, 178, 170))
+                ) {
+                    saw_non_gray_feat = true;
+                }
+            }
+        }
+        assert!(
+            saw_non_gray_feat,
+            "feature sidebar / map must paint non-gray feature colors"
+        );
+    }
+
+    #[test]
     fn crate_name_matches() {
         assert_eq!(crate_name(), "splicecraft-tui");
     }
@@ -226,8 +305,12 @@ mod tests {
             "workbench missing title, got:\n{text}"
         );
         assert!(
-            text.contains("stage 16"),
-            "status bar missing stage, got:\n{text}"
+            text.contains("^q Quit") || text.contains("Palette"),
+            "footer must show shortcut strip, got:\n{text}"
+        );
+        assert!(
+            !text.contains("stage 16") && !text.contains("stage 17"),
+            "footer must not lead with stage chrome, got:\n{text}"
         );
         assert!(
             !text.to_ascii_lowercase().contains("python package"),
@@ -245,8 +328,8 @@ mod tests {
             "menu bar must say SpliceCraft.rs:\n{text}"
         );
         assert!(
-            text.contains("stage 16"),
-            "status bar must show the parity-gate stage:\n{text}"
+            text.contains("^q Quit") || text.contains("pDemo"),
+            "footer / source chrome must be live, got:\n{text}"
         );
         let lower = text.to_ascii_lowercase();
         assert!(

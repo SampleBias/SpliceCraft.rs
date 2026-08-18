@@ -1,10 +1,14 @@
 //! `Record` → map lines. Geometry is unit-tested without a tty.
 
+use ratatui::style::Color;
+use ratatui::text::Line;
 use splicecraft_bio::{
     CustomEnzyme, RestrictionHit, ScanOptions, feat_decorated_label, scan_restriction_sites,
 };
 use splicecraft_core::{Feature, Record, wrap_midpoint};
 use splicecraft_io::{AlignState, render_alignment_bar};
+
+use crate::theme::{ENZYME_ACCENT, TEXT, feature_paint_color};
 
 use super::canvas::{BrailleCanvas, CharCanvas};
 
@@ -63,9 +67,23 @@ pub fn feature_label_bp(feat: &Feature, total: usize) -> usize {
     wrap_midpoint(feat.start, feat.end, total)
 }
 
-/// Render `record` to terminal rows.
+/// Render `record` to terminal rows (plain text; geometry tests).
 #[must_use]
 pub fn render_map(record: &Record, opt: &MapOptions) -> Vec<String> {
+    render_map_styled(record, opt)
+        .into_iter()
+        .map(|line| {
+            line.spans
+                .into_iter()
+                .map(|s| s.content.into_owned())
+                .collect()
+        })
+        .collect()
+}
+
+/// Same geometry as [`render_map`], with feature / enzyme label colors.
+#[must_use]
+pub fn render_map_styled(record: &Record, opt: &MapOptions) -> Vec<Line<'static>> {
     let w = opt.width.max(8);
     let h = opt.height.max(4);
     if opt.circular && record.circular {
@@ -75,7 +93,7 @@ pub fn render_map(record: &Record, opt: &MapOptions) -> Vec<String> {
     }
 }
 
-fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<String> {
+fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<Line<'static>> {
     let mut dots = BrailleCanvas::new(w, h);
     let mut text = CharCanvas::new(w, h);
     let n = record.len().max(1);
@@ -107,17 +125,23 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
             let (px, py) = polar(mid, n, opt.origin, cx, cy, r_back + 3.0);
             let col = px / 2;
             let row = py / 4;
-            text.put_text(col, row, &truncate(&feat.label, 10));
+            text.put_text_colored(
+                col,
+                row,
+                &truncate(&feat.label, 10),
+                Some(feature_paint_color(feat)),
+            );
         }
     }
     if opt.show_restr {
         for hit in labeled_resites(record, opt) {
             let (px, py) = polar(hit.start, n, opt.origin, cx, cy, r_back + 1.5);
             dots.set_pixel(px, py);
-            text.put_text(
+            text.put_text_colored(
                 px / 2,
                 py / 4,
                 &truncate(&feat_decorated_label(&hit.label, hit.cut_count), 7),
+                Some(ENZYME_ACCENT),
             );
         }
     }
@@ -126,12 +150,17 @@ fn render_circular(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec
     let name_col = ((w.saturating_sub(name.len())) / 2) as i32;
     let bp_col = ((w.saturating_sub(bp.len())) / 2) as i32;
     let mid_row = (h / 2) as i32;
-    text.put_text(name_col, mid_row.saturating_sub(1), &name);
-    text.put_text(bp_col, mid_row, &bp);
-    dots.to_lines(&text, opt.ascii)
+    text.put_text_colored(
+        name_col,
+        mid_row.saturating_sub(1),
+        &name,
+        Some(Color::White),
+    );
+    text.put_text_colored(bp_col, mid_row, &bp, Some(TEXT));
+    dots.to_styled_lines(&text, opt.ascii, Color::DarkGray)
 }
 
-fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<String> {
+fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<Line<'static>> {
     let mut dots = BrailleCanvas::new(w, h);
     let mut text = CharCanvas::new(w, h);
     let n = record.len().max(1);
@@ -149,31 +178,43 @@ fn render_linear(record: &Record, opt: &MapOptions, w: usize, h: usize) -> Vec<S
         if opt.show_labels && !feat.label.is_empty() {
             let mid = feature_label_bp(feat, n);
             let col = linear_x(mid, n, x0, x1, opt.origin) / 2;
-            text.put_text(col, (y / 4) - 2, &truncate(&feat.label, 8));
+            text.put_text_colored(
+                col,
+                (y / 4) - 2,
+                &truncate(&feat.label, 8),
+                Some(feature_paint_color(feat)),
+            );
         }
     }
     if opt.show_restr {
         for hit in labeled_resites(record, opt) {
             let px = linear_x(hit.start, n, x0, x1, opt.origin);
             dots.set_pixel(px, y + 2);
-            text.put_text(
+            text.put_text_colored(
                 px / 2,
                 (y / 4) + 1,
                 &truncate(&feat_decorated_label(&hit.label, hit.cut_count), 8),
+                Some(ENZYME_ACCENT),
             );
         }
     }
-    text.put_text(1, 0, &truncate(&record.name, w.saturating_sub(8)));
-    text.put_text(
+    text.put_text_colored(
+        1,
+        0,
+        &truncate(&record.name, w.saturating_sub(8)),
+        Some(Color::White),
+    );
+    text.put_text_colored(
         (w.saturating_sub(8)) as i32,
         0,
         &format!("{} bp", record.len()),
+        Some(TEXT),
     );
     if !opt.align_segments.is_empty() {
         let bar = render_alignment_bar(&opt.align_segments, n, w);
         text.put_text(0, h.saturating_sub(1) as i32, &bar);
     }
-    dots.to_lines(&text, opt.ascii)
+    dots.to_styled_lines(&text, opt.ascii, Color::DarkGray)
 }
 
 fn labeled_resites(record: &Record, opt: &MapOptions) -> impl Iterator<Item = RestrictionHit> {
