@@ -58,5 +58,4 @@ cargo run -p splicecraft-cli -- call list-library
 
 ## License
 
-MIT. Inspired by SpliceCraft (MIT) by Binomica Labs. This repository does not
-vendor Python source.
+MIT. Inspired by SpliceCraft (MIT) by Binomica Labs.
