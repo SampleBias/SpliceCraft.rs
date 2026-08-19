@@ -226,6 +226,9 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
     match key.code {
         KeyCode::Esc | KeyCode::Char('q') => Some(Action::CloseOverlay),
         KeyCode::Tab => Some(Action::ToolTab),
+        KeyCode::BackTab if overlay_uses_tool_tabs(state.overlay) => Some(Action::ToolTabPrev),
+        KeyCode::Left if overlay_uses_tool_tabs(state.overlay) => Some(Action::ToolTabPrev),
+        KeyCode::Right if overlay_uses_tool_tabs(state.overlay) => Some(Action::ToolTab),
         KeyCode::Enter => Some(Action::ToolEnter),
         KeyCode::Up => Some(Action::ToolMove(-1)),
         KeyCode::Down => Some(Action::ToolMove(1)),
@@ -286,6 +289,21 @@ fn tool_key(state: &AppState, key: KeyEvent) -> Option<Action> {
         }
         _ => None,
     }
+}
+
+fn overlay_uses_tool_tabs(overlay: Overlay) -> bool {
+    matches!(
+        overlay,
+        Overlay::Search
+            | Overlay::PrimerDesign
+            | Overlay::Constructor
+            | Overlay::Mutato
+            | Overlay::Synthesis
+            | Overlay::Simulator
+            | Overlay::Sequencing
+            | Overlay::Experiments
+            | Overlay::History
+    )
 }
 
 fn master_delete_key(key: KeyEvent) -> Option<Action> {

@@ -643,6 +643,37 @@ impl AppState {
             Action::ConstructorDesignArms => self.run_gibson_arms(),
             Action::LibraryDelete => self.delete_selected_plasmid(),
             Action::LibraryUndelete => self.undelete_plasmid(),
+            Action::ToolTabPrev => {
+                if self.overlay == Overlay::Search {
+                    self.search_tab = self.search_tab.prev();
+                    self.search_summary = None;
+                } else if self.overlay == Overlay::PrimerDesign {
+                    self.design_kind = self.design_kind.prev();
+                    self.design_summary = None;
+                } else if self.overlay == Overlay::Constructor {
+                    self.ctor_tab = self.ctor_tab.prev();
+                    self.ctor_summary = None;
+                    self.ctor_product = None;
+                } else if self.overlay == Overlay::Mutato {
+                    self.mutato_tab = self.mutato_tab.prev();
+                    self.mutato_summary = None;
+                } else if self.overlay == Overlay::Synthesis {
+                    self.synth_tab = self.synth_tab.prev();
+                    self.synth_summary = None;
+                } else if self.overlay == Overlay::Simulator {
+                    self.sim_tab = self.sim_tab.prev();
+                    self.sim_summary = None;
+                } else if self.overlay == Overlay::Sequencing {
+                    self.seq_tab = self.seq_tab.prev();
+                    self.seq_summary = None;
+                } else if self.overlay == Overlay::Experiments {
+                    self.exp_tab = self.exp_tab.prev();
+                    self.exp_summary = None;
+                } else if self.overlay == Overlay::History {
+                    self.hist_tab = self.hist_tab.prev();
+                    self.refresh_history_tab();
+                }
+            }
             Action::ToolTab => {
                 if self.overlay == Overlay::PrimerDesign {
                     self.design_kind = self.design_kind.next();

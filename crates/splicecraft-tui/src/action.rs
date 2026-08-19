@@ -109,6 +109,8 @@ pub enum Action {
     LibraryUndelete,
     /// Cycle designer kind (generic / cloning / detection / GB).
     ToolTab,
+    /// Previous tool-overlay tab (BLAST ← / Shift+Tab).
+    ToolTabPrev,
     /// Confirm the current tool overlay (design / check / activate).
     ToolEnter,
     /// Save the last designed pair into the primer library.
@@ -287,6 +289,15 @@ pub enum ConstructorTab {
 }
 
 impl ConstructorTab {
+    /// All constructor tools, left-to-right.
+    pub const ALL: [Self; 5] = [
+        Self::Traditional,
+        Self::Gibson,
+        Self::Domesticator,
+        Self::Parts,
+        Self::SynFrag,
+    ];
+
     /// Next tab in the cycle.
     #[must_use]
     pub fn next(self) -> Self {
@@ -299,15 +310,45 @@ impl ConstructorTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Traditional => Self::SynFrag,
+            Self::Gibson => Self::Traditional,
+            Self::Domesticator => Self::Gibson,
+            Self::Parts => Self::Domesticator,
+            Self::SynFrag => Self::Parts,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Constructor tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
-            Self::Traditional => "traditional",
-            Self::Gibson => "gibson",
-            Self::Domesticator => "domesticator",
-            Self::Parts => "parts",
-            Self::SynFrag => "syn-frag",
+            Self::Traditional => "Traditional",
+            Self::Gibson => "Gibson",
+            Self::Domesticator => "Domesticator",
+            Self::Parts => "Parts",
+            Self::SynFrag => "Syn-frag",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Traditional => "Two-enzyme digest + ligation of the loaded plasmid.",
+            Self::Gibson => "Overlap assembly; a adds homology arms.",
+            Self::Domesticator => "Type IIS primers for the active grammar.",
+            Self::Parts => "Parts bin for the active grammar.",
+            Self::SynFrag => "File a synthetic fragment as an L0 part.",
         }
     }
 }
@@ -325,6 +366,9 @@ pub enum MutatoTab {
 }
 
 impl MutatoTab {
+    /// All Mutato tools, left-to-right.
+    pub const ALL: [Self; 3] = [Self::Sdm, Self::ScrubQc, Self::ScrubGb];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -335,13 +379,39 @@ impl MutatoTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Sdm => Self::ScrubGb,
+            Self::ScrubQc => Self::Sdm,
+            Self::ScrubGb => Self::ScrubQc,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Mutato tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
             Self::Sdm => "SDM",
-            Self::ScrubQc => "scrub QuikChange",
-            Self::ScrubGb => "scrub GB",
+            Self::ScrubQc => "QuikChange",
+            Self::ScrubGb => "Golden Braid",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Sdm => "SOE 4-primer mutagenesis, or a 2-primer shortcut near a CDS end.",
+            Self::ScrubQc => "Clone-free restriction-site removal (QuikChange primers).",
+            Self::ScrubGb => "Split-and-reassemble cures; product must match the cured plasmid.",
         }
     }
 }
@@ -359,6 +429,9 @@ pub enum SynthTab {
 }
 
 impl SynthTab {
+    /// All synthesis tools, left-to-right.
+    pub const ALL: [Self; 3] = [Self::Dna, Self::Protein, Self::Operon];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -369,13 +442,39 @@ impl SynthTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Dna => Self::Operon,
+            Self::Protein => Self::Dna,
+            Self::Operon => Self::Protein,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Synthesis tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
             Self::Dna => "DNA",
-            Self::Protein => "protein",
-            Self::Operon => "operon",
+            Self::Protein => "Protein",
+            Self::Operon => "Operon",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Dna => "Linear IUPAC buffer — type bases, Enter to keep.",
+            Self::Protein => "AA composer; back-translates with the active codon table.",
+            Self::Operon => "SOE domestication of CDS features on the loaded record.",
         }
     }
 }
@@ -391,6 +490,9 @@ pub enum SimulatorTab {
 }
 
 impl SimulatorTab {
+    /// All simulator tools, left-to-right.
+    pub const ALL: [Self; 2] = [Self::Pcr, Self::Gel];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -400,12 +502,33 @@ impl SimulatorTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        self.next()
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Simulator tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
             Self::Pcr => "PCR",
-            Self::Gel => "gel",
+            Self::Gel => "Gel",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Pcr => "Exact-match PCR. Wrap amplicons are legal on circular templates.",
+            Self::Gel => "Helling–Goodman–Boyer agarose (g pins a PCR lane, s saves).",
         }
     }
 }
@@ -425,6 +548,9 @@ pub enum SequencingTab {
 }
 
 impl SequencingTab {
+    /// All sequencing tools, left-to-right.
+    pub const ALL: [Self; 4] = [Self::Zip, Self::Align, Self::Sanger, Self::Report];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -436,14 +562,55 @@ impl SequencingTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Zip => Self::Report,
+            Self::Align => Self::Zip,
+            Self::Sanger => Self::Align,
+            Self::Report => Self::Sanger,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Sequencing tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
-            Self::Zip => "zip",
-            Self::Align => "align",
+            Self::Zip => "Zip",
+            Self::Align => "Align",
             Self::Sanger => "Sanger",
-            Self::Report => "report",
+            Self::Report => "Report",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Zip => "Import a Plasmidsaurus zip (tagged, never overwrites).",
+            Self::Align => {
+                "Pairwise overlay vs the loaded plasmid. Partial identity is never rounded up."
+            }
+            Self::Sanger => "Load an AB1/ABIF trace (Phred) and align if a plasmid is open.",
+            Self::Report => "Bulk-align a folder of reads: verified / near / partial / divergent.",
+        }
+    }
+
+    /// Empty query placeholder.
+    #[must_use]
+    pub fn query_hint(self) -> &'static str {
+        match self {
+            Self::Zip => "path to .zip",
+            Self::Align => "read DNA or path",
+            Self::Sanger => "path to .ab1",
+            Self::Report => "reads folder",
         }
     }
 }
@@ -461,6 +628,9 @@ pub enum ExperimentsTab {
 }
 
 impl ExperimentsTab {
+    /// All notebook tools, left-to-right.
+    pub const ALL: [Self; 3] = [Self::List, Self::Compose, Self::Attach];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -471,13 +641,39 @@ impl ExperimentsTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::List => Self::Attach,
+            Self::Compose => Self::List,
+            Self::Attach => Self::Compose,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Experiments tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
-            Self::List => "list",
-            Self::Compose => "compose",
-            Self::Attach => "attach",
+            Self::List => "List",
+            Self::Compose => "Compose",
+            Self::Attach => "Attach",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::List => "Notebook entries in the active project. Enter opens compose.",
+            Self::Compose => "Markdown body. @plasmid !action &gel · Ctrl+G jump · F7 spellcheck.",
+            Self::Attach => "Image path — Enter writes through the persist chokepoint.",
         }
     }
 }
@@ -511,6 +707,15 @@ pub enum SearchTab {
 }
 
 impl SearchTab {
+    /// All BLAST tools, left-to-right.
+    pub const ALL: [Self; 5] = [
+        Self::Local,
+        Self::Orf,
+        Self::Online,
+        Self::HmmDb,
+        Self::Find,
+    ];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -523,7 +728,19 @@ impl SearchTab {
         }
     }
 
-    /// Overlay title.
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Local => Self::Find,
+            Self::Orf => Self::Local,
+            Self::Online => Self::Orf,
+            Self::HmmDb => Self::Online,
+            Self::Find => Self::HmmDb,
+        }
+    }
+
+    /// Overlay title (short, used in status text).
     #[must_use]
     pub fn label(self) -> &'static str {
         match self {
@@ -534,9 +751,48 @@ impl SearchTab {
             Self::Find => "find",
         }
     }
+
+    /// Chip label on the BLAST tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
+        match self {
+            Self::Local => "Local BLAST",
+            Self::Orf => "Find ORFs",
+            Self::Online => "Online",
+            Self::HmmDb => "HMM DBs",
+            Self::Find => "Find plasmid",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Local => "Ungapped BLASTN / BLASTP against your library.",
+            Self::Orf => "Six-frame ORF scan of the loaded record (Enter).",
+            Self::Online => "NCBI / EBI — needs Settings → allow online search.",
+            Self::HmmDb => "Local HMM catalog (no Pfam download in default CI).",
+            Self::Find => "Fuzzy plasmid name across every collection.",
+        }
+    }
+
+    /// Empty query placeholder.
+    #[must_use]
+    pub fn query_hint(self) -> &'static str {
+        match self {
+            Self::Local => "DNA or protein query",
+            Self::Orf => "optional — Enter scans the canvas",
+            Self::Online => "accession or sequence (online must be armed)",
+            Self::HmmDb => "optional filter",
+            Self::Find => "plasmid name",
+        }
+    }
 }
 
 impl HistoryTab {
+    /// All history views, left-to-right.
+    pub const ALL: [Self; 3] = [Self::Protocol, Self::Tree, Self::Detail];
+
     /// Next tab.
     #[must_use]
     pub fn next(self) -> Self {
@@ -547,18 +803,52 @@ impl HistoryTab {
         }
     }
 
+    /// Previous tab.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Protocol => Self::Detail,
+            Self::Tree => Self::Protocol,
+            Self::Detail => Self::Tree,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the History tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
-            Self::Protocol => "protocol",
-            Self::Tree => "tree",
-            Self::Detail => "detail",
+            Self::Protocol => "Protocol",
+            Self::Tree => "Tree",
+            Self::Detail => "Detail",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Protocol => "Numbered construction steps, left to right.",
+            Self::Tree => "Lineage tree of parents and products.",
+            Self::Detail => "Step claims vs the current sequence (warnings are read-only).",
         }
     }
 }
 
 impl DesignKind {
+    /// All primer designers, left-to-right.
+    pub const ALL: [Self; 4] = [
+        Self::Generic,
+        Self::Cloning,
+        Self::Detection,
+        Self::GoldenBraid,
+    ];
+
     /// Next designer in the Tab cycle.
     #[must_use]
     pub fn next(self) -> Self {
@@ -570,14 +860,44 @@ impl DesignKind {
         }
     }
 
+    /// Previous designer.
+    #[must_use]
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Generic => Self::GoldenBraid,
+            Self::Cloning => Self::Generic,
+            Self::Detection => Self::Cloning,
+            Self::GoldenBraid => Self::Detection,
+        }
+    }
+
     /// Overlay title.
     #[must_use]
     pub fn label(self) -> &'static str {
+        self.chip()
+    }
+
+    /// Chip on the Primers tab bar.
+    #[must_use]
+    pub fn chip(self) -> &'static str {
         match self {
-            Self::Generic => "generic",
-            Self::Cloning => "cloning",
-            Self::Detection => "detection",
-            Self::GoldenBraid => "golden braid",
+            Self::Generic => "Generic",
+            Self::Cloning => "Cloning",
+            Self::Detection => "Detection",
+            Self::GoldenBraid => "Golden Braid",
+        }
+    }
+
+    /// One-line what-this-tab-does.
+    #[must_use]
+    pub fn blurb(self) -> &'static str {
+        match self {
+            Self::Generic => {
+                "Binding primers, no tails. Uses the selected feature or whole record."
+            }
+            Self::Cloning => "Pad + EcoRI / BamHI tails for traditional cloning.",
+            Self::Detection => "Pair inside the selected region for a diagnostic amplicon.",
+            Self::GoldenBraid => "BsaI Golden Braid tails for the active grammar.",
         }
     }
 }

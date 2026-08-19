@@ -1479,6 +1479,160 @@ mod tests {
     }
 
     #[test]
+    fn search_overlay_tab_bar_is_navigable() {
+        let mut state = AppState::new();
+        assert!(state.reduce(Action::OpenSearch));
+        let text = draw_text(90, 26, &state);
+        for chip in [
+            "Local BLAST",
+            "Find ORFs",
+            "Online",
+            "HMM DBs",
+            "Find plasmid",
+        ] {
+            assert!(text.contains(chip), "missing {chip} in:\n{text}");
+        }
+        assert!(
+            text.contains("← →") || text.contains("switch tool"),
+            "{text}"
+        );
+        assert_eq!(state.search_tab, SearchTab::Local);
+        assert!(apply_key(
+            &mut state,
+            KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)
+        ));
+        assert_eq!(state.search_tab, SearchTab::Orf);
+        assert!(apply_key(
+            &mut state,
+            KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)
+        ));
+        assert_eq!(state.search_tab, SearchTab::Local);
+        assert!(state.reduce(Action::ToolTabPrev));
+        assert_eq!(state.search_tab, SearchTab::Find);
+        let find = draw_text(90, 26, &state);
+        assert!(find.contains("Find plasmid"), "{find}");
+        assert!(find.contains("Fuzzy plasmid"), "{find}");
+    }
+
+    #[test]
+    fn tool_overlays_share_blast_tab_chrome() {
+        fn assert_chips(text: &str, chips: &[&str]) {
+            for chip in chips {
+                assert!(text.contains(chip), "missing {chip} in:\n{text}");
+            }
+            assert!(
+                text.contains("← →") && text.contains("switch"),
+                "tab footer missing in:\n{text}"
+            );
+        }
+
+        let mut ctor = AppState::new();
+        assert!(ctor.reduce(Action::OpenConstructor));
+        assert_chips(
+            &draw_text(90, 26, &ctor),
+            &["Traditional", "Gibson", "Domesticator", "Parts", "Syn-frag"],
+        );
+        assert_eq!(ctor.ctor_tab, ConstructorTab::Traditional);
+        assert!(apply_key(
+            &mut ctor,
+            KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)
+        ));
+        assert_eq!(ctor.ctor_tab, ConstructorTab::SynFrag);
+
+        let mut primers = AppState::new();
+        assert!(primers.reduce(Action::OpenPrimerDesign));
+        assert_chips(
+            &draw_text(90, 26, &primers),
+            &["Generic", "Cloning", "Detection", "Golden Braid"],
+        );
+        assert_eq!(primers.design_kind, DesignKind::Generic);
+        assert!(primers.reduce(Action::ToolTabPrev));
+        assert_eq!(primers.design_kind, DesignKind::GoldenBraid);
+
+        let mut mutato = AppState::new();
+        assert!(mutato.reduce(Action::OpenMutato));
+        assert_chips(
+            &draw_text(90, 26, &mutato),
+            &["SDM", "QuikChange", "Golden Braid"],
+        );
+
+        let mut synth = AppState::new();
+        assert!(synth.reduce(Action::OpenSynthesis));
+        assert_chips(&draw_text(90, 26, &synth), &["DNA", "Protein", "Operon"]);
+
+        let mut sim = AppState::new();
+        assert!(sim.reduce(Action::OpenSimulator));
+        assert_chips(&draw_text(90, 26, &sim), &["PCR", "Gel"]);
+
+        let mut seq = AppState::new();
+        assert!(seq.reduce(Action::OpenSequencing));
+        assert_chips(
+            &draw_text(90, 26, &seq),
+            &["Zip", "Align", "Sanger", "Report"],
+        );
+
+        let mut exp = AppState::new();
+        assert!(exp.reduce(Action::OpenExperiments));
+        assert_chips(&draw_text(90, 26, &exp), &["List", "Compose", "Attach"]);
+
+        let mut hist = AppState::new();
+        assert!(hist.reduce(Action::OpenHistory));
+        assert_chips(&draw_text(90, 26, &hist), &["Protocol", "Tree", "Detail"]);
+
+        let mut settings = AppState::new();
+        assert!(settings.reduce(Action::OpenSettings));
+        let settings_text = draw_text(80, 24, &settings);
+        assert!(
+            settings_text.contains("allow_online_search"),
+            "{settings_text}"
+        );
+        assert!(
+            settings_text.contains("allow_online_lookups"),
+            "{settings_text}"
+        );
+        assert!(settings_text.contains("toggle"), "{settings_text}");
+        assert!(
+            !settings_text.contains("← →"),
+            "settings is not tabbed:\n{settings_text}"
+        );
+
+        let mut autolab = AppState::new();
+        assert!(autolab.reduce(Action::OpenAutolab));
+        let autolab_text = draw_text(80, 24, &autolab);
+        assert!(autolab_text.contains("disarmed"), "{autolab_text}");
+        assert!(autolab_text.contains("Tab"), "{autolab_text}");
+        assert!(
+            !autolab_text.contains("← →"),
+            "autolab Tab arms motion, not tabs:\n{autolab_text}"
+        );
+        assert!(!autolab.autolab_motion_armed);
+        assert!(apply_key(&mut autolab, key(KeyCode::Tab)));
+        assert!(autolab.autolab_motion_armed);
+        let _ = apply_key(
+            &mut autolab,
+            KeyEvent::new(KeyCode::Left, KeyModifiers::NONE),
+        );
+        assert!(autolab.autolab_motion_armed);
+        assert_eq!(autolab.overlay, Overlay::Autolab);
+
+        for (open, needle) in [
+            (Action::OpenEnzymes, "Enzymes"),
+            (Action::OpenParts, "Parts"),
+            (Action::OpenBabs, "BABS"),
+        ] {
+            let mut state = AppState::new();
+            assert!(state.reduce(open));
+            let text = draw_text(80, 24, &state);
+            assert!(text.contains(needle), "missing {needle} in:\n{text}");
+            assert!(text.contains("Esc"), "{text}");
+            assert!(
+                !text.contains("← →"),
+                "{needle} should not grow fake tabs:\n{text}"
+            );
+        }
+    }
+
+    #[test]
     fn settings_overlay_toggles_online_in_memory() {
         let mut state = AppState::new();
         let cmd = state
