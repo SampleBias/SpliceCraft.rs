@@ -7,6 +7,8 @@ workbench.
 
 ![SpliceCraft.rs workbench showing the circular map, feature list, and sequence panel for the advanced demo plasmid](docs/workbench.jpg)
 
+Map it. Edit it. Clone it. Mutate it. But most importantly...Stay in the terminal.
+
 ## Install
 
 From a checkout:
